@@ -1,0 +1,710 @@
+import { z } from "zod"
+import { router, publicProcedure } from "../index"
+import { getDatabase, chats, subChats, projects } from "../../db"
+import { eq, desc, isNull, isNotNull, inArray, and } from "drizzle-orm"
+import {
+  createWorktreeForChat,
+  removeWorktree,
+  getWorktreeDiff,
+  fetchGitHubPRStatus,
+} from "../../git"
+import { execWithShellEnv } from "../../git/shell-env"
+import simpleGit from "simple-git"
+import { getAuthManager, getBaseUrl } from "../../../index"
+import {
+  trackWorkspaceCreated,
+  trackWorkspaceArchived,
+  trackWorkspaceDeleted,
+  trackPRCreated,
+} from "../../analytics"
+
+// Fallback to truncated user message if AI generation fails
+function getFallbackName(userMessage: string): string {
+  const trimmed = userMessage.trim()
+  if (trimmed.length <= 25) {
+    return trimmed || "New Chat"
+  }
+  return trimmed.substring(0, 25) + "..."
+}
+
+export const chatsRouter = router({
+  /**
+   * List all non-archived chats (optionally filter by project)
+   */
+  list: publicProcedure
+    .input(z.object({ projectId: z.string().optional() }))
+    .query(({ input }) => {
+      const db = getDatabase()
+      const conditions = [isNull(chats.archivedAt)]
+      if (input.projectId) {
+        conditions.push(eq(chats.projectId, input.projectId))
+      }
+      return db
+        .select()
+        .from(chats)
+        .where(and(...conditions))
+        .orderBy(desc(chats.updatedAt))
+        .all()
+    }),
+
+  /**
+   * List archived chats (optionally filter by project)
+   */
+  listArchived: publicProcedure
+    .input(z.object({ projectId: z.string().optional() }))
+    .query(({ input }) => {
+      const db = getDatabase()
+      const conditions = [isNotNull(chats.archivedAt)]
+      if (input.projectId) {
+        conditions.push(eq(chats.projectId, input.projectId))
+      }
+      return db
+        .select()
+        .from(chats)
+        .where(and(...conditions))
+        .orderBy(desc(chats.archivedAt))
+        .all()
+    }),
+
+  /**
+   * Get a single chat with all sub-chats
+   */
+  get: publicProcedure
+    .input(z.object({ id: z.string() }))
+    .query(({ input }) => {
+      const db = getDatabase()
+      const chat = db.select().from(chats).where(eq(chats.id, input.id)).get()
+      if (!chat) return null
+
+      const chatSubChats = db
+        .select()
+        .from(subChats)
+        .where(eq(subChats.chatId, input.id))
+        .orderBy(subChats.createdAt)
+        .all()
+
+      const project = db
+        .select()
+        .from(projects)
+        .where(eq(projects.id, chat.projectId))
+        .get()
+
+      return { ...chat, subChats: chatSubChats, project }
+    }),
+
+  /**
+   * Create a new chat with optional git worktree
+   */
+  create: publicProcedure
+    .input(
+      z.object({
+        projectId: z.string(),
+        name: z.string().optional(),
+        initialMessage: z.string().optional(),
+        initialMessageParts: z
+          .array(
+            z.union([
+              z.object({ type: z.literal("text"), text: z.string() }),
+              z.object({
+                type: z.literal("data-image"),
+                data: z.object({
+                  url: z.string(),
+                  mediaType: z.string().optional(),
+                  filename: z.string().optional(),
+                  base64Data: z.string().optional(),
+                }),
+              }),
+            ]),
+          )
+          .optional(),
+        baseBranch: z.string().optional(), // Branch to base the worktree off
+        useWorktree: z.boolean().default(true), // If false, work directly in project dir
+        mode: z.enum(["plan", "agent"]).default("agent"),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      console.log("[chats.create] called with:", input)
+      const db = getDatabase()
+
+      // Get project path
+      const project = db
+        .select()
+        .from(projects)
+        .where(eq(projects.id, input.projectId))
+        .get()
+      console.log("[chats.create] found project:", project)
+      if (!project) throw new Error("Project not found")
+
+      // Create chat (fast path)
+      const chat = db
+        .insert(chats)
+        .values({ name: input.name, projectId: input.projectId })
+        .returning()
+        .get()
+      console.log("[chats.create] created chat:", chat)
+
+      // Create initial sub-chat with user message (AI SDK format)
+      // If initialMessageParts is provided, use it; otherwise fallback to text-only message
+      let initialMessages = "[]"
+
+      if (input.initialMessageParts && input.initialMessageParts.length > 0) {
+        initialMessages = JSON.stringify([
+          {
+            id: `msg-${Date.now()}`,
+            role: "user",
+            parts: input.initialMessageParts,
+          },
+        ])
+      } else if (input.initialMessage) {
+        initialMessages = JSON.stringify([
+          {
+            id: `msg-${Date.now()}`,
+            role: "user",
+            parts: [{ type: "text", text: input.initialMessage }],
+          },
+        ])
+      }
+
+      const subChat = db
+        .insert(subChats)
+        .values({
+          chatId: chat.id,
+          mode: input.mode,
+          messages: initialMessages,
+        })
+        .returning()
+        .get()
+      console.log("[chats.create] created subChat:", subChat)
+
+      // Worktree creation result (will be set if useWorktree is true)
+      let worktreeResult: {
+        worktreePath?: string
+        branch?: string
+        baseBranch?: string
+      } = {}
+
+      // Only create worktree if useWorktree is true
+      if (input.useWorktree) {
+        console.log(
+          "[chats.create] creating worktree with baseBranch:",
+          input.baseBranch,
+        )
+        const result = await createWorktreeForChat(
+          project.path,
+          project.id,
+          chat.id,
+          input.baseBranch,
+        )
+        console.log("[chats.create] worktree result:", result)
+
+        if (result.success && result.worktreePath) {
+          db.update(chats)
+            .set({
+              worktreePath: result.worktreePath,
+              branch: result.branch,
+              baseBranch: result.baseBranch,
+            })
+            .where(eq(chats.id, chat.id))
+            .run()
+          worktreeResult = {
+            worktreePath: result.worktreePath,
+            branch: result.branch,
+            baseBranch: result.baseBranch,
+          }
+        } else {
+          console.warn(`[Worktree] Failed: ${result.error}`)
+          // Fallback to project path
+          db.update(chats)
+            .set({ worktreePath: project.path })
+            .where(eq(chats.id, chat.id))
+            .run()
+          worktreeResult = { worktreePath: project.path }
+        }
+      } else {
+        // Local mode: use project path directly, no branch info
+        console.log("[chats.create] local mode - using project path directly")
+        db.update(chats)
+          .set({ worktreePath: project.path })
+          .where(eq(chats.id, chat.id))
+          .run()
+        worktreeResult = { worktreePath: project.path }
+      }
+
+      const response = {
+        ...chat,
+        worktreePath: worktreeResult.worktreePath || project.path,
+        branch: worktreeResult.branch,
+        baseBranch: worktreeResult.baseBranch,
+        subChats: [subChat],
+      }
+
+      // Track workspace created
+      trackWorkspaceCreated({
+        id: chat.id,
+        projectId: input.projectId,
+        useWorktree: input.useWorktree,
+      })
+
+      console.log("[chats.create] returning:", response)
+      return response
+    }),
+
+  /**
+   * Rename a chat
+   */
+  rename: publicProcedure
+    .input(z.object({ id: z.string(), name: z.string().min(1) }))
+    .mutation(({ input }) => {
+      const db = getDatabase()
+      return db
+        .update(chats)
+        .set({ name: input.name, updatedAt: new Date() })
+        .where(eq(chats.id, input.id))
+        .returning()
+        .get()
+    }),
+
+  /**
+   * Archive a chat
+   */
+  archive: publicProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(({ input }) => {
+      const db = getDatabase()
+      const result = db
+        .update(chats)
+        .set({ archivedAt: new Date() })
+        .where(eq(chats.id, input.id))
+        .returning()
+        .get()
+
+      // Track workspace archived
+      trackWorkspaceArchived(input.id)
+
+      return result
+    }),
+
+  /**
+   * Restore an archived chat
+   */
+  restore: publicProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(({ input }) => {
+      const db = getDatabase()
+      return db
+        .update(chats)
+        .set({ archivedAt: null })
+        .where(eq(chats.id, input.id))
+        .returning()
+        .get()
+    }),
+
+  /**
+   * Archive multiple chats at once
+   */
+  archiveBatch: publicProcedure
+    .input(z.object({ chatIds: z.array(z.string()) }))
+    .mutation(({ input }) => {
+      const db = getDatabase()
+      if (input.chatIds.length === 0) return []
+      return db
+        .update(chats)
+        .set({ archivedAt: new Date() })
+        .where(inArray(chats.id, input.chatIds))
+        .returning()
+        .all()
+    }),
+
+  /**
+   * Delete a chat permanently (with worktree cleanup)
+   */
+  delete: publicProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ input }) => {
+      const db = getDatabase()
+
+      // Get chat before deletion
+      const chat = db.select().from(chats).where(eq(chats.id, input.id)).get()
+
+      // Cleanup worktree if it was created (has branch = was a real worktree, not just project path)
+      if (chat?.worktreePath && chat?.branch) {
+        const project = db
+          .select()
+          .from(projects)
+          .where(eq(projects.id, chat.projectId))
+          .get()
+        if (project) {
+          const result = await removeWorktree(project.path, chat.worktreePath)
+          if (!result.success) {
+            console.warn(`[Worktree] Cleanup failed: ${result.error}`)
+          }
+        }
+      }
+
+      // Track workspace deleted
+      trackWorkspaceDeleted(input.id)
+
+      return db.delete(chats).where(eq(chats.id, input.id)).returning().get()
+    }),
+
+  // ============ Sub-chat procedures ============
+
+  /**
+   * Get a single sub-chat
+   */
+  getSubChat: publicProcedure
+    .input(z.object({ id: z.string() }))
+    .query(({ input }) => {
+      const db = getDatabase()
+      const subChat = db
+        .select()
+        .from(subChats)
+        .where(eq(subChats.id, input.id))
+        .get()
+
+      if (!subChat) return null
+
+      const chat = db
+        .select()
+        .from(chats)
+        .where(eq(chats.id, subChat.chatId))
+        .get()
+
+      const project = chat
+        ? db
+            .select()
+            .from(projects)
+            .where(eq(projects.id, chat.projectId))
+            .get()
+        : null
+
+      return { ...subChat, chat: chat ? { ...chat, project } : null }
+    }),
+
+  /**
+   * Create a new sub-chat
+   */
+  createSubChat: publicProcedure
+    .input(
+      z.object({
+        chatId: z.string(),
+        name: z.string().optional(),
+        mode: z.enum(["plan", "agent"]).default("agent"),
+      }),
+    )
+    .mutation(({ input }) => {
+      const db = getDatabase()
+      return db
+        .insert(subChats)
+        .values({
+          chatId: input.chatId,
+          name: input.name,
+          mode: input.mode,
+          messages: "[]",
+        })
+        .returning()
+        .get()
+    }),
+
+  /**
+   * Update sub-chat messages
+   */
+  updateSubChatMessages: publicProcedure
+    .input(z.object({ id: z.string(), messages: z.string() }))
+    .mutation(({ input }) => {
+      const db = getDatabase()
+      return db
+        .update(subChats)
+        .set({ messages: input.messages, updatedAt: new Date() })
+        .where(eq(subChats.id, input.id))
+        .returning()
+        .get()
+    }),
+
+  /**
+   * Update sub-chat session ID (for Claude resume)
+   */
+  updateSubChatSession: publicProcedure
+    .input(z.object({ id: z.string(), sessionId: z.string().nullable() }))
+    .mutation(({ input }) => {
+      const db = getDatabase()
+      return db
+        .update(subChats)
+        .set({ sessionId: input.sessionId })
+        .where(eq(subChats.id, input.id))
+        .returning()
+        .get()
+    }),
+
+  /**
+   * Update sub-chat mode
+   */
+  updateSubChatMode: publicProcedure
+    .input(z.object({ id: z.string(), mode: z.enum(["plan", "agent"]) }))
+    .mutation(({ input }) => {
+      const db = getDatabase()
+      return db
+        .update(subChats)
+        .set({ mode: input.mode })
+        .where(eq(subChats.id, input.id))
+        .returning()
+        .get()
+    }),
+
+  /**
+   * Rename a sub-chat
+   */
+  renameSubChat: publicProcedure
+    .input(z.object({ id: z.string(), name: z.string().min(1) }))
+    .mutation(({ input }) => {
+      const db = getDatabase()
+      return db
+        .update(subChats)
+        .set({ name: input.name })
+        .where(eq(subChats.id, input.id))
+        .returning()
+        .get()
+    }),
+
+  /**
+   * Delete a sub-chat
+   */
+  deleteSubChat: publicProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(({ input }) => {
+      const db = getDatabase()
+      return db
+        .delete(subChats)
+        .where(eq(subChats.id, input.id))
+        .returning()
+        .get()
+    }),
+
+  /**
+   * Get git diff for a chat's worktree
+   */
+  getDiff: publicProcedure
+    .input(z.object({ chatId: z.string() }))
+    .query(async ({ input }) => {
+      const db = getDatabase()
+      const chat = db
+        .select()
+        .from(chats)
+        .where(eq(chats.id, input.chatId))
+        .get()
+
+      if (!chat?.worktreePath) {
+        return { diff: null, error: "No worktree path" }
+      }
+
+      const result = await getWorktreeDiff(
+        chat.worktreePath,
+        chat.baseBranch ?? undefined,
+      )
+
+      if (!result.success) {
+        return { diff: null, error: result.error }
+      }
+
+      return { diff: result.diff || "" }
+    }),
+
+  /**
+   * Generate a name for a sub-chat using AI (calls web API)
+   * Always uses production API since it's a lightweight call
+   */
+  generateSubChatName: publicProcedure
+    .input(z.object({ userMessage: z.string() }))
+    .mutation(async ({ input }) => {
+      try {
+        const authManager = getAuthManager()
+        const token = await authManager.getValidToken()
+        // Always use production API for name generation
+        const apiUrl = "https://21st.dev"
+
+        console.log(
+          "[generateSubChatName] Calling API with token:",
+          token ? "present" : "missing",
+        )
+        console.log(
+          "[generateSubChatName] URL:",
+          `${apiUrl}/api/agents/sub-chat/generate-name`,
+        )
+
+        const response = await fetch(
+          `${apiUrl}/api/agents/sub-chat/generate-name`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token && { "X-Desktop-Token": token }),
+            },
+            body: JSON.stringify({ userMessage: input.userMessage }),
+          },
+        )
+
+        console.log("[generateSubChatName] Response status:", response.status)
+
+        if (!response.ok) {
+          const errorText = await response.text()
+          console.error(
+            "[generateSubChatName] API error:",
+            response.status,
+            errorText,
+          )
+          return { name: getFallbackName(input.userMessage) }
+        }
+
+        const data = await response.json()
+        console.log("[generateSubChatName] Generated name:", data.name)
+        return { name: data.name || getFallbackName(input.userMessage) }
+      } catch (error) {
+        console.error("[generateSubChatName] Error:", error)
+        return { name: getFallbackName(input.userMessage) }
+      }
+    }),
+
+  // ============ PR-related procedures ============
+
+  /**
+   * Get PR context for message generation (branch info, uncommitted changes, etc.)
+   */
+  getPrContext: publicProcedure
+    .input(z.object({ chatId: z.string() }))
+    .query(async ({ input }) => {
+      const db = getDatabase()
+      const chat = db
+        .select()
+        .from(chats)
+        .where(eq(chats.id, input.chatId))
+        .get()
+
+      if (!chat?.worktreePath) {
+        return null
+      }
+
+      try {
+        const git = simpleGit(chat.worktreePath)
+        const status = await git.status()
+
+        // Check if upstream exists
+        let hasUpstream = false
+        try {
+          const tracking = await git.raw([
+            "rev-parse",
+            "--abbrev-ref",
+            "@{upstream}",
+          ])
+          hasUpstream = !!tracking.trim()
+        } catch {
+          hasUpstream = false
+        }
+
+        return {
+          branch: chat.branch || status.current || "unknown",
+          baseBranch: chat.baseBranch || "main",
+          uncommittedCount: status.files.length,
+          hasUpstream,
+        }
+      } catch (error) {
+        console.error("[getPrContext] Error:", error)
+        return null
+      }
+    }),
+
+  /**
+   * Update PR info after Claude creates a PR
+   */
+  updatePrInfo: publicProcedure
+    .input(
+      z.object({
+        chatId: z.string(),
+        prUrl: z.string(),
+        prNumber: z.number(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const db = getDatabase()
+      const result = db
+        .update(chats)
+        .set({
+          prUrl: input.prUrl,
+          prNumber: input.prNumber,
+          updatedAt: new Date(),
+        })
+        .where(eq(chats.id, input.chatId))
+        .returning()
+        .get()
+
+      // Track PR created
+      trackPRCreated({
+        workspaceId: input.chatId,
+        prNumber: input.prNumber,
+      })
+
+      return result
+    }),
+
+  /**
+   * Get PR status from GitHub (via gh CLI)
+   */
+  getPrStatus: publicProcedure
+    .input(z.object({ chatId: z.string() }))
+    .query(async ({ input }) => {
+      const db = getDatabase()
+      const chat = db
+        .select()
+        .from(chats)
+        .where(eq(chats.id, input.chatId))
+        .get()
+
+      if (!chat?.worktreePath) {
+        return null
+      }
+
+      return await fetchGitHubPRStatus(chat.worktreePath)
+    }),
+
+  /**
+   * Merge PR via gh CLI
+   */
+  mergePr: publicProcedure
+    .input(
+      z.object({
+        chatId: z.string(),
+        method: z.enum(["merge", "squash", "rebase"]).default("squash"),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const db = getDatabase()
+      const chat = db
+        .select()
+        .from(chats)
+        .where(eq(chats.id, input.chatId))
+        .get()
+
+      if (!chat?.worktreePath || !chat?.prNumber) {
+        throw new Error("No PR to merge")
+      }
+
+      try {
+        await execWithShellEnv(
+          "gh",
+          [
+            "pr",
+            "merge",
+            String(chat.prNumber),
+            `--${input.method}`,
+            "--delete-branch",
+          ],
+          { cwd: chat.worktreePath },
+        )
+        return { success: true }
+      } catch (error) {
+        console.error("[mergePr] Error:", error)
+        throw new Error(
+          error instanceof Error ? error.message : "Failed to merge PR",
+        )
+      }
+    }),
+})

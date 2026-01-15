@@ -1,0 +1,39 @@
+import { router } from "../index"
+import { projectsRouter } from "./projects"
+import { chatsRouter } from "./chats"
+import { claudeRouter } from "./claude"
+import { claudeCodeRouter } from "./claude-code"
+import { opencodeRouter } from "./opencode"
+import { terminalRouter } from "./terminal"
+import { externalRouter } from "./external"
+import { filesRouter } from "./files"
+import { debugRouter } from "./debug"
+import { skillsRouter } from "./skills"
+import { createGitRouter } from "../../git"
+import { BrowserWindow } from "electron"
+
+/**
+ * Create the main app router
+ * Uses getter pattern to avoid stale window references
+ */
+export function createAppRouter(getWindow: () => BrowserWindow | null) {
+  return router({
+    projects: projectsRouter,
+    chats: chatsRouter,
+    claude: claudeRouter,
+    claudeCode: claudeCodeRouter,
+    opencode: opencodeRouter,
+    terminal: terminalRouter,
+    external: externalRouter,
+    files: filesRouter,
+    debug: debugRouter,
+    skills: skillsRouter,
+    // Git operations - named "changes" to match Superset API
+    changes: createGitRouter(),
+  })
+}
+
+/**
+ * Export the router type for client usage
+ */
+export type AppRouter = ReturnType<typeof createAppRouter>
