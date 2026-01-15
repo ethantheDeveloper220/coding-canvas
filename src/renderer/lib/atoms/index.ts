@@ -62,11 +62,6 @@ export {
   type AgentsMobileViewMode,
   type AgentsDebugMode,
   type SubChatFileChange,
-
-  // Settings
-  agentsSettingsDialogOpenAtom,
-  agentsSettingsDialogActiveTabAtom,
-  opencodeDisabledProvidersAtom,
 } from "../../features/agents/atoms"
 
 // ============================================
@@ -81,9 +76,6 @@ export const selectedTeamIdAtom = atomWithStorage<string | null>(
 )
 
 export const createTeamDialogOpenAtom = atom<boolean>(false)
-
-// Claude login modal (disabled)
-export const agentsLoginModalOpenAtom = atom<boolean>(false)
 
 // ============================================
 // MULTI-SELECT ATOMS - Chats (unique to lib/atoms)
@@ -168,7 +160,9 @@ export const clearSubChatSelectionAtom = atom(null, (_get, set) => {
 // ============================================
 
 // Settings dialog
-export type SettingsTab = string
+export type SettingsTab = "profile" | "appearance" | "preferences" | "debug"
+export const agentsSettingsDialogActiveTabAtom = atom<SettingsTab>("profile")
+export const agentsSettingsDialogOpenAtom = atom<boolean>(false)
 
 // Preferences - Extended Thinking
 // When enabled, Claude will use extended thinking for deeper reasoning (128K tokens)
@@ -295,6 +289,8 @@ export const allFullThemesAtom = atom<VSCodeFullTheme[]>((get) => {
 // Shortcuts dialog
 export const agentsShortcutsDialogOpenAtom = atom<boolean>(false)
 
+// Login modal (shown when Claude Code auth fails)
+export const agentsLoginModalOpenAtom = atom<boolean>(false)
 
 // Help popover
 export const agentsHelpPopoverOpenAtom = atom<boolean>(false)
@@ -331,6 +327,13 @@ export type UpdateState = {
 
 export const updateStateAtom = atom<UpdateState>({ status: "idle" })
 
+// Track if app was just updated (to show "What's New" banner)
+// This is set to true when app launches with a new version, reset when user dismisses
+export const justUpdatedAtom = atom<boolean>(false)
+
+// Store the version that triggered the "just updated" state
+export const justUpdatedVersionAtom = atom<string | null>(null)
+
 // Legacy atom for backwards compatibility (deprecated)
 export type UpdateInfo = {
   version: string
@@ -360,7 +363,7 @@ export const isFullscreenAtom = atom<boolean | null>(null)
 // Reset on logout
 export const anthropicOnboardingCompletedAtom = atomWithStorage<boolean>(
   "onboarding:anthropic-completed",
-  true, // Skip Claude Code onboarding by default
+  false,
   undefined,
   { getOnInit: true },
 )

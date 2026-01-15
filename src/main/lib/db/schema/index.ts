@@ -9,8 +9,12 @@ export const projects = sqliteTable("projects", {
     .$defaultFn(() => createId()),
   name: text("name").notNull(),
   path: text("path").notNull().unique(),
-  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
-  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(
+    () => new Date(),
+  ),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(
+    () => new Date(),
+  ),
   // Git remote info (extracted from local .git)
   gitRemoteUrl: text("git_remote_url"),
   gitProvider: text("git_provider"), // "github" | "gitlab" | "bitbucket" | null
@@ -31,8 +35,12 @@ export const chats = sqliteTable("chats", {
   projectId: text("project_id")
     .notNull()
     .references(() => projects.id, { onDelete: "cascade" }),
-  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
-  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(
+    () => new Date(),
+  ),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(
+    () => new Date(),
+  ),
   archivedAt: integer("archived_at", { mode: "timestamp" }),
   // Worktree fields (for git isolation per chat)
   worktreePath: text("worktree_path"),
@@ -64,8 +72,12 @@ export const subChats = sqliteTable("sub_chats", {
   streamId: text("stream_id"), // Track in-progress streams
   mode: text("mode").notNull().default("agent"), // "plan" | "agent"
   messages: text("messages").notNull().default("[]"), // JSON array
-  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
-  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(
+    () => new Date(),
+  ),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(
+    () => new Date(),
+  ),
 })
 
 export const subChatsRelations = relations(subChats, ({ one }) => ({

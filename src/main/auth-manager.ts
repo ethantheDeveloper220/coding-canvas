@@ -4,7 +4,7 @@ import { app, BrowserWindow } from "electron"
 // API URLs
 const API_URLS = {
   production: "https://21st.dev",
-  development: "https://21st.dev",
+  development: "http://localhost:3000",
 } as const
 
 export class AuthManager {
@@ -35,56 +35,38 @@ export class AuthManager {
     return this.isDev ? API_URLS.development : API_URLS.production
   }
 
-  private activeExchange: { code: string, promise: Promise<AuthData> } | null = null
-
   /**
    * Exchange auth code for session tokens
    * Called after receiving code via deep link
    */
   async exchangeCode(code: string): Promise<AuthData> {
-    // Deduplicate concurrent requests for the same code
-    if (this.activeExchange && this.activeExchange.code === code) {
-      console.log("[Auth] Joining existing exchange for code")
-      return this.activeExchange.promise
+    const response = await fetch(`${this.getApiUrl()}/api/auth/desktop/exchange`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        code,
+        deviceInfo: this.getDeviceInfo(),
+      }),
+    })
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: "Unknown error" }))
+      throw new Error(error.error || `Exchange failed: ${response.status}`)
     }
 
-    const exchangeTask = async () => {
-      const response = await fetch(`${this.getApiUrl()}/api/auth/desktop/exchange`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          code,
-          deviceInfo: this.getDeviceInfo(),
-        }),
-      })
+    const data = await response.json()
 
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: "Unknown error" }))
-        throw new Error(error.error || `Exchange failed: ${response.status}`)
-      }
-
-      const data = await response.json()
-
-      const authData: AuthData = {
-        token: data.token,
-        refreshToken: data.refreshToken,
-        expiresAt: data.expiresAt,
-        user: data.user,
-      }
-
-      this.store.save(authData)
-      this.scheduleRefresh()
-
-      return authData
+    const authData: AuthData = {
+      token: data.token,
+      refreshToken: data.refreshToken,
+      expiresAt: data.expiresAt,
+      user: data.user,
     }
 
-    this.activeExchange = { code, promise: exchangeTask() }
+    this.store.save(authData)
+    this.scheduleRefresh()
 
-    try {
-      return await this.activeExchange.promise
-    } finally {
-      this.activeExchange = null
-    }
+    return authData
   }
 
   /**
@@ -234,87 +216,6 @@ export class AuthManager {
       authUrl += `&protocol=twentyfirst-agents-dev`
     }
 
-    // Open auth in internal "Bridge" window to capture callback
-    const authWindow = new BrowserWindow({
-      width: 800,
-      height: 600,
-      show: true,
-      webPreferences: {
-        nodeIntegration: false,
-        contextIsolation: true,
-      }
-    })
-
-    // Handle callback interception
-    const handleUrl = (url: string) => {
-      try {
-        const parsed = new URL(url)
-        // Check for callback (either custom protocol or localhost)
-        if (url.includes("code=") && (url.includes("localhost:21321") || url.startsWith("twentyfirst-agents"))) {
-          const code = parsed.searchParams.get("code")
-          if (code) {
-            this.exchangeCode(code)
-              .then(() => {
-                authWindow.close()
-                // Focus main window
-                if (mainWindow) {
-                  mainWindow.focus()
-                }
-              })
-              .catch(err => {
-                console.error("Auth bridge failed:", err)
-              })
-          }
-        }
-      } catch (e) {
-        // Ignore parse errors
-      }
-    }
-
-    authWindow.webContents.on('will-redirect', (_, url) => handleUrl(url))
-    authWindow.webContents.on('will-navigate', (_, url) => handleUrl(url))
-
-    authWindow.loadURL(authUrl)
-  }
-
-  /**
-   * Manually set auth data (e.g. from manual token paste)
-   */
-  async setManualAuth(tokenOrJson: string): Promise<void> {
-    try {
-      // Try parsing as full AuthData JSON
-      if (tokenOrJson.trim().startsWith("{")) {
-        const data = JSON.parse(tokenOrJson) as AuthData
-        if (data.token && data.user) {
-          this.store.save(data)
-          this.scheduleRefresh()
-          if (this.onTokenRefresh) this.onTokenRefresh(data)
-          return
-        }
-      }
-
-      // Fallback: Treat as Bearer token and fetch user
-      const response = await fetch(`${this.getApiUrl()}/api/user/me`, {
-        headers: { "Authorization": `Bearer ${tokenOrJson}` }
-      })
-
-      if (response.ok) {
-        const user = await response.json()
-        const data: AuthData = {
-          token: tokenOrJson,
-          refreshToken: "", // No refresh token available
-          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-          user: user
-        }
-        this.store.save(data)
-        this.scheduleRefresh()
-        if (this.onTokenRefresh) this.onTokenRefresh(data)
-      } else {
-        throw new Error("Invalid token")
-      }
-    } catch (e) {
-      console.error("Manual auth failed:", e)
-      throw e
-    }
+    shell.openExternal(authUrl)
   }
 }

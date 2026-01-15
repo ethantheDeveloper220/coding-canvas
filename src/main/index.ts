@@ -56,9 +56,8 @@ if (app.isPackaged && !IS_DEV) {
 
 // URL configuration (exported for use in other modules)
 export function getBaseUrl(): string {
-  // In Electron development, use production API since no local server is running
   return process.env.ELECTRON_RENDERER_URL
-    ? "https://21st.dev"
+    ? "http://localhost:3000"
     : "https://21st.dev"
 }
 

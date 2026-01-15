@@ -267,7 +267,7 @@ export function setupPasteHandler(
   options: PasteHandlerOptions = {}
 ): () => void {
   const textarea = xterm.textarea
-  if (!textarea) return () => { }
+  if (!textarea) return () => {}
 
   const handlePaste = (event: ClipboardEvent) => {
     const text = event.clipboardData?.getData("text/plain")
@@ -349,33 +349,35 @@ function getTerminalCoordsFromEvent(
   xterm: XTerm,
   event: MouseEvent
 ): { col: number; row: number } | null {
-  try {
-    const element = xterm.element
-    if (!element) return null
+  const element = xterm.element
+  if (!element) return null
 
-    const rect = element.getBoundingClientRect()
-    const x = event.clientX - rect.left
-    const y = event.clientY - rect.top
+  const rect = element.getBoundingClientRect()
+  const x = event.clientX - rect.left
+  const y = event.clientY - rect.top
 
-    // Access internal render service for cell dimensions
-    const core = (xterm as any)._core
-    if (!core || !core._renderService) return null
+  // Access internal render service for cell dimensions
+  const dimensions = (
+    xterm as unknown as {
+      _core?: {
+        _renderService?: {
+          dimensions?: { css: { cell: { width: number; height: number } } }
+        }
+      }
+    }
+  )._core?._renderService?.dimensions
 
-    const dimensions = core._renderService.dimensions
-    if (!dimensions?.css?.cell) return null
+  if (!dimensions?.css?.cell) return null
 
-    const cellWidth = dimensions.css.cell.width
-    const cellHeight = dimensions.css.cell.height
+  const cellWidth = dimensions.css.cell.width
+  const cellHeight = dimensions.css.cell.height
 
-    if (cellWidth <= 0 || cellHeight <= 0) return null
+  if (cellWidth <= 0 || cellHeight <= 0) return null
 
-    const col = Math.max(0, Math.min(xterm.cols - 1, Math.floor(x / cellWidth)))
-    const row = Math.max(0, Math.min(xterm.rows - 1, Math.floor(y / cellHeight)))
+  const col = Math.max(0, Math.min(xterm.cols - 1, Math.floor(x / cellWidth)))
+  const row = Math.max(0, Math.min(xterm.rows - 1, Math.floor(y / cellHeight)))
 
-    return { col, row }
-  } catch (e) {
-    return null
-  }
+  return { col, row }
 }
 
 /**

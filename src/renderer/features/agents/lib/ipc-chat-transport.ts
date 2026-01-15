@@ -100,7 +100,7 @@ type ImageAttachment = {
 }
 
 export class IPCChatTransport implements ChatTransport<UIMessage> {
-  constructor(private config: IPCChatTransportConfig) { }
+  constructor(private config: IPCChatTransportConfig) {}
 
   async sendMessages(options: {
     messages: UIMessage[]
@@ -125,7 +125,7 @@ export class IPCChatTransport implements ChatTransport<UIMessage> {
 
     // Read model selection dynamically (so model changes apply to existing chats)
     const selectedModelId = appStore.get(lastSelectedModelIdAtom)
-    const modelString = MODEL_ID_MAP[selectedModelId] || selectedModelId
+    const modelString = MODEL_ID_MAP[selectedModelId]
 
     const currentMode =
       useAgentSubChatStore
@@ -137,7 +137,7 @@ export class IPCChatTransport implements ChatTransport<UIMessage> {
     const subId = this.config.subChatId.slice(-8)
     let chunkCount = 0
     let lastChunkType = ""
-    console.log(`[SD] R:START sub=${subId} model=${modelString}`)
+    console.log(`[SD] R:START sub=${subId}`)
 
     return new ReadableStream({
       start: (controller) => {
@@ -158,26 +158,69 @@ export class IPCChatTransport implements ChatTransport<UIMessage> {
               chunkCount++
               lastChunkType = chunk.type
 
+              // Debug: log all chunks when there's a pending question
+              const currentPending = appStore.get(pendingUserQuestionsAtom)
+              if (currentPending || chunk.type === "ask-user-question") {
+                console.log("[PendingQ] Transport chunk:", {
+                  type: chunk.type,
+                  hasPending: !!currentPending,
+                  chunkCount,
+                })
+              }
+
               // Handle AskUserQuestion - show question UI
               if (chunk.type === "ask-user-question") {
+                console.log("[PendingQ] Transport: Setting pending question", {
+                  subChatId: this.config.subChatId,
+                  toolUseId: chunk.toolUseId,
+                })
                 appStore.set(pendingUserQuestionsAtom, {
+                  subChatId: this.config.subChatId,
                   toolUseId: chunk.toolUseId,
                   questions: chunk.questions,
                 })
               }
 
-              // Clear pending questions on ANY other chunk type (agent moved on)
-              if (chunk.type !== "ask-user-question") {
+              // Handle AskUserQuestion timeout - clear pending question immediately
+              if (chunk.type === "ask-user-question-timeout") {
                 const pending = appStore.get(pendingUserQuestionsAtom)
-                if (pending) {
+                if (pending && pending.toolUseId === chunk.toolUseId) {
+                  console.log("[PendingQ] Transport: Clearing timed out question", {
+                    toolUseId: chunk.toolUseId,
+                  })
                   appStore.set(pendingUserQuestionsAtom, null)
                 }
               }
 
-              // Handle authentication errors - skip Claude login modal (disabled)
+              // Clear pending questions on ANY other chunk type (agent moved on)
+              // Only clear if the pending question belongs to THIS sub-chat
+              if (chunk.type !== "ask-user-question" && chunk.type !== "ask-user-question-timeout") {
+                const pending = appStore.get(pendingUserQuestionsAtom)
+                if (pending && pending.subChatId === this.config.subChatId) {
+                  console.log("[PendingQ] Transport: Clearing pending question", {
+                    chunkType: chunk.type,
+                    pendingToolUseId: pending.toolUseId,
+                  })
+                  appStore.set(pendingUserQuestionsAtom, null)
+                }
+              }
+
+              // Handle authentication errors - show Claude login modal
               if (chunk.type === "auth-error") {
-                // Skip authentication - just show error without modal
-                controller.error(new Error("Authentication failed - please check your connection"))
+                // Store the failed message for retry after successful auth
+                // readyToRetry=false prevents immediate retry - modal sets it to true on OAuth success
+                appStore.set(pendingAuthRetryMessageAtom, {
+                  subChatId: this.config.subChatId,
+                  prompt,
+                  ...(images.length > 0 && { images }),
+                  readyToRetry: false,
+                })
+                // Show the Claude Code login modal
+                appStore.set(agentsLoginModalOpenAtom, true)
+                // Use controller.error() instead of controller.close() so that
+                // the SDK Chat properly resets status from "streaming" to "ready"
+                // This allows user to retry sending messages after failed auth
+                controller.error(new Error("Authentication required"))
                 return
               }
 
@@ -210,9 +253,9 @@ export class IPCChatTransport implements ChatTransport<UIMessage> {
                     duration: 8000,
                     action: config.action
                       ? {
-                        label: config.action.label,
-                        onClick: config.action.onClick,
-                      }
+                          label: config.action.label,
+                          onClick: config.action.onClick,
+                        }
                       : undefined,
                   })
                 } else {
@@ -260,6 +303,15 @@ export class IPCChatTransport implements ChatTransport<UIMessage> {
             },
             onComplete: () => {
               console.log(`[SD] R:COMPLETE sub=${subId} n=${chunkCount} last=${lastChunkType}`)
+              // Fallback: clear any pending questions when stream completes
+              // This handles edge cases where timeout chunk wasn't received
+              const pending = appStore.get(pendingUserQuestionsAtom)
+              if (pending && pending.subChatId === this.config.subChatId) {
+                console.log("[PendingQ] Transport: Clearing pending question on stream complete (fallback)", {
+                  pendingToolUseId: pending.toolUseId,
+                })
+                appStore.set(pendingUserQuestionsAtom, null)
+              }
               try {
                 controller.close()
               } catch {

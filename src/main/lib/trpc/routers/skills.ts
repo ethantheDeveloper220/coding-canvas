@@ -5,7 +5,7 @@ import * as path from "path"
 import * as os from "os"
 import matter from "gray-matter"
 
-export interface FileSkill {
+interface FileSkill {
   name: string
   description: string
   source: "user" | "project"

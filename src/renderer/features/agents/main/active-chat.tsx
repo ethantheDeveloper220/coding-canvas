@@ -159,7 +159,12 @@ import { SubChatSelector } from "../ui/sub-chat-selector"
 import { SubChatStatusCard } from "../ui/sub-chat-status-card"
 import { autoRenameAgentChat } from "../utils/auto-rename"
 import { generateCommitToPrMessage, generatePrMessage, generateReviewMessage } from "../utils/pr-message"
-const clearSubChatSelectionAtom = atom(null, () => { })
+import {
+  saveSubChatDraft,
+  clearSubChatDraft,
+  getSubChatDraft,
+} from "../lib/drafts"
+const clearSubChatSelectionAtom = atom(null, () => {})
 const isSubChatMultiSelectModeAtom = atom(false)
 const selectedSubChatIdsAtom = atom(new Set<string>())
 // import { selectedTeamIdAtom } from "@/lib/atoms/team"
@@ -1012,38 +1017,74 @@ function ChatViewInner({
   }
   chatRef.current = chat
 
-  // Save/restore drafts when switching between sub-chats
+  // Save/restore drafts when switching between sub-chats or workspaces
+  // Use refs to capture current values for cleanup function
+  const currentSubChatIdRef = useRef<string>(subChatId)
+  const currentChatIdRef = useRef<string | null>(parentChatId)
+  const currentDraftTextRef = useRef<string>("")
+  currentSubChatIdRef.current = subChatId
+  currentChatIdRef.current = parentChatId
+
+  // Save draft on blur (when focus leaves editor) - updates ref and localStorage
+  const handleEditorBlur = useCallback(() => {
+    setIsFocused(false)
+
+    const draft = editorRef.current?.getValue() || ""
+    const chatId = currentChatIdRef.current
+    const subChatIdValue = currentSubChatIdRef.current
+
+    // Update ref for unmount save
+    currentDraftTextRef.current = draft
+
+    if (!chatId) return
+
+    if (draft.trim()) {
+      saveSubChatDraft(chatId, subChatIdValue, draft)
+    } else {
+      clearSubChatDraft(chatId, subChatIdValue)
+    }
+  }, [])
+
+  // Save draft on unmount (when switching workspaces) - uses ref since editor may be gone
+  useEffect(() => {
+    return () => {
+      const draft = currentDraftTextRef.current
+      const chatId = currentChatIdRef.current
+      const subChatIdValue = currentSubChatIdRef.current
+
+      if (!chatId || !draft.trim()) return
+
+      saveSubChatDraft(chatId, subChatIdValue, draft)
+    }
+  }, [])
+
+  // Restore draft when subChatId changes (switching between sub-chats)
   const prevSubChatIdForDraftRef = useRef<string | null>(null)
   useEffect(() => {
-    console.log("[DRAFT] useEffect triggered, subChatId:", subChatId, "prev:", prevSubChatIdForDraftRef.current)
-    console.log("[DRAFT] editorRef.current:", editorRef.current)
-    console.log("[DRAFT] store chatId:", useAgentSubChatStore.getState().chatId)
-    console.log("[DRAFT] store drafts:", useAgentSubChatStore.getState().drafts)
-
-    // Save draft from previous sub-chat before switching
+    // Save draft from previous sub-chat before switching (within same workspace)
     if (prevSubChatIdForDraftRef.current && prevSubChatIdForDraftRef.current !== subChatId) {
+      const prevChatId = currentChatIdRef.current
+      const prevSubChatId = prevSubChatIdForDraftRef.current
       const prevDraft = editorRef.current?.getValue() || ""
-      console.log("[DRAFT] Saving draft for prev subChat:", prevSubChatIdForDraftRef.current, "text:", prevDraft)
-      if (prevDraft.trim()) {
-        useAgentSubChatStore.getState().saveDraft(prevSubChatIdForDraftRef.current, prevDraft)
-        console.log("[DRAFT] Draft saved, new drafts:", useAgentSubChatStore.getState().drafts)
+
+      if (prevDraft.trim() && prevChatId) {
+        saveSubChatDraft(prevChatId, prevSubChatId, prevDraft)
       }
     }
 
-    // Restore draft for new sub-chat
-    const savedDraft = useAgentSubChatStore.getState().getDraft(subChatId)
-    console.log("[DRAFT] Restoring draft for subChat:", subChatId, "savedDraft:", savedDraft)
+    // Restore draft for new sub-chat - read directly from localStorage
+    const savedDraft = parentChatId ? getSubChatDraft(parentChatId, subChatId) : null
+
     if (savedDraft) {
-      console.log("[DRAFT] Setting editor value to:", savedDraft)
       editorRef.current?.setValue(savedDraft)
+      currentDraftTextRef.current = savedDraft
     } else if (prevSubChatIdForDraftRef.current && prevSubChatIdForDraftRef.current !== subChatId) {
-      // Only clear if actually switching (not on initial mount)
-      console.log("[DRAFT] Clearing editor (no draft found)")
       editorRef.current?.clear()
+      currentDraftTextRef.current = ""
     }
 
     prevSubChatIdForDraftRef.current = subChatId
-  }, [subChatId])
+  }, [subChatId, parentChatId])
 
   // Use subChatId as stable key to prevent HMR-induced duplicate resume requests
   // resume: !!streamId to reconnect to active streams (background streaming support)
@@ -1121,12 +1162,66 @@ function ChatViewInner({
     pendingUserQuestionsAtom,
   )
 
-  // Clear pending questions when stream ends
+  // Memoize the last assistant message to avoid unnecessary recalculations
+  const lastAssistantMessage = useMemo(
+    () => messages.findLast((m) => m.role === "assistant"),
+    [messages],
+  )
+
+  // Sync pending questions with messages state
+  // This handles: 1) restoring on chat switch, 2) clearing when question is answered/timed out
   useEffect(() => {
-    if (!isStreaming) {
-      setPendingQuestions(null)
+    // Check if there's a pending AskUserQuestion in the last assistant message
+    const pendingQuestionPart = lastAssistantMessage?.parts?.find(
+      (part: any) =>
+        part.type === "tool-AskUserQuestion" &&
+        part.state !== "output-available" &&
+        part.state !== "output-error" &&
+        part.state !== "result" &&
+        part.input?.questions,
+    ) as any | undefined
+
+    // If streaming and we already have a pending question for this chat, keep it
+    // (transport will manage it via chunks)
+    if (isStreaming && pendingQuestions?.subChatId === subChatId) {
+      // But if the question in messages is already answered, clear the atom
+      if (pendingQuestions && !pendingQuestionPart) {
+        // Check if the specific toolUseId is now answered
+        const answeredPart = lastAssistantMessage?.parts?.find(
+          (part: any) =>
+            part.type === "tool-AskUserQuestion" &&
+            part.toolCallId === pendingQuestions.toolUseId &&
+            (part.state === "output-available" ||
+              part.state === "output-error" ||
+              part.state === "result"),
+        )
+        if (answeredPart) {
+          setPendingQuestions(null)
+        }
+      }
+      return
     }
-  }, [isStreaming, setPendingQuestions])
+
+    // Not streaming - restore or clear based on messages
+    if (pendingQuestionPart) {
+      // Found pending question - set it (or update if different)
+      if (
+        pendingQuestions?.subChatId !== subChatId ||
+        pendingQuestions?.toolUseId !== pendingQuestionPart.toolCallId
+      ) {
+        setPendingQuestions({
+          subChatId,
+          toolUseId: pendingQuestionPart.toolCallId,
+          questions: pendingQuestionPart.input.questions,
+        })
+      }
+    } else {
+      // No pending question - clear if belongs to this sub-chat
+      if (pendingQuestions?.subChatId === subChatId) {
+        setPendingQuestions(null)
+      }
+    }
+  }, [subChatId, lastAssistantMessage, isStreaming, pendingQuestions, setPendingQuestions])
 
   // Handle answering questions
   const handleQuestionsAnswer = useCallback(
@@ -1506,9 +1601,12 @@ function ChatViewInner({
     if (!hasText && !hasImages) return
 
     const text = inputValue.trim()
-    // Clear editor and draft
+    // Clear editor and draft from localStorage
     editorRef.current?.clear()
-    useAgentSubChatStore.getState().clearDraft(subChatId)
+    currentDraftTextRef.current = ""
+    if (parentChatId) {
+      clearSubChatDraft(parentChatId, subChatId)
+    }
 
     // Track message sent
     trackMessageSent({
@@ -1539,7 +1637,7 @@ function ChatViewInner({
         })),
       ...files
         .filter((f) => !f.isLoading && f.url)
-        .map((f: any) => ({
+        .map((f) => ({
           type: "data-file" as const,
           data: {
             url: f.url,
@@ -1559,14 +1657,14 @@ function ChatViewInner({
     // Optimistic update: immediately update chat's updated_at and resort array for instant sidebar resorting
     if (teamId) {
       const now = new Date()
-      utils.agents.getAgentChats.setData({ teamId }, (old: any) => {
+      utils.agents.getAgentChats.setData({ teamId }, (old) => {
         if (!old) return old
         // Update the timestamp and sort by updated_at descending
-        const updated = old.map((c: any) =>
+        const updated = old.map((c) =>
           c.id === parentChatId ? { ...c, updated_at: now } : c,
         )
         return updated.sort(
-          (a: any, b: any) =>
+          (a, b) =>
             new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
         )
       })
@@ -1698,6 +1796,12 @@ function ChatViewInner({
       setIsDragOver(false)
       const droppedFiles = Array.from(e.dataTransfer.files)
       handleAddAttachments(droppedFiles)
+      // Focus after state update - use double rAF to wait for React render
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          editorRef.current?.focus()
+        })
+      })
     },
     [handleAddAttachments],
   )
@@ -2102,8 +2206,8 @@ function ChatViewInner({
                               "text-foreground px-2",
                               // Only show Summary styling if there are steps to collapse
                               isFinalText &&
-                              visibleStepsCount > 0 &&
-                              "pt-3 border-t border-border/50",
+                                visibleStepsCount > 0 &&
+                                "pt-3 border-t border-border/50",
                             )}
                           >
                             {/* Only show Summary label if there are steps to collapse */}
@@ -2449,7 +2553,8 @@ function ChatViewInner({
       </div>
 
       {/* User questions panel - shows when AskUserQuestion tool is called */}
-      {pendingQuestions && (
+      {/* Only show if the pending question belongs to THIS sub-chat */}
+      {pendingQuestions && pendingQuestions.subChatId === subChatId && (
         <div className="px-4 relative z-20">
           <div className="w-full px-2 max-w-2xl mx-auto">
             <AgentUserQuestion
@@ -2463,7 +2568,7 @@ function ChatViewInner({
 
       {/* Sub-chat status card - pinned above input */}
       {(isStreaming || changedFilesForSubChat.length > 0) &&
-        !pendingQuestions && (
+        !(pendingQuestions?.subChatId === subChatId) && (
           <div className="px-2 -mb-6 relative z-0">
             <div className="w-full max-w-2xl mx-auto px-2">
               <SubChatStatusCard
@@ -2494,8 +2599,8 @@ function ChatViewInner({
         className={cn(
           "px-2 pb-2 shadow-sm shadow-background relative z-10",
           (isStreaming || changedFilesForSubChat.length > 0) &&
-          !pendingQuestions &&
-          "-mt-3 pt-3",
+            !(pendingQuestions?.subChatId === subChatId) &&
+            "-mt-3 pt-3",
         )}
       >
         <div className="w-full max-w-2xl mx-auto">
@@ -2583,7 +2688,7 @@ function ChatViewInner({
                     )}
                     onPaste={handlePaste}
                     onFocus={() => setIsFocused(true)}
-                    onBlur={() => setIsFocused(false)}
+                    onBlur={handleEditorBlur}
                   />
                 </div>
                 <PromptInputActions className="w-full">
@@ -2838,10 +2943,10 @@ function ChatViewInner({
                     <div className="ml-1">
                       {/* Show "Implement plan" button when plan is ready and input is empty */}
                       {hasUnapprovedPlan &&
-                        !hasContent &&
-                        images.length === 0 &&
-                        files.length === 0 &&
-                        !isStreaming ? (
+                      !hasContent &&
+                      images.length === 0 &&
+                      files.length === 0 &&
+                      !isStreaming ? (
                         <Button
                           onClick={handleApprovePlan}
                           size="sm"
@@ -3597,11 +3702,11 @@ export function ChatView({
       // Note: Extended thinking setting is read dynamically inside the transport
       const transport = worktreePath
         ? new IPCChatTransport({
-          chatId,
-          subChatId,
-          cwd: worktreePath,
-          mode: subChatMode,
-        })
+            chatId,
+            subChatId,
+            cwd: worktreePath,
+            mode: subChatMode,
+          })
         : null // Web transport not supported in desktop app
 
       if (!transport) {
@@ -3654,7 +3759,7 @@ export function ChatView({
                 try {
                   const audio = new Audio("./sound.mp3")
                   audio.volume = 1.0
-                  audio.play().catch(() => { })
+                  audio.play().catch(() => {})
                 } catch {
                   // Ignore audio errors
                 }
@@ -3773,7 +3878,7 @@ export function ChatView({
                 try {
                   const audio = new Audio("./sound.mp3")
                   audio.volume = 1.0
-                  audio.play().catch(() => { })
+                  audio.play().catch(() => {})
                 } catch {
                   // Ignore audio errors
                 }
@@ -4085,50 +4190,7 @@ export function ChatView({
         userMessage,
         isFirstSubChat: isFirst,
         generateName: async (msg) => {
-          try {
-            return await generateSubChatNameMutation.mutateAsync({ userMessage: msg })
-          } catch (minionError) {
-            console.warn("[auto-rename] API failed, trying OpenCode fallback:", minionError)
-            try {
-              // Fallback: Try using OpenCode directly
-              // 1. Create a temporary session
-              const session = await trpcClient.opencode.createSession.mutate({ agent: 'chat' })
-
-              // 2. Ask for a title
-              const prompt = `Generate a very short, concise title (max 4-5 words) for a chat starting with this message. Return ONLY the title, no quotes or extra text: "${msg}"`
-
-              const response: any = await trpcClient.opencode.sendMessage.mutate({
-                sessionId: session.id,
-                message: prompt,
-              })
-
-              // 3. Extract title from response (handle various potential formats)
-              let title = ""
-              // Standard format often is { content: "..." } or { messages: [...] }
-              if (typeof response?.content === 'string') {
-                title = response.content
-              } else if (Array.isArray(response?.messages)) {
-                // Get last message content
-                const lastMsg = response.messages[response.messages.length - 1]
-                if (typeof lastMsg?.content === 'string') {
-                  title = lastMsg.content
-                } else if (Array.isArray(lastMsg?.content)) {
-                  // Text parts?
-                  title = lastMsg.content.map((p: any) => p.text || '').join('')
-                }
-              }
-
-              if (title) {
-                // Clean up title
-                title = title.trim().replace(/^["']|["']$/g, '').replace(/\.$/, '')
-                if (title.length > 50) title = title.substring(0, 47) + "..."
-                return { name: title }
-              }
-            } catch (fallbackError) {
-              console.error("[auto-rename] OpenCode fallback failed:", fallbackError)
-            }
-            throw minionError
-          }
+          return generateSubChatNameMutation.mutateAsync({ userMessage: msg })
         },
         renameSubChat: async (input) => {
           await renameSubChatMutation.mutateAsync(input)
@@ -4142,10 +4204,10 @@ export function ChatView({
             .getState()
             .updateSubChatName(subChatIdToUpdate, name)
           // Also update query cache so init effect doesn't overwrite
-          utils.agents.getAgentChat.setData({ chatId }, (old: any) => {
+          utils.agents.getAgentChat.setData({ chatId }, (old) => {
             if (!old) return old
             const existsInCache = old.subChats.some(
-              (sc: any) => sc.id === subChatIdToUpdate,
+              (sc) => sc.id === subChatIdToUpdate,
             )
             if (!existsInCache) {
               // Sub-chat not in cache yet (DB save still in flight) - add it
@@ -4168,7 +4230,7 @@ export function ChatView({
             }
             return {
               ...old,
-              subChats: old.subChats.map((sc: any) =>
+              subChats: old.subChats.map((sc) =>
                 sc.id === subChatIdToUpdate ? { ...sc, name } : sc,
               ),
             }
@@ -4179,9 +4241,9 @@ export function ChatView({
           // On desktop, selectedTeamId is always null, so we update unconditionally
           utils.agents.getAgentChats.setData(
             { teamId: selectedTeamId },
-            (old: any) => {
+            (old) => {
               if (!old) return old
-              return old.map((c: any) =>
+              return old.map((c) =>
                 c.id === chatIdToUpdate ? { ...c, name } : c,
               )
             },
@@ -4189,7 +4251,7 @@ export function ChatView({
           // Optimistic update for header (single chat query)
           utils.agents.getAgentChat.setData(
             { chatId: chatIdToUpdate },
-            (old: any) => {
+            (old) => {
               if (!old) return old
               return { ...old, name }
             },
@@ -4454,7 +4516,7 @@ export function ChatView({
                           <div className="ml-1">
                             <AgentSendButton
                               disabled={true}
-                              onClick={() => { }}
+                              onClick={() => {}}
                             />
                           </div>
                         </div>
@@ -4784,7 +4846,7 @@ export function ChatView({
                   <AgentDiffView
                     ref={diffViewRef}
                     chatId={chatId}
-                    sandboxId={sandboxId || ""}
+                    sandboxId={sandboxId}
                     worktreePath={worktreePath || undefined}
                     repository={repository}
                     onStatsChange={setDiffStats}

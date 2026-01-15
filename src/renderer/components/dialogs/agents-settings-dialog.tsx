@@ -2,7 +2,7 @@ import { useAtom } from "jotai"
 import { useEffect, useState } from "react"
 import { createPortal } from "react-dom"
 import { AnimatePresence, motion } from "motion/react"
-import { X, Bug, ChevronLeft, ChevronRight, Server } from "lucide-react"
+import { X, Bug, ChevronLeft, ChevronRight } from "lucide-react"
 import { cn } from "../../lib/utils"
 import { agentsSettingsDialogActiveTabAtom } from "../../lib/atoms"
 import {
@@ -16,9 +16,8 @@ import { AgentsProfileTab } from "./settings-tabs/agents-profile-tab"
 import { AgentsPreferencesTab } from "./settings-tabs/agents-preferences-tab"
 import { AgentsDebugTab } from "./settings-tabs/agents-debug-tab"
 import { AgentsSkillsTab } from "./settings-tabs/agents-skills-tab"
-import { AgentsOpenCodeTab } from "../../features/agents/components/settings-tabs/agents-opencode-tab"
 
-type SettingsTab = "profile" | "appearance" | "preferences" | "skills" | "debug" | "opencode"
+type SettingsTab = "profile" | "appearance" | "preferences" | "skills" | "debug"
 
 // Hook to detect narrow screen
 function useIsNarrowScreen(): boolean {
@@ -59,12 +58,6 @@ const ALL_TABS = [
     description: "Theme settings",
   },
   {
-    id: "opencode" as SettingsTab,
-    label: "OpenCode",
-    icon: Server,
-    description: "Server configuration",
-  },
-  {
     id: "preferences" as SettingsTab,
     label: "Preferences",
     icon: SlidersFilledIcon,
@@ -80,13 +73,13 @@ const ALL_TABS = [
   // Debug tab - always shown in desktop for development
   ...(isDevelopment
     ? [
-      {
-        id: "debug" as SettingsTab,
-        label: "Debug",
-        icon: Bug,
-        description: "Test first-time user experience",
-      },
-    ]
+        {
+          id: "debug" as SettingsTab,
+          label: "Debug",
+          icon: Bug,
+          description: "Test first-time user experience",
+        },
+      ]
     : []),
 ]
 
@@ -198,8 +191,6 @@ export function AgentsSettingsDialog({
         return <AgentsProfileTab />
       case "appearance":
         return <AgentsAppearanceTab />
-      case "opencode":
-        return <AgentsOpenCodeTab />
       case "preferences":
         return <AgentsPreferencesTab />
       case "skills":
@@ -257,7 +248,7 @@ export function AgentsSettingsDialog({
               id="agents-settings-dialog-title-narrow"
               className="text-lg font-semibold flex-1"
             >
-              {showContent ? getTabLabel((activeTab || "profile") as SettingsTab) : "Settings"}
+              {showContent ? getTabLabel(activeTab) : "Settings"}
             </h2>
             <button
               type="button"

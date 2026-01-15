@@ -308,26 +308,6 @@ export function createMainWindow(): BrowserWindow {
     currentWindow = null
   })
 
-  // Filter out harmless console warnings (like Autofill API errors)
-  window.webContents.on("console-message", (event, level, message) => {
-    // Suppress Autofill API warnings which are harmless
-    if (message.includes("Autofill.enable") || message.includes("Autofill.setAddresses")) {
-      return
-    }
-    // Suppress other common harmless warnings
-    if (message.includes("Download the React DevTools")) {
-      return
-    }
-    // Log other messages normally
-    if (level === 1) { // Error
-      console.error("[Renderer Error]", message)
-    } else if (level === 2) { // Warning
-      console.warn("[Renderer Warning]", message)
-    } else if (level === 3) { // Info/Log
-      console.log("[Renderer Info]", message)
-    }
-  })
-
   // Load the renderer - check auth first
   const devServerUrl = process.env.ELECTRON_RENDERER_URL
   const authManager = getAuthManager()
@@ -344,10 +324,7 @@ export function createMainWindow(): BrowserWindow {
     console.log("[Main] ✓ User authenticated, loading app")
     if (devServerUrl) {
       window.loadURL(devServerUrl)
-      // Only open DevTools if DEBUG=true or in verbose mode
-      if (process.env.DEBUG === "true" || process.env.NODE_ENV === "development") {
-        window.webContents.openDevTools()
-      }
+      window.webContents.openDevTools()
     } else {
       window.loadFile(join(__dirname, "../renderer/index.html"))
     }
@@ -358,15 +335,7 @@ export function createMainWindow(): BrowserWindow {
       const loginPath = join(app.getAppPath(), "src/renderer/login.html")
       window.loadFile(loginPath)
     } else {
-      // In production, login.html is in the app.asar archive
-      const isPackaged = app.isPackaged
-      if (isPackaged) {
-        // Packaged app: load from ASAR archive
-        window.loadFile(join(__dirname, "../../renderer/login.html"))
-      } else {
-        // Unpackaged development: load from out directory
-        window.loadFile(join(__dirname, "../renderer/login.html"))
-      }
+      window.loadFile(join(__dirname, "../renderer/login.html"))
     }
   }
 

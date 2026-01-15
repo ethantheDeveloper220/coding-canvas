@@ -65,8 +65,7 @@ export function initDatabase() {
     console.log("[DB] Migrations completed")
   } catch (error) {
     console.error("[DB] Migration error:", error)
-    console.warn("[DB] Continuing without migrations - some features may not work")
-    // Don't throw error, allow app to continue
+    throw error
   }
 
   return db

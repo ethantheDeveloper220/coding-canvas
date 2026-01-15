@@ -9,6 +9,11 @@ export const selectedAgentChatIdAtom = atomWithStorage<string | null>(
   { getOnInit: true },
 )
 
+// Selected draft ID - when user clicks on a draft in sidebar, this is set
+// NewChatForm uses this to restore the draft text
+// Reset to null when "New Workspace" is clicked or chat is created
+export const selectedDraftIdAtom = atom<string | null>(null)
+
 // Preview paths storage - stores all preview paths keyed by chatId
 const previewPathsStorageAtom = atomWithStorage<Record<string, string>>(
   "agents:previewPaths",
@@ -178,9 +183,9 @@ export const isPlanModeAtom = atomWithStorage<boolean>(
 
 // Model ID to full Claude model string mapping
 export const MODEL_ID_MAP: Record<string, string> = {
-  opus: "anthropic/claude-3-opus-20240229",
-  sonnet: "anthropic/claude-3-5-sonnet-20241022",
-  haiku: "anthropic/claude-3-haiku-20240307",
+  opus: "opus",
+  sonnet: "sonnet",
+  haiku: "haiku",
 }
 
 // Sidebar state
@@ -339,12 +344,12 @@ export interface AgentsDebugMode {
   resetOnboarding: boolean // Reset onboarding dialog on next load
   bypassConnections: boolean // Allow going through onboarding steps even if already connected
   forceStep:
-  | "workspace"
-  | "profile"
-  | "claude-code"
-  | "github"
-  | "discord"
-  | null // Force a specific onboarding step
+    | "workspace"
+    | "profile"
+    | "claude-code"
+    | "github"
+    | "discord"
+    | null // Force a specific onboarding step
   simulateCompleted: boolean // Simulate onboarding as completed
 }
 
@@ -426,7 +431,7 @@ export const lastSelectedBranchesAtom = atomWithStorage<Record<string, string>>(
 
 // Track IDs of chats/subchats created in this browser session (NOT persisted - resets on reload)
 // Used to determine whether to show placeholder + typewriter effect
-export const justCreatedIdsAtom = atom<Set<string>>(new Set<string>())
+export const justCreatedIdsAtom = atom<Set<string>>(new Set())
 
 // Pending user questions from AskUserQuestion tool
 // Set when Claude requests user input, cleared when answered or skipped
@@ -434,6 +439,7 @@ export const QUESTIONS_SKIPPED_MESSAGE = "User skipped questions - proceed with 
 export const QUESTIONS_TIMED_OUT_MESSAGE = "Timed out"
 
 export type PendingUserQuestions = {
+  subChatId: string
   toolUseId: string
   questions: Array<{
     question: string
@@ -443,15 +449,3 @@ export type PendingUserQuestions = {
   }>
 }
 export const pendingUserQuestionsAtom = atom<PendingUserQuestions | null>(null)
-
-// Settings dialog state
-export const agentsSettingsDialogOpenAtom = atom<boolean>(false)
-export const agentsSettingsDialogActiveTabAtom = atom<string | null>(null)
-
-// OpenCode settings
-export const opencodeDisabledProvidersAtom = atomWithStorage<string[]>(
-  "opencode:disabledProviders",
-  [],
-  undefined,
-  { getOnInit: true },
-)

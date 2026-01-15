@@ -1,45 +1,25 @@
 "use client"
 
-import { apiFetch } from "../../../../lib/api-fetch"
-
 import { useState, useEffect, useRef } from "react"
 import { Button } from "../../../../components/ui/button"
 import { Input } from "../../../../components/ui/input"
 import { Label } from "../../../../components/ui/label"
 // Desktop: stub for user profile hooks
-const useUserProfile = () => {
-  const [user, setUser] = useState<any>(null)
-  const [isLoading, setIsLoading] = useState(true)
-
-  useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const res = await apiFetch("/api/user/profile")
-        if (res.ok) {
-          const data = await res.json()
-          setUser(data)
-        } else {
-          setUser(null)
-        }
-      } catch (e) {
-        setUser(null)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    fetchUser()
-  }, [])
-
-  return {
-    clerkUser: user ? {
-      fullName: user.display_name || user.email,
-      imageUrl: user.display_image_url,
-      externalAccounts: [],
-    } : null,
-    user: user,
-    isLoading,
-  }
-}
+const useUserProfile = () => ({
+  clerkUser: {
+    fullName: "Demo User",
+    imageUrl: null as string | null,
+    externalAccounts: [{ provider: "github", username: "demo-user" }],
+  },
+  user: {
+    display_name: "Demo User",
+    display_image_url: null as string | null,
+    fullName: "Demo User",
+    imageUrl: null as string | null,
+    externalAccounts: [{ provider: "github", username: "demo-user" }],
+  },
+  isLoading: false,
+})
 const UserAvatar = ({ user, className }: any) => null
 import { ClaudeCodeLogoIcon } from "../../../../components/ui/icons"
 import { toast } from "sonner"
@@ -47,7 +27,7 @@ import { toast } from "sonner"
 const useImageUpload = () => ({
   previewUrl: null as string | null,
   fileInputRef: { current: null as HTMLInputElement | null },
-  handleThumbnailClick: () => { },
+  handleThumbnailClick: () => {},
   handleFileChange: async (_event?: unknown) => null as string | null
 })
 import { IconSpinner } from "../../../../components/ui/icons"
@@ -58,13 +38,13 @@ import { cn } from "../../../../lib/utils"
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyFn = (...args: any[]) => any
 const api = {
-  useUtils: () => ({ claudeCode: { getIntegration: { invalidate: (_args?: unknown) => { } } } }),
+  useUtils: () => ({ claudeCode: { getIntegration: { invalidate: (_args?: unknown) => {} } } }),
   claudeCode: {
     getIntegration: {
       useQuery: (_args?: unknown, _opts?: unknown) => ({
         data: { isConnected: false, connectedAt: null as string | null },
         isLoading: false,
-        refetch: () => { },
+        refetch: () => {},
       }),
     },
     startAuth: {
@@ -103,18 +83,18 @@ type AuthFlowState =
   | { step: "idle" }
   | { step: "starting" }
   | {
-    step: "waiting_url"
-    sandboxId: string
-    sandboxUrl: string
-    sessionId: string
-  }
+      step: "waiting_url"
+      sandboxId: string
+      sandboxUrl: string
+      sessionId: string
+    }
   | {
-    step: "has_url"
-    sandboxId: string
-    oauthUrl: string
-    sandboxUrl: string
-    sessionId: string
-  }
+      step: "has_url"
+      sandboxId: string
+      oauthUrl: string
+      sandboxUrl: string
+      sessionId: string
+    }
   | { step: "submitting" }
   | { step: "error"; message: string }
 
@@ -673,8 +653,8 @@ export function AgentsProfileTab() {
                       className="text-xs min-w-[72px]"
                     >
                       {userClickedConnect &&
-                        (claudeFlowState.step === "starting" ||
-                          claudeFlowState.step === "waiting_url") ? (
+                      (claudeFlowState.step === "starting" ||
+                        claudeFlowState.step === "waiting_url") ? (
                         <IconSpinner className="h-3 w-3" />
                       ) : (
                         "Connect"

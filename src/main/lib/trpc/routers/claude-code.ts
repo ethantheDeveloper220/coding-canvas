@@ -45,25 +45,16 @@ export const claudeCodeRouter = router({
    * Check if user has Claude Code connected (local check)
    */
   getIntegration: publicProcedure.query(() => {
-    try {
-      const db = getDatabase()
-      const cred = db
-        .select()
-        .from(claudeCodeCredentials)
-        .where(eq(claudeCodeCredentials.id, "default"))
-        .get()
+    const db = getDatabase()
+    const cred = db
+      .select()
+      .from(claudeCodeCredentials)
+      .where(eq(claudeCodeCredentials.id, "default"))
+      .get()
 
-      return {
-        isConnected: !!cred?.oauthToken,
-        connectedAt: cred?.connectedAt?.toISOString() ?? null,
-      }
-    } catch (error) {
-      console.error("[ClaudeCode] Error checking integration status:", error)
-      // Return disconnected state if there's a database error
-      return {
-        isConnected: false,
-        connectedAt: null,
-      }
+    return {
+      isConnected: !!cred?.oauthToken,
+      connectedAt: cred?.connectedAt?.toISOString() ?? null,
     }
   }),
 
@@ -71,63 +62,26 @@ export const claudeCodeRouter = router({
    * Start OAuth flow - calls server to create sandbox
    */
   startAuth: publicProcedure.mutation(async () => {
-    try {
-      const token = await getDesktopToken()
-      if (!token) {
-        console.error("[ClaudeCode] No desktop token available")
-        throw new Error("Not authenticated with 21st.dev. Please sign in first.")
-      }
+    const token = await getDesktopToken()
+    if (!token) {
+      throw new Error("Not authenticated with 21st.dev")
+    }
 
-      const apiUrl = getApiUrl()
-      console.log(`[ClaudeCode] Starting auth flow with API: ${apiUrl}`)
+    // Server creates sandbox (has CodeSandbox SDK)
+    const response = await fetch(`${getApiUrl()}/api/auth/claude-code/start`, {
+      method: "POST",
+      headers: { "x-desktop-token": token },
+    })
 
-      // Server creates sandbox (has CodeSandbox SDK)
-      const response = await fetch(`${apiUrl}/api/auth/claude-code/start`, {
-        method: "POST",
-        headers: { "x-desktop-token": token },
-      })
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: "Unknown error" }))
+      throw new Error(error.error || `Start auth failed: ${response.status}`)
+    }
 
-      if (!response.ok) {
-        console.error(`[ClaudeCode] Start auth failed: ${response.status} ${response.statusText}`)
-
-        let errorMessage = `Start auth failed: ${response.status}`
-        try {
-          const errorData = await response.json()
-          errorMessage = errorData.error || errorData.message || errorMessage
-          console.error("[ClaudeCode] Error details:", errorData)
-        } catch (e) {
-          console.error("[ClaudeCode] Could not parse error response")
-        }
-
-        // Provide helpful error messages based on status code
-        if (response.status === 404) {
-          throw new Error("Backend API endpoint not found. Make sure the server is running at " + apiUrl)
-        } else if (response.status === 401 || response.status === 403) {
-          throw new Error("Authentication failed. Please sign out and sign in again.")
-        } else if (response.status >= 500) {
-          throw new Error("Server error. Please try again later.")
-        }
-
-        throw new Error(errorMessage)
-      }
-
-      const data = await response.json()
-      console.log("[ClaudeCode] Auth flow started successfully:", data.sandboxId)
-
-      return data as {
-        sandboxId: string
-        sandboxUrl: string
-        sessionId: string
-      }
-    } catch (error) {
-      console.error("[ClaudeCode] Start auth error:", error)
-
-      // Re-throw with better message if it's a network error
-      if (error instanceof TypeError && error.message.includes("fetch")) {
-        throw new Error(`Cannot connect to backend server at ${getApiUrl()}. Make sure the server is running.`)
-      }
-
-      throw error
+    return (await response.json()) as {
+      sandboxId: string
+      sandboxUrl: string
+      sessionId: string
     }
   }),
 

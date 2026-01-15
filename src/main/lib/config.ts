@@ -5,7 +5,7 @@
 // API URLs
 const API_URLS = {
   production: "https://21st.dev",
-  development: "https://21st.dev", // Use production API for Auth/Subtitles in Dev. OpenCode runs on 51089 (see opencode-state.ts).
+  development: "http://localhost:3000",
 } as const
 
 const IS_DEV = !!process.env.ELECTRON_RENDERER_URL

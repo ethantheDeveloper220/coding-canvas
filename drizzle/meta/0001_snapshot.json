@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "04f9263f-5a6f-4d67-90f7-bf76c2777be5",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "11d0de24-11e4-405d-9192-55868e0d5ae6",
+  "prevId": "04f9263f-5a6f-4d67-90f7-bf76c2777be5",
   "tables": {
     "chats": {
       "name": "chats",
@@ -170,6 +170,13 @@
         },
         "session_id": {
           "name": "session_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "stream_id": {
+          "name": "stream_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false,

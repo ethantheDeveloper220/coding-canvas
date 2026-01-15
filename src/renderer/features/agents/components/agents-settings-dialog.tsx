@@ -1,11 +1,13 @@
 "use client"
 
-import { agentsSettingsDialogActiveTabAtom } from "../atoms"
+// import { agentsSettingsDialogActiveTabAtom } from "@/lib/atoms/agents-settings-dialog"
+import { atom } from "jotai"
+const agentsSettingsDialogActiveTabAtom = atom<string | null>(null)
 // import { SettingsTab } from "@/lib/atoms/settings-dialog"
 type SettingsTab = string
 import { cn } from "../../../lib/utils"
 import { useAtom } from "jotai"
-import { X, Server, Users } from "lucide-react"
+import { X } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { useEffect, useState } from "react"
 import { createPortal } from "react-dom"
@@ -15,9 +17,7 @@ import {
 } from "../../../components/ui/icons"
 import { AgentsAppearanceTab } from "./settings-tabs/agents-appearance-tab"
 import { AgentsProfileTab } from "./settings-tabs/agents-profile-tab"
-import { AgentsDebugTab } from "../../../components/dialogs/settings-tabs/agents-debug-tab"
-import { AgentsOpenCodeTab } from "./settings-tabs/agents-opencode-tab"
-import { AgentsManagerTab } from "./settings-tabs/agents-manager-tab"
+import { AgentsDebugTab } from "./settings-tabs/agents-debug-tab"
 import { Bug } from "lucide-react"
 
 // Check if we're in development mode
@@ -36,33 +36,21 @@ const ALL_TABS = [
     description: "Manage your account settings",
   },
   {
-    id: "agents" as SettingsTab,
-    label: "Agents",
-    icon: Users,
-    description: "Manage your AI agents",
-  },
-  {
     id: "appearance" as SettingsTab,
     label: "Appearance",
     icon: EyeOpenFilledIcon,
     description: "Theme settings",
   },
-  {
-    id: "opencode" as SettingsTab,
-    label: "OpenCode",
-    icon: Server,
-    description: "OpenCode server configuration",
-  },
   // Debug tab - only shown in development
   ...(isDevelopment
     ? [
-      {
-        id: "debug" as SettingsTab,
-        label: "Debug",
-        icon: Bug,
-        description: "Test first-time user experience",
-      },
-    ]
+        {
+          id: "debug" as SettingsTab,
+          label: "Debug",
+          icon: Bug,
+          description: "Test first-time user experience",
+        },
+      ]
     : []),
 ]
 
@@ -130,12 +118,8 @@ export function AgentsSettingsDialog({
     switch (activeTab) {
       case "profile":
         return <AgentsProfileTab />
-      case "agents":
-        return <AgentsManagerTab />
       case "appearance":
         return <AgentsAppearanceTab />
-      case "opencode":
-        return <AgentsOpenCodeTab />
       case "debug":
         return isDevelopment ? <AgentsDebugTab /> : null
       default:
