@@ -101,12 +101,24 @@ export function useChangedFilesTracking(
       }
     >()
 
+    // Check if a file path is a session/plan file that should be excluded
+    const isSessionFile = (filePath: string): boolean => {
+      // Exclude files in claude-sessions (plan files stored in app's local storage)
+      if (filePath.includes("claude-sessions")) return true
+      // Exclude files in Application Support directory
+      if (filePath.includes("Application Support")) return true
+      return false
+    }
+
     for (const msg of messages) {
       if (msg.role !== "assistant") continue
       for (const part of msg.parts || []) {
         if (part.type === "tool-Edit" || part.type === "tool-Write") {
           const filePath = part.input?.file_path
           if (!filePath) continue
+
+          // Skip session/plan files
+          if (isSessionFile(filePath)) continue
 
           const oldString = part.input?.old_string || ""
           const newString = part.input?.new_string || part.input?.content || ""

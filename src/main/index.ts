@@ -189,8 +189,8 @@ let initialRegistration = false
 function verifyProtocolRegistration(): void {
   const isDefault = process.defaultApp
     ? app.isDefaultProtocolClient(PROTOCOL, process.execPath, [
-        process.argv[1]!,
-      ])
+      process.argv[1]!,
+    ])
     : app.isDefaultProtocolClient(PROTOCOL)
 
   console.log(`[Protocol] Verification - isDefaultProtocolClient: ${isDefault}`)
@@ -436,8 +436,9 @@ if (gotTheLock) {
     }
 
     // Set About panel options with Claude Code version
+    // Set About panel options with Claude Code version
     app.setAboutPanelOptions({
-      applicationName: "1Code",
+      applicationName: "Seamless AI",
       applicationVersion: app.getVersion(),
       version: `Claude Code ${claudeCodeVersion}`,
       copyright: "Copyright © 2026 21st.dev",
@@ -453,7 +454,7 @@ if (gotTheLock) {
         {
           label: app.name,
           submenu: [
-            { role: "about", label: "About 1Code" },
+            { role: "about", label: "About Seamless AI" },
             {
               label: updateAvailable
                 ? `Update to v${availableVersion}...`
@@ -554,8 +555,8 @@ if (gotTheLock) {
       buildMenu()
     }
 
-    // Expose setUpdateAvailable globally for auto-updater
-    ;(global as any).__setUpdateAvailable = setUpdateAvailable
+      // Expose setUpdateAvailable globally for auto-updater
+      ; (global as any).__setUpdateAvailable = setUpdateAvailable
 
     // Build initial menu
     buildMenu()
@@ -609,6 +610,17 @@ if (gotTheLock) {
       console.error("[App] Failed to initialize database:", error)
     }
 
+    // Ensure OpenCode server is ready before showing the app
+    console.log("[App] Checking OpenCode server status...")
+    try {
+      const { ensureServerReady } = await import("./lib/opencode-server")
+      const serverStatus = await ensureServerReady()
+      console.log("[App] OpenCode server ready:", serverStatus)
+    } catch (error) {
+      console.error("[App] Failed to ensure OpenCode server is ready:", error)
+      // Continue anyway - the user can handle this through the UI
+    }
+
     // Create main window
     createMainWindow()
 
@@ -649,6 +661,10 @@ if (gotTheLock) {
   // Cleanup before quit
   app.on("before-quit", async () => {
     console.log("[App] Shutting down...")
+    // Stop OpenCode server when app closes
+    const { cleanupServer } = await import("./lib/opencode-server")
+    cleanupServer()
+    console.log("[App] OpenCode server stopped")
     await shutdownAnalytics()
     await closeDatabase()
   })

@@ -38,12 +38,32 @@ export type UIMessageChunk =
     }
   | { type: "ask-user-question-timeout"; toolUseId: string }
   | { type: "message-metadata"; messageMetadata: MessageMetadata }
+  // Session initialization (MCP servers, plugins, tools)
+  | {
+      type: "session-init"
+      tools: string[]
+      mcpServers: MCPServer[]
+      plugins: { name: string; path: string }[]
+      skills: string[]
+    }
   // System tools (rendered like regular tools)
   | {
       type: "system-Compact"
       toolCallId: string
       state: "input-streaming" | "output-available"
     }
+
+export type MCPServerStatus = "connected" | "failed" | "pending" | "needs-auth"
+
+export type MCPServer = {
+  name: string
+  status: MCPServerStatus
+  serverInfo?: {
+    name: string
+    version: string
+  }
+  error?: string
+}
 
 export type MessageMetadata = {
   sessionId?: string

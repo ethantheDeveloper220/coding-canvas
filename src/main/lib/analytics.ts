@@ -4,11 +4,29 @@
  */
 
 import { PostHog } from "posthog-node"
-import { app } from "electron"
+
+// Helper to get env vars - works in both Electron (import.meta.env) and Node.js (process.env)
+function getEnvVar(key: string, defaultValue?: string): string | undefined {
+  // Try import.meta.env first (Electron/Vite)
+  if (typeof import.meta !== "undefined" && import.meta.env) {
+    const value = (import.meta.env as any)[key]
+    if (value) return value
+  }
+  // Fall back to process.env (Node.js/web server)
+  return process.env[key] || defaultValue
+}
 
 // PostHog configuration from environment
-const POSTHOG_DESKTOP_KEY = import.meta.env.MAIN_VITE_POSTHOG_KEY
-const POSTHOG_HOST = import.meta.env.MAIN_VITE_POSTHOG_HOST || "https://us.i.posthog.com"
+const POSTHOG_DESKTOP_KEY = getEnvVar("MAIN_VITE_POSTHOG_KEY") || getEnvVar("POSTHOG_KEY")
+const POSTHOG_HOST = getEnvVar("MAIN_VITE_POSTHOG_HOST") || getEnvVar("POSTHOG_HOST") || "https://us.i.posthog.com"
+
+// Try to import app from electron (may not be available in web mode)
+let app: typeof import("electron").app | null = null
+try {
+  app = require("electron").app
+} catch {
+  // Not in Electron, that's okay
+}
 
 let posthog: PostHog | null = null
 let currentUserId: string | null = null
@@ -19,7 +37,11 @@ let userOptedOut = false // Synced from renderer
 // Use a function to check lazily after app is ready
 function isDev(): boolean {
   try {
-    return !app.isPackaged && process.env.FORCE_ANALYTICS !== "true"
+    if (app) {
+      return !app.isPackaged && process.env.FORCE_ANALYTICS !== "true"
+    }
+    // Not in Electron, check NODE_ENV
+    return process.env.NODE_ENV !== "production" && process.env.FORCE_ANALYTICS !== "true"
   } catch {
     // App not ready yet, assume dev mode
     return process.env.FORCE_ANALYTICS !== "true"
@@ -31,11 +53,11 @@ function isDev(): boolean {
  */
 function getCommonProperties() {
   return {
-    source: "desktop_main",
-    app_version: app.getVersion(),
+    source: app ? "desktop_main" : "web_server",
+    app_version: app?.getVersion() || process.env.npm_package_version || "unknown",
     platform: process.platform,
     arch: process.arch,
-    electron_version: process.versions.electron,
+    electron_version: process.versions.electron || "N/A",
     node_version: process.versions.node,
   }
 }

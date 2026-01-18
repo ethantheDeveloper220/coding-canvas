@@ -130,7 +130,7 @@ export function createTerminalInstance(
   const renderer = loadRenderer(xterm)
 
   // Debug: Check dimensions after renderer
-  const coreAfter = (xterm as unknown as { _core?: { _renderService?: { dimensions?: unknown } } })._core
+  const coreAfter = (xterm as unknown as { _core?: { _renderService?: { dimensions?: unknown } } })?._core
   console.log("[Terminal:create] After renderer - dimensions:", coreAfter?._renderService?.dimensions)
 
   // 6. Set up query response suppression
@@ -267,7 +267,7 @@ export function setupPasteHandler(
   options: PasteHandlerOptions = {}
 ): () => void {
   const textarea = xterm.textarea
-  if (!textarea) return () => {}
+  if (!textarea) return () => { }
 
   const handlePaste = (event: ClipboardEvent) => {
     const text = event.clipboardData?.getData("text/plain")
@@ -356,22 +356,54 @@ function getTerminalCoordsFromEvent(
   const x = event.clientX - rect.left
   const y = event.clientY - rect.top
 
-  // Access internal render service for cell dimensions
-  const dimensions = (
-    xterm as unknown as {
-      _core?: {
-        _renderService?: {
-          dimensions?: { css: { cell: { width: number; height: number } } }
-        }
-      }
+  // Try to get cell dimensions using different methods
+  let cellWidth: number | undefined
+  let cellHeight: number | undefined
+
+  // Method 1: Try to use FitAddon if available
+  try {
+    // Check if FitAddon is already loaded
+    const fitAddon = (xterm as any)._fitAddon
+    if (fitAddon) {
+      cellWidth = fitAddon._charSizeService?.width
+      cellHeight = fitAddon._charSizeService?.height
     }
-  )._core?._renderService?.dimensions
+  } catch (e) {
+    console.warn("Failed to get dimensions from FitAddon:", e)
+  }
 
-  if (!dimensions?.css?.cell) return null
+  // Method 2: Fall back to accessing internal render service if FitAddon doesn't work
+  if (!cellWidth || !cellHeight) {
+    try {
+      const xtermAny = xterm as unknown as { _core?: { _renderService?: { dimensions?: { css?: { cell?: { width?: number; height?: number } } } } } }
+      const core = xtermAny?._core
+      if (!core) return null
 
-  const cellWidth = dimensions.css.cell.width
-  const cellHeight = dimensions.css.cell.height
+      const renderService = core._renderService
+      if (!renderService) return null
 
+      const dimensions = renderService.dimensions
+      if (!dimensions) return null
+
+      const css = dimensions.css
+      if (!css) return null
+
+      const cell = css.cell
+      if (!cell) return null
+
+      if (typeof cell.width !== 'number' || typeof cell.height !== 'number') return null
+
+      cellWidth = cell.width
+      cellHeight = cell.height
+    } catch (e) {
+      console.warn("Failed to get dimensions from render service:", e)
+      return null
+    }
+  }
+
+  if (!cellWidth || !cellHeight) return null
+
+  // We've already validated cellWidth and cellHeight above
   if (cellWidth <= 0 || cellHeight <= 0) return null
 
   const col = Math.max(0, Math.min(xterm.cols - 1, Math.floor(x / cellWidth)))

@@ -2,9 +2,9 @@ import { useAtom } from "jotai"
 import { useEffect, useState } from "react"
 import { createPortal } from "react-dom"
 import { AnimatePresence, motion } from "motion/react"
-import { X, Bug, ChevronLeft, ChevronRight } from "lucide-react"
+import { X, Bug, ChevronLeft, ChevronRight, Code2 } from "lucide-react"
 import { cn } from "../../lib/utils"
-import { agentsSettingsDialogActiveTabAtom } from "../../lib/atoms"
+import { agentsSettingsDialogActiveTabAtom, type SettingsTab } from "../../lib/atoms"
 import {
   ProfileIconFilled,
   EyeOpenFilledIcon,
@@ -16,8 +16,8 @@ import { AgentsProfileTab } from "./settings-tabs/agents-profile-tab"
 import { AgentsPreferencesTab } from "./settings-tabs/agents-preferences-tab"
 import { AgentsDebugTab } from "./settings-tabs/agents-debug-tab"
 import { AgentsSkillsTab } from "./settings-tabs/agents-skills-tab"
+import { AgentsOpenCodeTab } from "../../features/agents/components/settings-tabs/agents-opencode-tab"
 
-type SettingsTab = "profile" | "appearance" | "preferences" | "skills" | "debug"
 
 // Hook to detect narrow screen
 function useIsNarrowScreen(): boolean {
@@ -70,16 +70,22 @@ const ALL_TABS = [
     description: "Custom Claude sub-agents",
     beta: true,
   },
+  {
+    id: "opencode" as SettingsTab,
+    label: "OpenCode",
+    icon: Code2,
+    description: "OpenCode server configuration",
+  },
   // Debug tab - always shown in desktop for development
   ...(isDevelopment
     ? [
-        {
-          id: "debug" as SettingsTab,
-          label: "Debug",
-          icon: Bug,
-          description: "Test first-time user experience",
-        },
-      ]
+      {
+        id: "debug" as SettingsTab,
+        label: "Debug",
+        icon: Bug,
+        description: "Test first-time user experience",
+      },
+    ]
     : []),
 ]
 
@@ -195,6 +201,8 @@ export function AgentsSettingsDialog({
         return <AgentsPreferencesTab />
       case "skills":
         return <AgentsSkillsTab />
+      case "opencode":
+        return <AgentsOpenCodeTab />
       case "debug":
         return isDevelopment ? <AgentsDebugTab /> : null
       default:

@@ -13,14 +13,16 @@ import {
 import { createFileIconElement } from "./agents-file-mention"
 
 export interface FileMentionOption {
-  id: string // file:owner/repo:path/to/file.tsx or folder:owner/repo:path/to/folder or skill:skill-name
-  label: string // filename or folder name or skill name
-  path: string // full path or skill description
+  id: string // file:owner/repo:path/to/file.tsx or folder:owner/repo:path/to/folder or skill:skill-name or terminal:terminal-id
+  label: string // filename or folder name or skill name or terminal name
+  path: string // full path or skill description or terminal cwd
   repository: string
   truncatedPath?: string // directory path for inline display or skill description
   additions?: number // for changed files
   deletions?: number // for changed files
-  type?: "file" | "folder" | "skill" // entry type (default: file)
+  type?: "file" | "folder" | "skill" | "terminal" // entry type (default: file)
+  terminalId?: string // for terminal mentions
+  paneId?: string // for terminal mentions
 }
 
 // Mention ID prefixes
@@ -28,6 +30,7 @@ export const MENTION_PREFIXES = {
   FILE: "file:",
   FOLDER: "folder:",
   SKILL: "skill:",
+  TERMINAL: "terminal:",
 } as const
 
 type TriggerPayload = {
@@ -209,6 +212,11 @@ function buildContentFromSerialized(
       // Parse skill mention: skill:skill-name
       const skillName = id.slice(MENTION_PREFIXES.SKILL.length)
       option = { id, label: skillName, path: "", repository: "", type: "skill" }
+    }
+    if (!option && id.startsWith(MENTION_PREFIXES.TERMINAL)) {
+      // Parse terminal mention: terminal:terminal-id
+      const terminalId = id.slice(MENTION_PREFIXES.TERMINAL.length)
+      option = { id, label: terminalId, path: "", repository: "", type: "terminal" }
     }
     if (option) {
       root.appendChild(createMentionNode(option))
@@ -452,6 +460,10 @@ export const AgentsMentionsEditor = memo(
           if (id.startsWith(MENTION_PREFIXES.SKILL)) {
             const skillName = id.slice(MENTION_PREFIXES.SKILL.length)
             return { id, label: skillName, path: "", repository: "", type: "skill" }
+          }
+          if (id.startsWith(MENTION_PREFIXES.TERMINAL)) {
+            const terminalId = id.slice(MENTION_PREFIXES.TERMINAL.length)
+            return { id, label: terminalId, path: "", repository: "", type: "terminal" }
           }
           return null
         },

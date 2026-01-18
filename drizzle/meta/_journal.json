@@ -36,6 +36,34 @@
       "when": 1768199613729,
       "tag": "0004_melted_prism",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1768623761000,
+      "tag": "0005_question_preferences",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1768623761001,
+      "tag": "0006_add_model_to_sub_chats",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1768703617745,
+      "tag": "0007_add_file_changes_table",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "8",
+      "when": 1768704000000,
+      "tag": "0008_add_roadmap_tasks_table",
+      "breakpoints": true
     }
   ]
 }

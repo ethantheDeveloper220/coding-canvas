@@ -4,6 +4,7 @@ import { useState } from "react"
 import { trpc } from "../../../../lib/trpc"
 import { Button } from "../../../../components/ui/button"
 import { Input } from "../../../../components/ui/input"
+import { Textarea } from "../../../../components/ui/textarea"
 import { Label } from "../../../../components/ui/label"
 import { toast } from "sonner"
 import { CheckIcon, XIcon } from "lucide-react"
@@ -16,6 +17,55 @@ export function AgentsOpenCodeTab() {
     const [port, setPort] = useState(4096)
     const [isSaving, setIsSaving] = useState(false)
     const [disabledProviders, setDisabledProviders] = useAtom(opencodeDisabledProvidersAtom)
+    const [newModel, setNewModel] = useState({ provider: '', name: '', id: '' })
+    const [isAddingModel, setIsAddingModel] = useState(false)
+    const [importJson, setImportJson] = useState('')
+    const [isImporting, setIsImporting] = useState(false)
+    const [showImport, setShowImport] = useState(false)
+
+    // Import config mutation
+    const importConfigMutation = trpc.opencode.importConfig.useMutation({
+        onSuccess: (data) => {
+            toast.success(`Imported ${data.count} items successfully`)
+            setIsImporting(false)
+            setImportJson('')
+            setShowImport(false)
+            refetchModels()
+        },
+        onError: (error) => {
+            toast.error(`Failed to import config: ${error.message}`)
+            setIsImporting(false)
+        },
+    })
+
+    const handleImport = () => {
+        if (!importJson.trim()) return
+        setIsImporting(true)
+        importConfigMutation.mutate({ configJson: importJson })
+    }
+
+    // Add model mutation
+    const addModelMutation = trpc.opencode.addModel.useMutation({
+        onSuccess: () => {
+            toast.success("Model added successfully")
+            setIsAddingModel(false)
+            setNewModel({ provider: '', name: '', id: '' })
+            refetchModels()
+        },
+        onError: (error) => {
+            toast.error(`Failed to add model: ${error.message}`)
+            setIsAddingModel(false)
+        },
+    })
+
+    const handleAckAddModel = () => {
+        setIsAddingModel(true)
+        addModelMutation.mutate({
+            provider: newModel.provider,
+            modelName: newModel.name,
+            modelId: newModel.id,
+        })
+    }
 
     // Fetch current server URL
     const { data: serverUrl } = trpc.opencode.getServerUrl.useQuery()
@@ -122,7 +172,7 @@ export function AgentsOpenCodeTab() {
                     <span className="font-medium">{modelCount} {disabledProviders.length > 0 && `(filtered from ${allModels.length})`}</span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                    Models are loaded from your OpenCode server configuration (e.g. ~/.opencode/providers.json) via the API.
+                    <></> Models are loaded from your local configuration (~/.config/opencode/providers.json) or the OpenCode API.
                 </p>
             </div>
 
@@ -148,28 +198,127 @@ export function AgentsOpenCodeTab() {
                         {isSaving ? "Saving..." : "Save"}
                     </Button>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                    Default: 4096. Change this if your OpenCode server runs on a different port.
-                </p>
             </div>
 
-            {/* Enabled Providers */}
-            {health?.healthy && models && providers.length > 0 && (
-                <div className="space-y-3">
-                    <h4 className="text-sm font-medium">Enabled Providers</h4>
-                    <div className="space-y-2 p-3 rounded-lg border bg-card">
-                        {providers.map((provider) => (
-                            <div key={provider} className="flex items-center justify-between">
-                                <span className="text-sm">{provider}</span>
-                                <Switch
-                                    checked={!disabledProviders.includes(provider)}
-                                    onCheckedChange={() => handleToggleProvider(provider)}
-                                />
-                            </div>
-                        ))}
+            {/* Add Custom Model */}
+            <div className="space-y-3 pt-4 border-t border-border">
+                <div className="space-y-1">
+                    <h4 className="text-sm font-medium">Add Custom Model</h4>
+                    <p className="text-xs text-muted-foreground">
+                        Add a model to your local configuration (~/.config/opencode/providers.json).
+                    </p>
+                </div>
+
+                <div className="grid gap-3">
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                            <Label htmlFor="provider-name" className="text-xs">Provider Name</Label>
+                            <Input
+                                id="provider-name"
+                                placeholder="e.g. OpenAI"
+                                value={newModel.provider}
+                                onChange={e => setNewModel(prev => ({ ...prev, provider: e.target.value }))}
+                            />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="model-name" className="text-xs">Model Display Name</Label>
+                            <Input
+                                id="model-name"
+                                placeholder="e.g. GPT-4 Custom"
+                                value={newModel.name}
+                                onChange={e => setNewModel(prev => ({ ...prev, name: e.target.value }))}
+                            />
+                        </div>
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label htmlFor="model-id" className="text-xs">Model ID</Label>
+                        <div className="flex gap-2">
+                            <Input
+                                id="model-id"
+                                placeholder="e.g. gpt-4-1106-preview"
+                                value={newModel.id}
+                                onChange={e => setNewModel(prev => ({ ...prev, id: e.target.value }))}
+                                className="flex-1"
+                            />
+                            <Button
+                                onClick={handleAckAddModel}
+                                disabled={isAddingModel || !newModel.provider || !newModel.id || !newModel.name}
+                            >
+                                {isAddingModel ? "Adding..." : "Add Model"}
+                            </Button>
+                        </div>
                     </div>
                 </div>
-            )}
+            </div>
+
+            {/* Import JSON */}
+            <div className="space-y-3 pt-4 border-t border-border">
+                <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                        <h4 className="text-sm font-medium">Import Models JSON</h4>
+                        <p className="text-xs text-muted-foreground">
+                            Bulk import models from a JSON configuration.
+                        </p>
+                    </div>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowImport(!showImport)}
+                    >
+                        {showImport ? "Hide" : "Import"}
+                    </Button>
+                </div>
+
+                {showImport && (
+                    <div className="space-y-3 p-3 border rounded-lg bg-muted/20">
+                        <div className="space-y-1.5">
+                            <Label htmlFor="import-json" className="text-xs">JSON Config</Label>
+                            <Textarea
+                                id="import-json"
+                                placeholder='{ "openai": { "models": { "gpt-4-custom": { "name": "Custom GPT-4" } } } }'
+                                value={importJson}
+                                onChange={e => setImportJson(e.target.value)}
+                                className="font-mono text-xs h-32"
+                            />
+                        </div>
+                        <div className="flex justify-end">
+                            <Button
+                                size="sm"
+                                onClick={handleImport}
+                                disabled={isImporting || !importJson.trim()}
+                            >
+                                {isImporting ? "Importing..." : "Import Config"}
+                            </Button>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+                Default: 4096. Change this if your OpenCode server runs on a different port.
+            </p>
+
+
+
+            {/* Enabled Providers */}
+            {
+                health?.healthy && models && providers.length > 0 && (
+                    <div className="space-y-3">
+                        <h4 className="text-sm font-medium">Enabled Providers</h4>
+                        <div className="space-y-2 p-3 rounded-lg border bg-card">
+                            {providers.map((provider) => (
+                                <div key={provider} className="flex items-center justify-between">
+                                    <span className="text-sm">{provider}</span>
+                                    <Switch
+                                        checked={!disabledProviders.includes(provider)}
+                                        onCheckedChange={() => handleToggleProvider(provider)}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )
+            }
 
             {/* Test Connection Button */}
             <div>
@@ -195,22 +344,24 @@ export function AgentsOpenCodeTab() {
             </div>
 
             {/* Models List (filtered) */}
-            {health?.healthy && filteredModels.length > 0 && (
-                <div className="space-y-3">
-                    <h4 className="text-sm font-medium">Available Models</h4>
-                    <div className="max-h-48 overflow-y-auto space-y-1 p-3 rounded-lg border bg-card">
-                        {filteredModels.map((model) => (
-                            <div
-                                key={model.id}
-                                className="flex items-center justify-between text-xs p-2 rounded hover:bg-muted/50"
-                            >
-                                <span className="font-medium">{model.name}</span>
-                                <span className="text-muted-foreground">{model.provider}</span>
-                            </div>
-                        ))}
+            {
+                health?.healthy && filteredModels.length > 0 && (
+                    <div className="space-y-3">
+                        <h4 className="text-sm font-medium">Available Models</h4>
+                        <div className="max-h-48 overflow-y-auto space-y-1 p-3 rounded-lg border bg-card">
+                            {filteredModels.map((model) => (
+                                <div
+                                    key={model.id}
+                                    className="flex items-center justify-between text-xs p-2 rounded hover:bg-muted/50"
+                                >
+                                    <span className="font-medium">{model.name}</span>
+                                    <span className="text-muted-foreground">{model.provider}</span>
+                                </div>
+                            ))}
+                        </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     )
 }

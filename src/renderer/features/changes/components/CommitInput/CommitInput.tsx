@@ -7,10 +7,19 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "../../../../components/ui/dropdown-menu";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogHeader,
+	DialogTitle,
+} from "../../../../components/ui/dialog";
+import { Input } from "../../../../components/ui/input";
+import { Label } from "../../../../components/ui/label";
 import { toast } from "sonner";
 import { Textarea } from "../../../../components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../../../components/ui/tooltip";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
 	HiArrowDown,
 	HiArrowsUpDown,
@@ -46,14 +55,50 @@ export function CommitInput({
 }: CommitInputProps) {
 	const [commitMessage, setCommitMessage] = useState("");
 	const [isOpen, setIsOpen] = useState(false);
+	const [showGitConfigDialog, setShowGitConfigDialog] = useState(false);
+	const [gitUserName, setGitUserName] = useState("");
+	const [gitUserEmail, setGitUserEmail] = useState("");
+
+	// Fetch current git config on mount
+	const { data: gitConfig } = trpc.changes.getGitUserConfig.useQuery(
+		{ worktreePath },
+		{ enabled: !!worktreePath },
+	);
+
+	// Set initial values from git config
+	useEffect(() => {
+		if (gitConfig) {
+			setGitUserName(gitConfig.name || "");
+			setGitUserEmail(gitConfig.email || "");
+		}
+	}, [gitConfig]);
+
+	const setGitUserConfigMutation = trpc.changes.setGitUserConfig.useMutation({
+		onSuccess: () => {
+			toast.success("Git user configured successfully");
+			setShowGitConfigDialog(false);
+			// Retry the commit after config is set
+			if (commitMessage.trim()) {
+				commitMutation.mutate({ worktreePath, message: commitMessage.trim() });
+			}
+		},
+		onError: (error) => toast.error(`Failed to configure git: ${error.message}`),
+	});
 
 	const commitMutation = trpc.changes.commit.useMutation({
-		onSuccess: () => {
-			toast.success("Committed");
+		onSuccess: (data) => {
+			toast.success(data.message || "Successfully committed changes");
 			setCommitMessage("");
 			onRefresh();
 		},
-		onError: (error) => toast.error(`Commit failed: ${error.message}`),
+		onError: (error) => {
+			// Check if error is about missing git config
+			if (error.message.includes("GIT_USER_CONFIG_REQUIRED")) {
+				setShowGitConfigDialog(true);
+			} else {
+				toast.error(`Commit failed: ${error.message}`);
+			}
+		},
 	});
 
 	const pushMutation = trpc.changes.push.useMutation({
@@ -210,9 +255,70 @@ export function CommitInput({
 			? `${pullCount > 0 ? pullCount : ""}${pullCount > 0 && pushCount > 0 ? "/" : ""}${pushCount > 0 ? pushCount : ""}`
 			: null;
 
+	const handleSaveGitConfig = () => {
+		if (!gitUserName.trim() || !gitUserEmail.trim()) {
+			toast.error("Please enter both username and email");
+			return;
+		}
+		setGitUserConfigMutation.mutate({
+			worktreePath,
+			name: gitUserName.trim(),
+			email: gitUserEmail.trim(),
+		});
+	};
+
 	return (
-		<div className="flex flex-col gap-1.5 px-2 py-2 border-b border-border">
-			<Textarea
+		<>
+			<Dialog open={showGitConfigDialog} onOpenChange={setShowGitConfigDialog}>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Configure Git User</DialogTitle>
+						<DialogDescription>
+							Please configure your git username and email to commit changes. This is required for your first commit.
+						</DialogDescription>
+					</DialogHeader>
+					<div className="space-y-4 py-4">
+						<div className="space-y-2">
+							<Label htmlFor="git-name">Name</Label>
+							<Input
+								id="git-name"
+								value={gitUserName}
+								onChange={(e) => setGitUserName(e.target.value)}
+								placeholder="Your name"
+								autoFocus
+							/>
+						</div>
+						<div className="space-y-2">
+							<Label htmlFor="git-email">Email</Label>
+							<Input
+								id="git-email"
+								type="email"
+								value={gitUserEmail}
+								onChange={(e) => setGitUserEmail(e.target.value)}
+								placeholder="your.email@example.com"
+							/>
+						</div>
+						<div className="flex justify-end gap-2 pt-2">
+							<Button
+								variant="secondary"
+								onClick={() => setShowGitConfigDialog(false)}
+								disabled={setGitUserConfigMutation.isPending}
+							>
+								Cancel
+							</Button>
+							<Button
+								onClick={handleSaveGitConfig}
+								disabled={setGitUserConfigMutation.isPending || !gitUserName.trim() || !gitUserEmail.trim()}
+							>
+								{setGitUserConfigMutation.isPending ? "Saving..." : "Save & Continue"}
+							</Button>
+						</div>
+					</div>
+				</DialogContent>
+			</Dialog>
+
+			<div className="flex flex-col gap-1.5 px-2 py-2 border-b border-border">
+				<Textarea
 				placeholder="Commit message"
 				value={commitMessage}
 				onChange={(e) => setCommitMessage(e.target.value)}
@@ -339,5 +445,6 @@ export function CommitInput({
 				</DropdownMenu>
 			</ButtonGroup>
 		</div>
+		</>
 	);
 }

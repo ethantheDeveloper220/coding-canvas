@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useAtom, useAtomValue, useSetAtom } from "jotai"
+import { useShallow } from "zustand/react/shallow"
 // import { useSearchParams, useRouter } from "next/navigation" // Desktop doesn't use next/navigation
 // Desktop: mock Next.js navigation hooks
 const useSearchParams = () => ({ get: () => null })
@@ -122,12 +123,14 @@ export function AgentsContent() {
   subChatQuickSwitchOpenRef.current = subChatQuickSwitchOpen
   subChatQuickSwitchSelectedIndexRef.current = subChatQuickSwitchSelectedIndex
 
-  // Get sub-chats from store
-  const allSubChats = useAgentSubChatStore((state) => state.allSubChats)
-  const openSubChatIds = useAgentSubChatStore((state) => state.openSubChatIds)
-  const activeSubChatId = useAgentSubChatStore((state) => state.activeSubChatId)
-  const setActiveSubChat = useAgentSubChatStore(
-    (state) => state.setActiveSubChat,
+  // Get sub-chats from store with shallow comparison
+  const { allSubChats, openSubChatIds, activeSubChatId, setActiveSubChat } = useAgentSubChatStore(
+    useShallow((state) => ({
+      allSubChats: state.allSubChats,
+      openSubChatIds: state.openSubChatIds,
+      activeSubChatId: state.activeSubChatId,
+      setActiveSubChat: state.setActiveSubChat,
+    }))
   )
 
   // Fetch teams for header

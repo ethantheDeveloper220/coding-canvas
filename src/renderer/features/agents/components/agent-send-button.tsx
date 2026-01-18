@@ -4,7 +4,6 @@ import { Button } from "../../../components/ui/button"
 import { ArrowUp } from "lucide-react"
 import {
   EnterIcon,
-  IconSpinner,
 } from "../../../components/ui/icons"
 import { Kbd } from "../../../components/ui/kbd"
 import {
@@ -12,6 +11,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "../../../components/ui/tooltip"
+import { motion, AnimatePresence } from "motion/react"
 
 interface AgentSendButtonProps {
   /** Whether the system is currently streaming */
@@ -45,8 +45,6 @@ export function AgentSendButton({
   ariaLabel,
   isPlanMode = false,
 }: AgentSendButtonProps) {
-  // Note: Enter shortcut is now handled by input components directly
-
   // Determine the actual click handler based on state
   const handleClick = () => {
     if (isStreaming && onStop) {
@@ -58,19 +56,6 @@ export function AgentSendButton({
 
   // Determine if button should be disabled
   const isDisabled = isStreaming ? false : disabled
-
-  // Determine icon to show
-  const getIcon = () => {
-    if (isStreaming) {
-      return (
-        <div className="w-3 h-3 bg-current rounded-[2px] flex-shrink-0 mx-auto" />
-      )
-    }
-    if (isSubmitting) {
-      return <IconSpinner className="size-4" />
-    }
-    return <ArrowUp className="size-4" />
-  }
 
   // Determine tooltip content
   const getTooltipContent = () => {
@@ -119,13 +104,56 @@ export function AgentSendButton({
       <TooltipTrigger asChild>
         <Button
           size={size}
-          className={`h-7 w-7 rounded-full transition-[background-color,transform,opacity] duration-150 ease-out active:scale-[0.97] flex items-center justify-center ${glowClass || ""} ${modeClass} ${className}`}
+          className={`h-7 w-7 rounded-full transition-[background-color,transform,opacity,box-shadow] duration-200 ease-out active:scale-[0.97] flex items-center justify-center overflow-hidden ${glowClass || ""} ${modeClass} ${className}`}
           disabled={isDisabled}
           type="button"
           onClick={handleClick}
           aria-label={getAriaLabel()}
         >
-          {getIcon()}
+          <AnimatePresence mode="wait" initial={false}>
+            {isStreaming ? (
+              <motion.div
+                key="stop"
+                initial={{ opacity: 0, scale: 0.5, rotate: -90 }}
+                animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                exit={{ opacity: 0, scale: 0.5, rotate: 90 }}
+                transition={{ duration: 0.15 }}
+              >
+                <div className="w-2.5 h-2.5 bg-current rounded-[2px]" />
+              </motion.div>
+            ) : isSubmitting ? (
+              <motion.div
+                key="loading"
+                initial={{ opacity: 0, scale: 0.5 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.5 }}
+                transition={{ duration: 0.15 }}
+                className="flex items-center justify-center"
+              >
+                {/* Cool glowing spinner ring */}
+                <div className="relative w-4 h-4">
+                  <motion.span
+                    className="absolute inset-0 border-2 border-current/30 rounded-full"
+                  />
+                  <motion.span
+                    className="absolute inset-0 border-2 border-current border-t-transparent rounded-full"
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }}
+                  />
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="send"
+                initial={{ opacity: 0, scale: 0.5, y: 5 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.5, y: -5 }}
+                transition={{ duration: 0.15 }}
+              >
+                <ArrowUp className="size-4" />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </Button>
       </TooltipTrigger>
       <TooltipContent side="left">{getTooltipContent()}</TooltipContent>

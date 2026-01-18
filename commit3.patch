@@ -1,0 +1,371 @@
+From 1181c7a31daf0ba0c8bdfefc88c4180b28990313 Mon Sep 17 00:00:00 2001
+From: serafim <serafimcloud@gmail.com>
+Date: Fri, 16 Jan 2026 19:59:31 -0800
+Subject: [PATCH] Release v0.0.18
+
+## What's New in v0.0.18
+
+### Improvements & Fixes
+
+- Fixed sidebar flickering when switching between chats
+---
+ package.json                                  |  2 +-
+ .../components/chat-markdown-renderer.tsx     |  2 ++
+ src/renderer/components/ui/kbd.tsx            |  5 ++--
+ .../features/agents/main/active-chat.tsx      | 29 ++++++++++++++++---
+ .../features/agents/main/new-chat-form.tsx    |  6 ++--
+ .../features/agents/ui/agents-content.tsx     | 15 ++++++----
+ .../features/agents/ui/archive-popover.tsx    | 17 ++++++++---
+ .../features/agents/ui/sub-chat-selector.tsx  | 22 +++++++-------
+ .../features/sidebar/agents-sidebar.tsx       |  4 +--
+ .../sidebar/agents-subchats-sidebar.tsx       | 24 ++++++++-------
+ 10 files changed, 83 insertions(+), 43 deletions(-)
+
+diff --git a/package.json b/package.json
+index 0ecfc51..36cf9a9 100644
+--- a/package.json
++++ b/package.json
+@@ -1,6 +1,6 @@
+ {
+   "name": "21st-desktop",
+-  "version": "0.0.17",
++  "version": "0.0.18",
+   "private": true,
+   "description": "1Code - UI for parallel work with AI agents",
+   "author": "21st.dev",
+diff --git a/src/renderer/components/chat-markdown-renderer.tsx b/src/renderer/components/chat-markdown-renderer.tsx
+index 2d92b95..83c1e29 100644
+--- a/src/renderer/components/chat-markdown-renderer.tsx
++++ b/src/renderer/components/chat-markdown-renderer.tsx
+@@ -442,6 +442,8 @@ export const ChatMarkdownRenderer = memo(function ChatMarkdownRenderer({
+         "[&_li>p]:inline [&_li>p]:mb-0",
+         // Prevent horizontal overflow on mobile
+         "overflow-hidden break-words",
++        // Global spacing: elements before hr get extra bottom margin (for spacing above divider)
++        "[&_p:has(+hr)]:mb-6 [&_ul:has(+hr)]:mb-6 [&_ol:has(+hr)]:mb-6 [&_div:has(+hr)]:mb-6 [&_table:has(+hr)]:mb-6 [&_h1:has(+hr)]:mb-6 [&_h2:has(+hr)]:mb-6 [&_h3:has(+hr)]:mb-6 [&_blockquote:has(+hr)]:mb-6",
+         // Global spacing: elements after hr get extra top margin
+         "[&_hr+p]:mt-4 [&_hr+ul]:mt-4 [&_hr+ol]:mt-4",
+         // Global spacing: elements after code blocks get extra top margin
+diff --git a/src/renderer/components/ui/kbd.tsx b/src/renderer/components/ui/kbd.tsx
+index 1a98b48..9674286 100644
+--- a/src/renderer/components/ui/kbd.tsx
++++ b/src/renderer/components/ui/kbd.tsx
+@@ -1,6 +1,6 @@
+ import * as React from "react"
+ import { cn } from "../../lib/utils"
+-import { CmdIcon, OptionIcon, ShiftIcon } from "./icons"
++import { CmdIcon, EnterIcon, OptionIcon, ShiftIcon } from "./icons"
+ 
+ export interface KbdProps extends React.HTMLAttributes<HTMLElement> {}
+ 
+@@ -16,10 +16,11 @@ function renderShortcut(children: React.ReactNode): React.ReactNode {
+     "⌥": <OptionIcon key="opt" className="h-3 w-3" />,
+     "⇧": <ShiftIcon key="shift" className="h-3 w-3" />,
+     "⌃": <span key="ctrl">⌃</span>, // Control stays as unicode (no icon)
++    "↵": <EnterIcon key="enter" className="h-3 w-3" />,
+   }
+ 
+   // Split by symbols and replace with icons
+-  const regex = /([⌘⌥⇧⌃])/g
++  const regex = /([⌘⌥⇧⌃↵])/g
+   const tokens = children.split(regex)
+ 
+   tokens.forEach((token, index) => {
+diff --git a/src/renderer/features/agents/main/active-chat.tsx b/src/renderer/features/agents/main/active-chat.tsx
+index 030cc01..07caac6 100644
+--- a/src/renderer/features/agents/main/active-chat.tsx
++++ b/src/renderer/features/agents/main/active-chat.tsx
+@@ -2220,6 +2220,25 @@ function ChatViewInner({
+     })
+   }, [hasUnapprovedPlan, subChatId, setPendingPlanApprovals])
+ 
++  // Keyboard shortcut: Cmd+Enter to approve plan
++  useEffect(() => {
++    const handleKeyDown = (e: KeyboardEvent) => {
++      if (
++        e.key === "Enter" &&
++        e.metaKey &&
++        !e.shiftKey &&
++        hasUnapprovedPlan &&
++        !isStreaming
++      ) {
++        e.preventDefault()
++        handleApprovePlan()
++      }
++    }
++
++    window.addEventListener("keydown", handleKeyDown)
++    return () => window.removeEventListener("keydown", handleKeyDown)
++  }, [hasUnapprovedPlan, isStreaming, handleApprovePlan])
++
+   // Clean up pending plan approval when unmounting
+   useEffect(() => {
+     return () => {
+@@ -2999,7 +3018,7 @@ function ChatViewInner({
+       {/* Input */}
+       <div
+         className={cn(
+-          "px-2 pb-6 shadow-sm shadow-background relative z-10",
++          "px-2 pb-2 shadow-sm shadow-background relative z-10",
+           (isStreaming || changedFilesForSubChat.length > 0) &&
+             !(pendingQuestions?.subChatId === subChatId) &&
+             "-mt-3 pt-3",
+@@ -3022,7 +3041,7 @@ function ChatViewInner({
+                   isDragOver && "ring-2 ring-primary/50 border-primary/50",
+                   isFocused && !isDragOver && "ring-2 ring-primary/50",
+                 )}
+-                maxHeight={200}
++                maxHeight={240}
+                 onSubmit={handleSend}
+                 contextItems={
+                   images.length > 0 || files.length > 0 ? (
+@@ -3091,7 +3110,7 @@ function ChatViewInner({
+                     onShiftTab={() => setIsPlanMode((prev) => !prev)}
+                     placeholder="Plan, @ for context, / for commands"
+                     className={cn(
+-                      "bg-transparent max-h-[200px] overflow-y-auto p-1",
++                      "bg-transparent max-h-[240px] overflow-y-auto p-1",
+                       isMobile && "min-h-[56px]",
+                     )}
+                     onPaste={handlePaste}
+@@ -3360,8 +3379,10 @@ function ChatViewInner({
+                           size="sm"
+                           className="h-7 gap-1.5 rounded-lg"
+                         >
+-                          <CheckIcon className="w-3.5 h-3.5" />
+                           Implement plan
++                          <Kbd className="text-primary-foreground/80">
++                            ⌘↵
++                          </Kbd>
+                         </Button>
+                       ) : (
+                         <AgentSendButton
+diff --git a/src/renderer/features/agents/main/new-chat-form.tsx b/src/renderer/features/agents/main/new-chat-form.tsx
+index 75079ac..bc1f7a5 100644
+--- a/src/renderer/features/agents/main/new-chat-form.tsx
++++ b/src/renderer/features/agents/main/new-chat-form.tsx
+@@ -942,7 +942,7 @@ export function NewChatForm({
+         </div>
+       </div>
+ 
+-      <div className="flex flex-1 items-center justify-center overflow-y-auto relative pb-16">
++      <div className="flex flex-1 items-center justify-center overflow-y-auto relative">
+         <div className="w-full max-w-2xl space-y-4 md:space-y-6 relative z-10 px-4">
+           {/* Title - only show when project is selected */}
+           {validatedProject && (
+@@ -983,7 +983,7 @@ export function NewChatForm({
+                     isDragOver && "ring-2 ring-primary/50 border-primary/50",
+                     isFocused && !isDragOver && "ring-2 ring-primary/50",
+                   )}
+-                  maxHeight={200}
++                  maxHeight={240}
+                   onSubmit={handleSend}
+                   contextItems={contextItems}
+                 >
+@@ -1000,7 +1000,7 @@ export function NewChatForm({
+                       onShiftTab={() => setIsPlanMode((prev) => !prev)}
+                       placeholder="Plan, @ for context, / for commands"
+                       className={cn(
+-                        "bg-transparent max-h-[200px] overflow-y-auto p-1",
++                        "bg-transparent max-h-[240px] overflow-y-auto p-1",
+                         isMobileFullscreen ? "min-h-[56px]" : "min-h-[44px]",
+                       )}
+                       onPaste={handlePaste}
+diff --git a/src/renderer/features/agents/ui/agents-content.tsx b/src/renderer/features/agents/ui/agents-content.tsx
+index c520b9d..132035d 100644
+--- a/src/renderer/features/agents/ui/agents-content.tsx
++++ b/src/renderer/features/agents/ui/agents-content.tsx
+@@ -40,6 +40,7 @@ import {
+   useAgentSubChatStore,
+   type SubChatMeta,
+ } from "../stores/sub-chat-store"
++import { useShallow } from "zustand/react/shallow"
+ import { motion, AnimatePresence } from "motion/react"
+ // import { ResizableSidebar } from "@/app/(alpha)/canvas/[id]/{components}/resizable-sidebar"
+ import { ResizableSidebar } from "../../../components/ui/resizable-sidebar"
+@@ -119,12 +120,14 @@ export function AgentsContent() {
+   subChatQuickSwitchOpenRef.current = subChatQuickSwitchOpen
+   subChatQuickSwitchSelectedIndexRef.current = subChatQuickSwitchSelectedIndex
+ 
+-  // Get sub-chats from store
+-  const allSubChats = useAgentSubChatStore((state) => state.allSubChats)
+-  const openSubChatIds = useAgentSubChatStore((state) => state.openSubChatIds)
+-  const activeSubChatId = useAgentSubChatStore((state) => state.activeSubChatId)
+-  const setActiveSubChat = useAgentSubChatStore(
+-    (state) => state.setActiveSubChat,
++  // Get sub-chats from store with shallow comparison
++  const { allSubChats, openSubChatIds, activeSubChatId, setActiveSubChat } = useAgentSubChatStore(
++    useShallow((state) => ({
++      allSubChats: state.allSubChats,
++      openSubChatIds: state.openSubChatIds,
++      activeSubChatId: state.activeSubChatId,
++      setActiveSubChat: state.setActiveSubChat,
++    }))
+   )
+ 
+   // Fetch teams for header
+diff --git a/src/renderer/features/agents/ui/archive-popover.tsx b/src/renderer/features/agents/ui/archive-popover.tsx
+index e6f7238..5f0d01b 100644
+--- a/src/renderer/features/agents/ui/archive-popover.tsx
++++ b/src/renderer/features/agents/ui/archive-popover.tsx
+@@ -92,7 +92,17 @@ export function ArchivePopover({ trigger }: ArchivePopoverProps) {
+       )
+   }, [archivedChats, searchQuery])
+ 
+-  // Sync selected index with selected chat when popover opens or data changes
++  // Clear search query and sync selected index when popover opens
++  useEffect(() => {
++    if (open) {
++      setSearchQuery("")
++      setTimeout(() => {
++        searchInputRef.current?.focus()
++      }, 0)
++    }
++  }, [open, setSearchQuery])
++
++  // Sync selected index with filtered chats
+   useEffect(() => {
+     if (open && filteredChats.length > 0) {
+       // Find index of currently selected chat, default to 0 if not found
+@@ -100,9 +110,6 @@ export function ArchivePopover({ trigger }: ArchivePopoverProps) {
+         (chat) => chat.id === selectedChatId,
+       )
+       setSelectedIndex(currentIndex >= 0 ? currentIndex : 0)
+-      setTimeout(() => {
+-        searchInputRef.current?.focus()
+-      }, 0)
+     }
+   }, [open, filteredChats, selectedChatId])
+ 
+@@ -123,6 +130,8 @@ export function ArchivePopover({ trigger }: ArchivePopoverProps) {
+       const chat = filteredChats[selectedIndex]
+       if (chat) {
+         restoreMutation.mutate({ id: chat.id })
++        setSelectedChatId(chat.id)
++        setOpen(false)
+       }
+     }
+   }
+diff --git a/src/renderer/features/agents/ui/sub-chat-selector.tsx b/src/renderer/features/agents/ui/sub-chat-selector.tsx
+index ae48b6c..5a421bb 100644
+--- a/src/renderer/features/agents/ui/sub-chat-selector.tsx
++++ b/src/renderer/features/agents/ui/sub-chat-selector.tsx
+@@ -26,6 +26,7 @@ import {
+   useAgentSubChatStore,
+   type SubChatMeta,
+ } from "../stores/sub-chat-store"
++import { useShallow } from "zustand/react/shallow"
+ import { PopoverTrigger } from "../../../components/ui/popover"
+ import {
+   Tooltip,
+@@ -76,15 +77,16 @@ export function SubChatSelector({
+   isDiffSidebarOpen = false,
+   diffStats,
+ }: SubChatSelectorProps) {
+-  const activeSubChatId = useAgentSubChatStore((state) => state.activeSubChatId)
+-  const openSubChatIds = useAgentSubChatStore((state) => state.openSubChatIds)
+-  const pinnedSubChatIds = useAgentSubChatStore(
+-    (state) => state.pinnedSubChatIds,
+-  )
+-  const allSubChats = useAgentSubChatStore((state) => state.allSubChats)
+-  const parentChatId = useAgentSubChatStore((state) => state.chatId)
+-  const togglePinSubChat = useAgentSubChatStore(
+-    (state) => state.togglePinSubChat,
++  // Use shallow comparison to prevent re-renders when arrays have same content
++  const { activeSubChatId, openSubChatIds, pinnedSubChatIds, allSubChats, parentChatId, togglePinSubChat } = useAgentSubChatStore(
++    useShallow((state) => ({
++      activeSubChatId: state.activeSubChatId,
++      openSubChatIds: state.openSubChatIds,
++      pinnedSubChatIds: state.pinnedSubChatIds,
++      allSubChats: state.allSubChats,
++      parentChatId: state.chatId,
++      togglePinSubChat: state.togglePinSubChat,
++    }))
+   )
+   const [loadingSubChats] = useAtom(loadingSubChatsAtom)
+   const subChatUnseenChanges = useAtomValue(agentsSubChatUnseenChangesAtom)
+@@ -97,7 +99,7 @@ export function SubChatSelector({
+   // Pending plan approvals from DB - only for open sub-chats
+   const { data: pendingPlanApprovalsData } = trpc.chats.getPendingPlanApprovals.useQuery(
+     { openSubChatIds },
+-    { refetchInterval: 5000, enabled: openSubChatIds.length > 0 }
++    { refetchInterval: 5000, enabled: openSubChatIds.length > 0, placeholderData: (prev) => prev }
+   )
+   const pendingPlanApprovals = useMemo(() => {
+     const set = new Set<string>()
+diff --git a/src/renderer/features/sidebar/agents-sidebar.tsx b/src/renderer/features/sidebar/agents-sidebar.tsx
+index 97d2359..a6c4aa6 100644
+--- a/src/renderer/features/sidebar/agents-sidebar.tsx
++++ b/src/renderer/features/sidebar/agents-sidebar.tsx
+@@ -365,13 +365,13 @@ export function AgentsSidebar({
+   // File changes stats from DB - only for open sub-chats
+   const { data: fileStatsData } = trpc.chats.getFileStats.useQuery(
+     { openSubChatIds: allOpenSubChatIds },
+-    { refetchInterval: 5000, enabled: allOpenSubChatIds.length > 0 }
++    { refetchInterval: 5000, enabled: allOpenSubChatIds.length > 0, placeholderData: (prev) => prev }
+   )
+ 
+   // Pending plan approvals from DB - only for open sub-chats
+   const { data: pendingPlanApprovalsData } = trpc.chats.getPendingPlanApprovals.useQuery(
+     { openSubChatIds: allOpenSubChatIds },
+-    { refetchInterval: 5000, enabled: allOpenSubChatIds.length > 0 }
++    { refetchInterval: 5000, enabled: allOpenSubChatIds.length > 0, placeholderData: (prev) => prev }
+   )
+ 
+   // Fetch all projects for git info
+diff --git a/src/renderer/features/sidebar/agents-subchats-sidebar.tsx b/src/renderer/features/sidebar/agents-subchats-sidebar.tsx
+index b4412cf..09a9eba 100644
+--- a/src/renderer/features/sidebar/agents-subchats-sidebar.tsx
++++ b/src/renderer/features/sidebar/agents-subchats-sidebar.tsx
+@@ -34,6 +34,7 @@ import {
+   useAgentSubChatStore,
+   type SubChatMeta,
+ } from "../agents/stores/sub-chat-store"
++import { useShallow } from "zustand/react/shallow"
+ import {
+   PlusIcon,
+   ArchiveIcon,
+@@ -103,15 +104,16 @@ export function AgentsSubChatsSidebar({
+   isLoading = false,
+   agentName,
+ }: AgentsSubChatsSidebarProps) {
+-  const activeSubChatId = useAgentSubChatStore((state) => state.activeSubChatId)
+-  const openSubChatIds = useAgentSubChatStore((state) => state.openSubChatIds)
+-  const pinnedSubChatIds = useAgentSubChatStore(
+-    (state) => state.pinnedSubChatIds,
+-  )
+-  const allSubChats = useAgentSubChatStore((state) => state.allSubChats)
+-  const parentChatId = useAgentSubChatStore((state) => state.chatId)
+-  const togglePinSubChat = useAgentSubChatStore(
+-    (state) => state.togglePinSubChat,
++  // Use shallow comparison to prevent re-renders when arrays have same content
++  const { activeSubChatId, openSubChatIds, pinnedSubChatIds, allSubChats, parentChatId, togglePinSubChat } = useAgentSubChatStore(
++    useShallow((state) => ({
++      activeSubChatId: state.activeSubChatId,
++      openSubChatIds: state.openSubChatIds,
++      pinnedSubChatIds: state.pinnedSubChatIds,
++      allSubChats: state.allSubChats,
++      parentChatId: state.chatId,
++      togglePinSubChat: state.togglePinSubChat,
++    }))
+   )
+   const [loadingSubChats] = useAtom(loadingSubChatsAtom)
+   const subChatFiles = useAtomValue(subChatFilesAtom)
+@@ -154,7 +156,7 @@ export function AgentsSubChatsSidebar({
+   // Pending plan approvals from DB - only for open sub-chats
+   const { data: pendingPlanApprovalsData } = trpc.chats.getPendingPlanApprovals.useQuery(
+     { openSubChatIds },
+-    { refetchInterval: 5000, enabled: openSubChatIds.length > 0 }
++    { refetchInterval: 5000, enabled: openSubChatIds.length > 0, placeholderData: (prev) => prev }
+   )
+   const pendingPlanApprovals = useMemo(() => {
+     const set = new Set<string>()
+@@ -1092,7 +1094,7 @@ export function AgentsSubChatsSidebar({
+         {/* Loading state - centered spinner */}
+         {isLoading ? (
+           <div className="flex items-center justify-center h-full">
+-            <IconSpinner className="w-5 h-5 text-muted-foreground" />
++            <IconSpinner className="w-4 h-4 text-muted-foreground" />
+           </div>
+         ) : (
+           <>

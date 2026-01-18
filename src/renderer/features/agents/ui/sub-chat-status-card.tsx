@@ -8,6 +8,7 @@ import { Button } from "../../../components/ui/button"
 import { cn } from "../../../lib/utils"
 import { trpc } from "../../../lib/trpc"
 import { getFileIconByExtension } from "../mentions/agents-file-mention"
+import { useFileChangeListener } from "../../../lib/hooks/use-file-change-listener"
 import {
   diffSidebarOpenAtomFamily,
   agentsFocusedDiffFileAtom,
@@ -54,13 +55,17 @@ export const SubChatStatusCard = memo(function SubChatStatusCard({
   const setFilteredDiffFiles = useSetAtom(filteredDiffFilesAtom)
   const setFocusedDiffFile = useSetAtom(agentsFocusedDiffFileAtom)
 
+  // Listen for file changes from Claude Write/Edit tools
+  useFileChangeListener(worktreePath)
+
   // Fetch git status to filter out committed files
   const { data: gitStatus } = trpc.changes.getStatus.useQuery(
     { worktreePath: worktreePath || "", defaultBranch: "main" },
     {
       enabled: !!worktreePath && changedFiles.length > 0 && !isStreaming,
-      refetchInterval: 3000,
-      staleTime: 1000,
+      // No polling - updates triggered by file-changed events from Claude tools
+      staleTime: 30000,
+      placeholderData: (prev) => prev,
     },
   )
 

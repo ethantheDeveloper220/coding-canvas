@@ -164,9 +164,9 @@ const DiffLineRow = memo(function DiffLineRow({
       className={cn(
         "px-2.5 py-0.5",
         line.type === "removed" &&
-          "bg-red-500/10 dark:bg-red-500/15 border-l-2 border-red-500/50",
+        "bg-red-500/10 dark:bg-red-500/15 border-l-2 border-red-500/50",
         line.type === "added" &&
-          "bg-green-500/10 dark:bg-green-500/15 border-l-2 border-green-500/50",
+        "bg-green-500/10 dark:bg-green-500/15 border-l-2 border-green-500/50",
         line.type === "context" && "border-l-2 border-transparent",
       )}
     >
@@ -184,7 +184,7 @@ const DiffLineRow = memo(function DiffLineRow({
             line.type === "context" && "text-muted-foreground",
           )}
         >
-          {line.content || " "}
+          {String(line.content || " ")}
         </span>
       )}
     </div>
@@ -215,7 +215,7 @@ export const AgentEditTool = memo(function AgentEditTool({
   const writeContent = part.input?.content || ""
 
   // Get structuredPatch from output (only available when complete)
-  const structuredPatch = part.output?.structuredPatch
+  const structuredPatch = part.output?.structuredPatch || part.output?.metadata?.structuredPatch
 
   // Extract filename from path
   const filename = filePath ? filePath.split("/").pop() || "file" : ""
@@ -256,10 +256,45 @@ export const AgentEditTool = memo(function AgentEditTool({
     setFocusedDiffFile(displayPath)
   }, [displayPath, setDiffSidebarOpen, setFocusedDiffFile])
 
+  // Handler to open file in preview
+  const handleOpenPreview = useCallback(() => {
+    if (!displayPath) return
+    // Open the existing preview sidebar
+    setDiffSidebarOpen(true)
+    setFocusedDiffFile(displayPath)
+  }, [displayPath, setDiffSidebarOpen, setFocusedDiffFile])
+
+  // Keyboard shortcut: Ctrl/Cmd+O to open preview
+  useEffect(() => {
+    if (!displayPath || isPending || isInputStreaming) return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
+        e.preventDefault()
+        handleOpenPreview()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [displayPath, isPending, isInputStreaming, handleOpenPreview])
+
   // Get file icon component and language
   // Pass true to not show default icon for unknown file types
   const FileIcon = filename ? getFileIconByExtension(filename, true) : null
   const language = filename ? getLanguageFromFilename(filename) : "plaintext"
+
+  // Debug: Log button visibility conditions
+  useEffect(() => {
+    if (filePath) {
+      console.log('[AgentEditTool] Button visibility:', {
+        isPending,
+        isInputStreaming,
+        displayPath,
+        shouldShowButton: !isPending && !isInputStreaming && displayPath
+      })
+    }
+  }, [isPending, isInputStreaming, displayPath, filePath])
 
   // Calculate diff stats - prefer from patch, fallback to simple count
   // For Write mode, count all lines as added
@@ -361,9 +396,9 @@ export const AgentEditTool = memo(function AgentEditTool({
     () =>
       !isOutputExpanded && firstAddedIndex > 0
         ? [
-            ...activeLines.slice(firstAddedIndex),
-            ...activeLines.slice(0, firstAddedIndex),
-          ]
+          ...activeLines.slice(firstAddedIndex),
+          ...activeLines.slice(0, firstAddedIndex),
+        ]
         : activeLines,
     [activeLines, isOutputExpanded, firstAddedIndex],
   )
@@ -482,6 +517,38 @@ export const AgentEditTool = memo(function AgentEditTool({
             ) : null}
           </div>
 
+          {/* Preview button - show when file is complete */}
+          {!isPending && !isInputStreaming && displayPath && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleOpenPreview()
+                  }}
+                  className="p-1 rounded-md hover:bg-accent transition-[background-color,transform] duration-150 ease-out active:scale-95"
+                >
+                  <svg
+                    className="w-4 h-4 text-muted-foreground"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                    />
+                  </svg>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <span className="text-xs">Open in preview (Ctrl+O)</span>
+              </TooltipContent>
+            </Tooltip>
+          )}
+
           {/* Expand/Collapse button - show when has visible content and not streaming */}
           {hasVisibleContent && !isPending && !isInputStreaming && (
             <button
@@ -529,13 +596,13 @@ export const AgentEditTool = memo(function AgentEditTool({
               ? "max-h-[200px] overflow-y-auto"
               : "h-[72px] overflow-hidden", // Fixed height when collapsed
             !isOutputExpanded &&
-              !isPending &&
-              !isInputStreaming &&
-              "cursor-pointer hover:bg-muted/50",
+            !isPending &&
+            !isInputStreaming &&
+            "cursor-pointer hover:bg-muted/50",
             // When streaming with > 3 lines, use flex to push content to bottom
             isInputStreaming &&
-              shouldAlignBottom &&
-              "flex flex-col justify-end",
+            shouldAlignBottom &&
+            "flex flex-col justify-end",
           )}
         >
           {/* Display lines - either streaming content or completed diff */}
@@ -555,19 +622,21 @@ export const AgentEditTool = memo(function AgentEditTool({
               ))}
             </div>
           ) : // Fallback: show raw streaming content when no lines parsed yet
-          streamingContent || newString ? (
-            <div
-              className={cn(
-                "px-2.5 py-1.5 text-green-700 dark:text-green-300 whitespace-pre-wrap break-all",
-                isInputStreaming && shouldAlignBottom && "flex-shrink-0",
-              )}
-            >
-              {isInputStreaming && !isOutputExpanded
-                ? // Show last ~500 chars during streaming
-                  (streamingContent || newString).slice(-500)
-                : streamingContent || newString}
-            </div>
-          ) : null}
+            streamingContent || newString ? (
+              <div
+                className={cn(
+                  "px-2.5 py-1.5 text-green-700 dark:text-green-300 whitespace-pre-wrap break-all",
+                  isInputStreaming && shouldAlignBottom && "flex-shrink-0",
+                )}
+              >
+                {String(
+                  isInputStreaming && !isOutputExpanded
+                    ? // Show last ~500 chars during streaming
+                    (streamingContent || newString).slice(-500)
+                    : streamingContent || newString || ""
+                )}
+              </div>
+            ) : null}
         </div>
       )}
     </div>

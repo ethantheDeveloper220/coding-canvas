@@ -128,13 +128,13 @@ export const AgentToolRegistry: Record<string, ToolMeta> = {
     subtitle: (part) => {
       const pattern = part.input?.pattern || ""
       const path = part.input?.path || ""
-      
+
       if (path) {
         // Show "pattern in path"
         const combined = `${pattern} in ${path}`
         return combined.length > 40 ? combined.slice(0, 37) + "..." : combined
       }
-      
+
       return pattern.length > 40 ? pattern.slice(0, 37) + "..." : pattern
     },
     variant: "simple",
@@ -152,13 +152,13 @@ export const AgentToolRegistry: Record<string, ToolMeta> = {
     subtitle: (part) => {
       const pattern = part.input?.pattern || ""
       const targetDir = part.input?.target_directory || ""
-      
+
       if (targetDir) {
         // Show "pattern in targetDir"
         const combined = `${pattern} in ${targetDir}`
         return combined.length > 40 ? combined.slice(0, 37) + "..." : combined
       }
-      
+
       return pattern.length > 40 ? pattern.slice(0, 37) + "..." : pattern
     },
     variant: "simple",
@@ -324,6 +324,16 @@ export const AgentToolRegistry: Record<string, ToolMeta> = {
     variant: "simple",
   },
 
+  "tool-TodoRead": {
+    icon: ListTodo,
+    title: (part) => {
+      const isPending =
+        part.state !== "output-available" && part.state !== "output-error"
+      return isPending ? "Reading todos" : "Read todos"
+    },
+    variant: "simple",
+  },
+
   "tool-PlanWrite": {
     icon: PlanningIcon,
     title: (part) => {
@@ -348,11 +358,11 @@ export const AgentToolRegistry: Record<string, ToolMeta> = {
       const steps = plan.steps || []
       const completed = steps.filter((s: any) => s.status === "completed").length
       if (plan.title) {
-        return steps.length > 0 
+        return steps.length > 0
           ? `${plan.title} (${completed}/${steps.length})`
           : plan.title
       }
-      return steps.length > 0 
+      return steps.length > 0
         ? `${completed}/${steps.length} steps`
         : ""
     },
@@ -451,6 +461,16 @@ export const AgentToolRegistry: Record<string, ToolMeta> = {
       const isPending =
         part.state !== "output-available" && part.state !== "output-error"
       return isPending ? "Compacting..." : "Compacted"
+    },
+    variant: "simple",
+  },
+
+  "tool-ContextSummary": {
+    icon: Minimize2,
+    title: (part) => {
+      const isPending =
+        part.state !== "output-available" && part.state !== "output-error"
+      return isPending ? "Summarizing context..." : "Context summarized"
     },
     variant: "simple",
   },

@@ -23,6 +23,7 @@ import {
   useAgentSubChatStore,
   type SubChatMeta,
 } from "../agents/stores/sub-chat-store"
+import { useShallow } from "zustand/react/shallow"
 import { PopoverTrigger } from "../../components/ui/popover"
 import {
   Tooltip,
@@ -80,15 +81,16 @@ export function SubChatSelector({
   isDiffSidebarOpen = false,
   diffStats,
 }: SubChatSelectorProps) {
-  const activeSubChatId = useAgentSubChatStore((state) => state.activeSubChatId)
-  const openSubChatIds = useAgentSubChatStore((state) => state.openSubChatIds)
-  const pinnedSubChatIds = useAgentSubChatStore(
-    (state) => state.pinnedSubChatIds,
-  )
-  const allSubChats = useAgentSubChatStore((state) => state.allSubChats)
-  const parentChatId = useAgentSubChatStore((state) => state.chatId)
-  const togglePinSubChat = useAgentSubChatStore(
-    (state) => state.togglePinSubChat,
+  // Use shallow comparison to prevent re-renders when arrays have same content
+  const { activeSubChatId, openSubChatIds, pinnedSubChatIds, allSubChats, parentChatId, togglePinSubChat } = useAgentSubChatStore(
+    useShallow((state) => ({
+      activeSubChatId: state.activeSubChatId,
+      openSubChatIds: state.openSubChatIds,
+      pinnedSubChatIds: state.pinnedSubChatIds,
+      allSubChats: state.allSubChats,
+      parentChatId: state.chatId,
+      togglePinSubChat: state.togglePinSubChat,
+    }))
   )
   const [loadingSubChats] = useAtom(loadingSubChatsAtom)
   const subChatUnseenChanges = useAtomValue(agentsSubChatUnseenChangesAtom)

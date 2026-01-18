@@ -1,0 +1,742 @@
+From 95fbdc324018ec97ff96f50e32697f95d9f96fb7 Mon Sep 17 00:00:00 2001
+From: serafim <serafimcloud@gmail.com>
+Date: Thu, 15 Jan 2026 14:09:47 -0800
+Subject: [PATCH] Release v0.0.13
+
+---
+ .env.example                                  |  12 +
+ CONTRIBUTING.md                               |  45 ++++
+ README.md                                     |  35 +--
+ RELEASE.md                                    | 227 ------------------
+ package.json                                  |   8 +-
+ scripts/sync-to-public.sh                     |   4 +
+ src/main/index.ts                             |   8 +-
+ src/main/lib/auto-updater.ts                  |  19 ++
+ src/renderer/features/agents/lib/drafts.ts    |  14 +-
+ .../features/agents/main/new-chat-form.tsx    |  14 +-
+ .../ui/agent-ask-user-question-tool.tsx       |   4 +-
+ .../features/agents/ui/agent-bash-tool.tsx    |   4 +-
+ .../agents/ui/agent-exploring-group.tsx       |   3 +-
+ .../features/agents/ui/agent-task-tool.tsx    |   3 +-
+ .../features/sidebar/agents-sidebar.tsx       |  25 +-
+ src/renderer/features/ui/agent-bash-tool.tsx  |   4 +-
+ 16 files changed, 165 insertions(+), 264 deletions(-)
+ create mode 100644 CONTRIBUTING.md
+ delete mode 100644 RELEASE.md
+
+diff --git a/.env.example b/.env.example
+index 9a2af57..d027df2 100644
+--- a/.env.example
++++ b/.env.example
+@@ -1,4 +1,12 @@
++# =============================================================================
++# Open Source Build Configuration
++# =============================================================================
++# All variables below are OPTIONAL - the app works without them.
++# Set them only if you need code signing, analytics, or error tracking.
++# =============================================================================
++
+ # Apple Developer credentials (required for macOS code signing & notarization)
++# Skip these if you just want to run locally without signing
+ APPLE_ID=your-email@example.com
+ APPLE_APP_SPECIFIC_PASSWORD=xxxx-xxxx-xxxx-xxxx
+ APPLE_TEAM_ID=XXXXXXXXXX
+@@ -15,3 +23,7 @@ MAIN_VITE_POSTHOG_HOST=https://us.i.posthog.com
+ # Renderer process (VITE_ prefix for Vite)
+ VITE_POSTHOG_KEY=phc_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+ VITE_POSTHOG_HOST=https://us.i.posthog.com
++
++# Feedback URL (optional - defaults to open source Discord if not set)
++# Set this in hosted builds to use a private feedback channel
++# VITE_FEEDBACK_URL=https://discord.gg/your-private-invite
+diff --git a/CONTRIBUTING.md b/CONTRIBUTING.md
+new file mode 100644
+index 0000000..0ca9628
+--- /dev/null
++++ b/CONTRIBUTING.md
+@@ -0,0 +1,45 @@
++# Contributing to 1Code
++
++## Building from Source
++
++Prerequisites: Bun, Python, Xcode Command Line Tools (macOS)
++
++```bash
++bun install
++bun run dev      # Development with hot reload
++bun run build    # Production build
++bun run package:mac  # Create distributable
++```
++
++## Open Source vs Hosted Version
++
++This is the open-source version of 1Code. Some features require the hosted backend at 1code.dev:
++
++| Feature | Open Source | Hosted (1code.dev) |
++|---------|-------------|-------------------|
++| Local AI chat | Yes | Yes |
++| Claude Code integration | Yes | Yes |
++| Git worktrees | Yes | Yes |
++| Terminal | Yes | Yes |
++| Sign in / Sync | No | Yes |
++| Background agents | No | Yes |
++| Auto-updates | No | Yes |
++| Private Discord & support | No | Yes |
++| Early access to new features | No | Yes |
++
++## Analytics & Telemetry
++
++Analytics (PostHog) and error tracking (Sentry) are **disabled by default** in open source builds. They only activate if you set the environment variables in `.env.local`.
++
++## Contributing
++
++1. Fork the repo
++2. Create a feature branch
++3. Make your changes
++4. Submit a PR
++
++Join our [Discord](https://discord.gg/8ektTZGnj4) for discussions.
++
++## License
++
++Apache 2.0
+diff --git a/README.md b/README.md
+index 2d276a3..8f65e60 100644
+--- a/README.md
++++ b/README.md
+@@ -15,42 +15,31 @@ By [21st.dev](https://21st.dev)
+ 
+ ## Installation
+ 
+-Download the latest release for your platform from the [Releases](https://github.com/21st-dev/21st/releases) page.
++### Option 1: Build from source (free)
+ 
+-- **macOS**: `.dmg` (Intel & Apple Silicon)
+-- **Windows**: `.exe` installer or portable
+-- **Linux**: `.AppImage` or `.deb`
++```bash
++# Prerequisites: Bun, Python, Xcode Command Line Tools (macOS)
++bun install
++bun run build
++bun run package:mac  # or package:win, package:linux
++```
+ 
+-## Development
++### Option 2: Subscribe to 1code.dev (recommended)
+ 
+-### Prerequisites
++Get pre-built releases + background agents support by subscribing at [1code.dev](https://1code.dev).
+ 
+-- [Bun](https://bun.sh) package manager
+-- Python (for native module building)
+-- Xcode Command Line Tools (macOS)
++Your subscription helps us maintain and improve 1Code.
+ 
+-### Setup
++## Development
+ 
+ ```bash
+-cd apps/desktop
+ bun install
+ bun run dev
+ ```
+ 
+-### Scripts
+-
+-| Command | Description |
+-|---------|-------------|
+-| `bun run dev` | Start with hot reload |
+-| `bun run build` | Compile TypeScript |
+-| `bun run package` | Package for current platform |
+-| `bun run package:mac` | Build macOS (DMG + ZIP) |
+-| `bun run package:win` | Build Windows |
+-| `bun run package:linux` | Build Linux |
+-
+ ## Feedback & Community
+ 
+-Join our [Discord](https://discord.gg/Qx4rFunqvY) for support and discussions.
++Join our [Discord](https://discord.gg/8ektTZGnj4) for support and discussions.
+ 
+ ## License
+ 
+diff --git a/RELEASE.md b/RELEASE.md
+deleted file mode 100644
+index 52f2a3b..0000000
+--- a/RELEASE.md
++++ /dev/null
+@@ -1,227 +0,0 @@
+-# Desktop App Release Guide
+-
+-## Prerequisites
+-
+-1. **Apple Developer Credentials** (for code signing and notarization):
+-   - Developer ID certificate installed in Keychain
+-   - Notarization keychain profile: `21st-notarize`
+-   - To create profile: `xcrun notarytool store-credentials "21st-notarize" --apple-id YOUR_APPLE_ID --team-id YOUR_TEAM_ID`
+-
+-2. **Cloudflare R2 Access**:
+-   - `wrangler` CLI authenticated (`npx wrangler login`)
+-   - Access to `components-code` bucket
+-
+-3. **GitHub CLI**:
+-   - `gh` CLI authenticated (`gh auth login`)
+-   - Push access to `21st-dev/21st` repo
+-
+-## Quick Release (Recommended)
+-
+-### 1. Bump Version
+-
+-```bash
+-cd apps/desktop
+-npm version patch --no-git-tag-version  # 0.0.5 → 0.0.6
+-```
+-
+-### 2. Commit Version Bump
+-
+-```bash
+-git add apps/desktop/package.json
+-git commit -m "chore(desktop): bump version to 0.0.X"
+-git push
+-```
+-
+-### 3. Run Release Script
+-
+-```bash
+-cd apps/desktop
+-bun run release
+-```
+-
+-This script:
+-1. Cleans `release/` folder
+-2. Downloads Claude Code binary from Anthropic CDN
+-3. Builds the app (main, preload, renderer)
+-4. Packages for macOS (ARM64 + x64)
+-5. Generates update manifests (`latest-mac.yml`, `latest-mac-x64.yml`)
+-6. Submits DMGs for Apple notarization (async, doesn't wait)
+-7. Uploads all files to R2 CDN
+-8. Creates GitHub release with assets
+-
+-### 4. Wait for Notarization & Staple
+-
+-Check notarization status:
+-```bash
+-xcrun notarytool history --keychain-profile "21st-notarize"
+-```
+-
+-Once both DMGs show `status: Accepted`, staple and re-upload:
+-
+-```bash
+-cd apps/desktop/release
+-
+-# Staple notarization tickets
+-xcrun stapler staple 1Code-0.0.X-arm64.dmg
+-xcrun stapler staple 1Code-0.0.X.dmg
+-
+-# Re-upload stapled DMGs to R2
+-npx wrangler r2 object put "components-code/releases/desktop/1Code-0.0.X-arm64.dmg" \
+-  --file="1Code-0.0.X-arm64.dmg" --content-type="application/x-apple-diskimage"
+-npx wrangler r2 object put "components-code/releases/desktop/1Code-0.0.X.dmg" \
+-  --file="1Code-0.0.X.dmg" --content-type="application/x-apple-diskimage"
+-
+-# Update GitHub release assets
+-gh release delete-asset v0.0.X 1Code-0.0.X-arm64.dmg --yes
+-gh release delete-asset v0.0.X 1Code-0.0.X.dmg --yes
+-gh release upload v0.0.X 1Code-0.0.X-arm64.dmg 1Code-0.0.X.dmg --clobber
+-```
+-
+-### 5. Publish Release & Update Changelog
+-
+-**Important:** The release is created as a draft. You must publish it:
+-
+-```bash
+-# Publish from draft and set as latest + add changelog
+-gh release edit v0.0.X --draft=false --latest --notes "$(cat <<'EOF'
+-## What's New in v0.0.X
+-
+-### Features
+-
+-- Feature 1
+-- Feature 2
+-
+-### Improvements & Fixes
+-
+-- Fix 1
+-- Fix 2
+-EOF
+-)"
+-```
+-
+-Or separately:
+-```bash
+-# Just publish from draft
+-gh release edit v0.0.X --draft=false --latest
+-
+-# Then update changelog
+-gh release edit v0.0.X --notes "..."
+-```
+-
+-### 6. Sync to Public Repository
+-
+-**Important:** After releasing, sync to the open-source repo:
+-
+-```bash
+-cd apps/desktop
+-./scripts/sync-to-public.sh
+-```
+-
+-This script:
+-1. Syncs code from private repo to public `21st-dev/1code` repo
+-2. Creates a matching GitHub release in the public repo
+-3. Uses release notes from the private repo
+-
+-### 7. Update Download Links
+-
+-Update version in `apps/web/lib/desktop.ts`:
+-
+-```typescript
+-export const DESKTOP_VERSION = "0.0.X"
+-```
+-
+-### 8. Commit & Tag
+-
+-```bash
+-git add -A
+-git commit -m "feat(desktop): release v0.0.X with <summary>"
+-git push
+-
+-# Fix tag to point to release commit
+-git fetch --tags
+-git tag -d v0.0.X
+-git tag v0.0.X
+-git push origin :refs/tags/v0.0.X
+-git push origin v0.0.X
+-```
+-
+-## File Locations
+-
+-### Build Outputs (`apps/desktop/release/`)
+-
+-| File | Purpose |
+-|------|---------|
+-| `1Code-X.X.X-arm64.dmg` | ARM64 installer (Apple Silicon) |
+-| `1Code-X.X.X.dmg` | x64 installer (Intel) |
+-| `1Code-X.X.X-arm64-mac.zip` | ARM64 auto-update package |
+-| `1Code-X.X.X-mac.zip` | x64 auto-update package |
+-| `latest-mac.yml` | ARM64 update manifest |
+-| `latest-mac-x64.yml` | x64 update manifest |
+-| `*.blockmap` | Delta update blockmaps |
+-
+-### CDN URLs
+-
+-- Manifests: `https://cdn.21st.dev/releases/desktop/latest-mac.yml`
+-- DMGs: `https://cdn.21st.dev/releases/desktop/1Code-X.X.X-arm64.dmg`
+-- ZIPs: `https://cdn.21st.dev/releases/desktop/1Code-X.X.X-arm64-mac.zip`
+-
+-### GitHub Releases
+-
+-- Private: `https://github.com/21st-dev/21st/releases/tag/vX.X.X`
+-- Public: `https://github.com/21st-dev/1code/releases/tag/vX.X.X`
+-
+-## How Auto-Updates Work
+-
+-1. App checks `https://cdn.21st.dev/releases/desktop/latest-mac.yml` on startup and window focus
+-2. If version in manifest > current version, shows "Update Available" banner
+-3. User clicks Update → downloads ZIP in background
+-4. After download, app restarts and installs update
+-
+-## Troubleshooting
+-
+-### Notarization Fails
+-
+-Check detailed log:
+-```bash
+-xcrun notarytool log <submission-id> --keychain-profile "21st-notarize"
+-```
+-
+-Common issues:
+-- Unsigned binaries inside the app
+-- Hardened runtime not enabled
+-- Missing entitlements
+-
+-### Claude Binary Missing
+-
+-If x64 build shows "file source doesn't exist" for `darwin-x64`:
+-
+-```bash
+-# Download all platform binaries
+-bun run claude:download:all
+-```
+-
+-Note: Windows binary may 404 (not available from Anthropic).
+-
+-### Old Files in Release
+-
+-The `release` script starts with `rm -rf release` to clean old files. If you see old version files, ensure the script ran correctly.
+-
+-### GitHub Release Shows as Draft
+-
+-**This is expected!** The script creates releases as drafts. After stapling and uploading, publish it:
+-```bash
+-gh release edit v0.0.X --draft=false --latest
+-```
+-
+-You can combine with changelog update (see Step 5).
+-
+-## Scripts Reference
+-
+-| Script | Description |
+-|--------|-------------|
+-| `bun run release` | Full release pipeline |
+-| `bun run build` | Build app only |
+-| `bun run package:mac` | Package for macOS |
+-| `bun run dist:manifest` | Generate update manifests |
+-| `bun run claude:download` | Download Claude binary (current arch) |
+-| `bun run claude:download:all` | Download Claude binary (all platforms) |
+diff --git a/package.json b/package.json
+index 4afe2eb..cec6ef3 100644
+--- a/package.json
++++ b/package.json
+@@ -1,6 +1,6 @@
+ {
+   "name": "21st-desktop",
+-  "version": "0.0.12",
++  "version": "0.0.13",
+   "private": true,
+   "description": "1Code - UI for parallel work with AI agents",
+   "author": "21st.dev",
+@@ -32,12 +32,15 @@
+     "@anthropic-ai/claude-agent-sdk": "^0.2.5",
+     "@git-diff-view/react": "^0.0.35",
+     "@git-diff-view/shiki": "^0.0.36",
++    "@radix-ui/react-accordion": "^1.2.11",
+     "@radix-ui/react-alert-dialog": "^1.1.1",
+     "@radix-ui/react-checkbox": "^1.3.3",
+     "@radix-ui/react-collapsible": "^1.1.12",
+     "@radix-ui/react-context-menu": "^2.2.16",
+     "@radix-ui/react-dialog": "^1.1.15",
+     "@radix-ui/react-dropdown-menu": "^2.1.16",
++    "@radix-ui/react-hover-card": "^1.1.14",
++    "@radix-ui/react-icons": "^1.3.2",
+     "@radix-ui/react-label": "^2.1.8",
+     "@radix-ui/react-popover": "^1.1.15",
+     "@radix-ui/react-progress": "^1.1.8",
+@@ -80,8 +83,11 @@
+     "react-dom": "19.2.1",
+     "react-hotkeys-hook": "^4.6.1",
+     "react-icons": "^5.5.0",
++    "react-markdown": "^10.1.0",
+     "react-syntax-highlighter": "^16.1.0",
++    "remark-gfm": "^4.0.1",
+     "shiki": "^1.24.4",
++    "simple-git": "^3.28.0",
+     "sonner": "^1.7.1",
+     "superjson": "^2.2.2",
+     "tailwind-merge": "^2.6.0",
+diff --git a/scripts/sync-to-public.sh b/scripts/sync-to-public.sh
+index d7dffc3..4c58f10 100755
+--- a/scripts/sync-to-public.sh
++++ b/scripts/sync-to-public.sh
+@@ -74,6 +74,10 @@ PLAN-*.md
+ ERROR-HANDLING.md
+ docs/
+ test-electron.js
++
++# Exclude internal release docs (contains credentials, CDN URLs)
++RELEASE.md
++scripts/upload-release-wrangler.sh
+ EOF
+ 
+ # Commit and push
+diff --git a/src/main/index.ts b/src/main/index.ts
+index 0101d9c..be34ba1 100644
+--- a/src/main/index.ts
++++ b/src/main/index.ts
+@@ -16,6 +16,7 @@ import {
+ import {
+   initAutoUpdater,
+   checkForUpdates,
++  downloadUpdate,
+   setupFocusUpdateCheck,
+ } from "./lib/auto-updater"
+ 
+@@ -464,7 +465,12 @@ if (gotTheLock) {
+                 if (win) {
+                   win.webContents.send("update:manual-check")
+                 }
+-                checkForUpdates(true)
++                // If update is already available, start downloading immediately
++                if (updateAvailable) {
++                  downloadUpdate()
++                } else {
++                  checkForUpdates(true)
++                }
+               },
+             },
+             { type: "separator" },
+diff --git a/src/main/lib/auto-updater.ts b/src/main/lib/auto-updater.ts
+index 0af8ed0..152a4bf 100644
+--- a/src/main/lib/auto-updater.ts
++++ b/src/main/lib/auto-updater.ts
+@@ -197,6 +197,25 @@ export async function checkForUpdates(force = false) {
+   return autoUpdater.checkForUpdates()
+ }
+ 
++/**
++ * Start downloading the update
++ */
++export async function downloadUpdate() {
++  if (!app.isPackaged) {
++    log.info("[AutoUpdater] Skipping download in dev mode")
++    return false
++  }
++
++  try {
++    log.info("[AutoUpdater] Starting update download...")
++    await autoUpdater.downloadUpdate()
++    return true
++  } catch (error) {
++    log.error("[AutoUpdater] Download failed:", error)
++    return false
++  }
++}
++
+ /**
+  * Check for updates when window gains focus
+  * This is more natural than checking on an interval
+diff --git a/src/renderer/features/agents/lib/drafts.ts b/src/renderer/features/agents/lib/drafts.ts
+index 35a756d..bed700b 100644
+--- a/src/renderer/features/agents/lib/drafts.ts
++++ b/src/renderer/features/agents/lib/drafts.ts
+@@ -25,6 +25,7 @@ export interface NewChatDraft {
+   text: string
+   updatedAt: number
+   project?: DraftProject
++  isVisible?: boolean // Only show in sidebar when user navigates away from the form
+ }
+ 
+ // SubChatDraft uses key format: "chatId:subChatId"
+@@ -76,7 +77,7 @@ export function isSubChatDraftKey(key: string): boolean {
+   return key.includes(":")
+ }
+ 
+-// Get new chat drafts as sorted array
++// Get new chat drafts as sorted array (only visible ones)
+ export function getNewChatDrafts(): NewChatDraft[] {
+   const globalDrafts = loadGlobalDrafts()
+   return Object.entries(globalDrafts)
+@@ -86,7 +87,9 @@ export function getNewChatDrafts(): NewChatDraft[] {
+       text: (data as NewChatDraft).text || "",
+       updatedAt: data.updatedAt || 0,
+       project: (data as NewChatDraft).project,
++      isVisible: (data as NewChatDraft).isVisible,
+     }))
++    .filter((draft) => draft.isVisible === true)
+     .sort((a, b) => b.updatedAt - a.updatedAt)
+ }
+ 
+@@ -116,6 +119,15 @@ export function deleteNewChatDraft(draftId: string): void {
+   saveGlobalDrafts(globalDrafts)
+ }
+ 
++// Mark a draft as visible (called when user navigates away from the form)
++export function markDraftVisible(draftId: string): void {
++  const globalDrafts = loadGlobalDrafts()
++  if (globalDrafts[draftId]) {
++    ;(globalDrafts[draftId] as NewChatDraft).isVisible = true
++    saveGlobalDrafts(globalDrafts)
++  }
++}
++
+ // Get sub-chat draft key
+ export function getSubChatDraftKey(chatId: string, subChatId: string): string {
+   return `${chatId}:${subChatId}`
+diff --git a/src/renderer/features/agents/main/new-chat-form.tsx b/src/renderer/features/agents/main/new-chat-form.tsx
+index b55d6a8..7c4ccb1 100644
+--- a/src/renderer/features/agents/main/new-chat-form.tsx
++++ b/src/renderer/features/agents/main/new-chat-form.tsx
+@@ -84,6 +84,7 @@ import {
+   saveGlobalDrafts,
+   generateDraftId,
+   deleteNewChatDraft,
++  markDraftVisible,
+   type DraftProject,
+ } from "../lib/drafts"
+ // import type { PlanType } from "@/lib/config/subscription-plans"
+@@ -122,7 +123,7 @@ export function NewChatForm({
+   // UNCONTROLLED: just track if editor has content for send button
+   const [hasContent, setHasContent] = useState(false)
+   const [selectedTeamId] = useAtom(selectedTeamIdAtom)
+-  const [, setSelectedChatId] = useAtom(selectedAgentChatIdAtom)
++  const [selectedChatId, setSelectedChatId] = useAtom(selectedAgentChatIdAtom)
+   const [selectedDraftId, setSelectedDraftId] = useAtom(selectedDraftIdAtom)
+   const [sidebarOpen, setSidebarOpen] = useAtom(agentsSidebarOpenAtom)
+ 
+@@ -498,6 +499,17 @@ export function NewChatForm({
+     }
+   }, [selectedDraftId])
+ 
++  // Mark draft as visible when component unmounts (user navigates away)
++  // This ensures the draft only appears in the sidebar after leaving the form
++  useEffect(() => {
++    return () => {
++      // On unmount, mark current draft as visible so it appears in sidebar
++      if (currentDraftIdRef.current) {
++        markDraftVisible(currentDraftIdRef.current)
++      }
++    }
++  }, [])
++
+   // Filter all repos by search (combined list) and sort by preview status
+   const filteredRepos = repos
+     .filter(
+diff --git a/src/renderer/features/agents/ui/agent-ask-user-question-tool.tsx b/src/renderer/features/agents/ui/agent-ask-user-question-tool.tsx
+index e98be65..555dce5 100644
+--- a/src/renderer/features/agents/ui/agent-ask-user-question-tool.tsx
++++ b/src/renderer/features/agents/ui/agent-ask-user-question-tool.tsx
+@@ -1,8 +1,8 @@
+ "use client"
+ 
+ import { memo } from "react"
+-import { HelpCircle } from "lucide-react"
+ import { TextShimmer } from "../../../components/ui/text-shimmer"
++import { QuestionIcon } from "../../../components/ui/icons"
+ import { QUESTIONS_SKIPPED_MESSAGE, QUESTIONS_TIMED_OUT_MESSAGE } from "../atoms"
+ 
+ interface AgentAskUserQuestionToolProps {
+@@ -100,7 +100,7 @@ export const AgentAskUserQuestionTool = memo(function AgentAskUserQuestionTool({
+       <div className="rounded-lg border border-border bg-muted/30 overflow-hidden mx-2">
+         {/* Header */}
+         <div className="flex items-center gap-1.5 pl-2.5 pr-2 h-7 border-b border-border">
+-          <HelpCircle className="w-3.5 h-3.5 text-muted-foreground" />
++          <QuestionIcon className="w-3.5 h-3.5 text-muted-foreground" />
+           <span className="text-xs text-muted-foreground">Answers</span>
+         </div>
+         {/* Content */}
+diff --git a/src/renderer/features/agents/ui/agent-bash-tool.tsx b/src/renderer/features/agents/ui/agent-bash-tool.tsx
+index 3f28252..3504724 100644
+--- a/src/renderer/features/agents/ui/agent-bash-tool.tsx
++++ b/src/renderer/features/agents/ui/agent-bash-tool.tsx
+@@ -19,7 +19,9 @@ interface AgentBashToolProps {
+ 
+ // Extract command summary - first word of each command in a pipeline
+ function extractCommandSummary(command: string): string {
+-  const parts = command.split(/\s*(?:&&|\|\||;|\|)\s*/)
++  // First, normalize line continuations (backslash + newline) into single line
++  const normalizedCommand = command.replace(/\\\s*\n\s*/g, " ")
++  const parts = normalizedCommand.split(/\s*(?:&&|\|\||;|\|)\s*/)
+   const firstWords = parts.map((p) => p.trim().split(/\s+/)[0]).filter(Boolean)
+   // Limit to first 4 commands to keep it concise
+   const limited = firstWords.slice(0, 4)
+diff --git a/src/renderer/features/agents/ui/agent-exploring-group.tsx b/src/renderer/features/agents/ui/agent-exploring-group.tsx
+index ff24b14..9b1ddfe 100644
+--- a/src/renderer/features/agents/ui/agent-exploring-group.tsx
++++ b/src/renderer/features/agents/ui/agent-exploring-group.tsx
+@@ -90,7 +90,7 @@ export const AgentExploringGroup = memo(function AgentExploringGroup({
+ 
+       {/* Tools list - only show when expanded */}
+       {isExpanded && (
+-        <div className="relative">
++        <div className="relative mt-1">
+           {/* Top gradient fade when streaming and has many items */}
+           <div
+             className={cn(
+@@ -105,6 +105,7 @@ export const AgentExploringGroup = memo(function AgentExploringGroup({
+           <div
+             ref={scrollRef}
+             className={cn(
++              "space-y-1.5",
+               parts.length > MAX_VISIBLE_TOOLS &&
+                 "overflow-y-auto scrollbar-hide",
+             )}
+diff --git a/src/renderer/features/agents/ui/agent-task-tool.tsx b/src/renderer/features/agents/ui/agent-task-tool.tsx
+index 15bcaa3..581cb24 100644
+--- a/src/renderer/features/agents/ui/agent-task-tool.tsx
++++ b/src/renderer/features/agents/ui/agent-task-tool.tsx
+@@ -156,7 +156,7 @@ export const AgentTaskTool = memo(function AgentTaskTool({
+ 
+       {/* Nested tools - only show when expanded */}
+       {hasNestedTools && isExpanded && (
+-        <div className="relative">
++        <div className="relative mt-1">
+           {/* Top gradient fade when streaming and has many items */}
+           <div
+             className={cn(
+@@ -171,6 +171,7 @@ export const AgentTaskTool = memo(function AgentTaskTool({
+           <div
+             ref={scrollRef}
+             className={cn(
++              "space-y-1.5",
+               isPending &&
+                 nestedTools.length > MAX_VISIBLE_TOOLS &&
+                 "overflow-y-auto scrollbar-hide",
+diff --git a/src/renderer/features/sidebar/agents-sidebar.tsx b/src/renderer/features/sidebar/agents-sidebar.tsx
+index b6944d6..b2efd66 100644
+--- a/src/renderer/features/sidebar/agents-sidebar.tsx
++++ b/src/renderer/features/sidebar/agents-sidebar.tsx
+@@ -100,6 +100,10 @@ import { Checkbox } from "../../components/ui/checkbox"
+ import { useHaptic } from "./hooks/use-haptic"
+ import { TypewriterText } from "../../components/ui/typewriter-text"
+ 
++// Feedback URL: uses env variable for hosted version, falls back to public Discord for open source
++const FEEDBACK_URL =
++  import.meta.env.VITE_FEEDBACK_URL || "https://discord.gg/8ektTZGnj4"
++
+ // Component to render chat icon with loading status
+ const ChatIcon = React.memo(function ChatIcon({
+   isSelected,
+@@ -451,13 +455,28 @@ export function AgentsSidebar({
+   const handleRenameSave = async (newName: string) => {
+     if (!renamingChat) return
+ 
++    const chatId = renamingChat.id
++    const oldName = renamingChat.name
++
++    // Optimistically update the query cache
++    utils.chats.list.setData({}, (old) => {
++      if (!old) return old
++      return old.map((c) => (c.id === chatId ? { ...c, name: newName } : c))
++    })
++
+     setRenameLoading(true)
+ 
+     try {
+       await renameChatMutation.mutateAsync({
+-        chatId: renamingChat.id,
++        id: chatId,
+         name: newName,
+       })
++    } catch {
++      // Rollback on error
++      utils.chats.list.setData({}, (old) => {
++        if (!old) return old
++        return old.map((c) => (c.id === chatId ? { ...c, name: oldName } : c))
++      })
+     } finally {
+       setRenameLoading(false)
+       setRenamingChat(null)
+@@ -2113,9 +2132,7 @@ export function AgentsSidebar({
+ 
+             {/* Feedback Button */}
+             <ButtonCustom
+-              onClick={() =>
+-                window.open("https://discord.gg/utff7AdDaV", "_blank")
+-              }
++              onClick={() => window.open(FEEDBACK_URL, "_blank")}
+               variant="outline"
+               size="sm"
+               className={cn(
+diff --git a/src/renderer/features/ui/agent-bash-tool.tsx b/src/renderer/features/ui/agent-bash-tool.tsx
+index 0fb6719..4c6da79 100644
+--- a/src/renderer/features/ui/agent-bash-tool.tsx
++++ b/src/renderer/features/ui/agent-bash-tool.tsx
+@@ -16,7 +16,9 @@ interface AgentBashToolProps {
+ 
+ // Extract command summary - first word of each command in a pipeline
+ function extractCommandSummary(command: string): string {
+-  const parts = command.split(/\s*(?:&&|\|\||;|\|)\s*/)
++  // First, normalize line continuations (backslash + newline) into single line
++  const normalizedCommand = command.replace(/\\\s*\n\s*/g, " ")
++  const parts = normalizedCommand.split(/\s*(?:&&|\|\||;|\|)\s*/)
+   const firstWords = parts.map((p) => p.trim().split(/\s+/)[0]).filter(Boolean)
+   // Limit to first 4 commands to keep it concise
+   const limited = firstWords.slice(0, 4)

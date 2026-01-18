@@ -15,6 +15,13 @@ import {
   DropdownMenuTrigger,
 } from "../../../components/ui/dropdown-menu"
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "../../../components/ui/dialog"
+import {
   AgentIcon,
   AttachIcon,
   CheckIcon,
@@ -40,6 +47,13 @@ import {
 } from "../../../components/ui/prompt-input"
 import { ResizableSidebar } from "../../../components/ui/resizable-sidebar"
 import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "../../../components/ui/breadcrumb"
+import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -55,13 +69,17 @@ import {
   Eye,
   GitCommitHorizontal,
   GitMerge,
+  Globe,
   ListTree,
   MoreHorizontal,
   Rows2,
   TerminalSquare,
+  Undo2,
+  FolderIcon,
+  Kanban,
 } from "lucide-react"
 import { motion } from "motion/react"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { toast } from "sonner"
 import { trackMessageSent } from "../../../lib/analytics"
@@ -84,8 +102,11 @@ import {
   agentsUnseenChangesAtom,
   clearLoading,
   diffSidebarOpenAtomFamily,
+  treeSidebarOpenAtomFamily,
+  kanbanSidebarOpenAtomFamily,
   isPlanModeAtom,
   justCreatedIdsAtom,
+  lastSelectedAgentIdAtom,
   lastSelectedModelIdAtom,
   loadingSubChatsAtom,
   pendingAuthRetryMessageAtom,
@@ -96,13 +117,16 @@ import {
   selectedAgentChatIdAtom,
   setLoading,
   subChatFilesAtom,
-} from "../atoms"
+  pendingMultiAgentRunAtom,
+} from "../atoms/index"
 import {
   AgentsSlashCommand,
   COMMAND_PROMPTS,
   type SlashCommandOption,
 } from "../commands"
 import { AgentSendButton } from "../components/agent-send-button"
+import { MultiAgentModal } from "../components/multi-agent-modal"
+import { ChatModeSelector, type ChatMode } from "../components/chat-mode-selector"
 import { PreviewSetupHoverCard } from "../components/preview-setup-hover-card"
 import { useAgentsFileUpload } from "../hooks/use-agents-file-upload"
 import { useChangedFilesTracking } from "../hooks/use-changed-files-tracking"
@@ -124,6 +148,8 @@ import {
 } from "../stores/sub-chat-store"
 import { AgentAskUserQuestionTool } from "../ui/agent-ask-user-question-tool"
 import { AgentBashTool } from "../ui/agent-bash-tool"
+import { AgentCommandHistory } from "../ui/agent-command-history"
+import { CommandOutputDialog } from "../ui/command-output-dialog"
 import { AgentContextIndicator } from "../ui/agent-context-indicator"
 import {
   AgentDiffView,
@@ -136,12 +162,14 @@ import { AgentExitPlanModeTool } from "../ui/agent-exit-plan-mode-tool"
 import { AgentExploringGroup } from "../ui/agent-exploring-group"
 import { AgentFileItem } from "../ui/agent-file-item"
 import { AgentImageItem } from "../ui/agent-image-item"
+import { SmartSuggestions } from "../ui/smart-suggestions"
 import {
   AgentMessageUsage,
   type AgentMessageMetadata,
 } from "../ui/agent-message-usage"
 import { AgentPlanTool } from "../ui/agent-plan-tool"
 import { AgentPreview } from "../ui/agent-preview"
+import { BrowserPreview, browserPreviewUrlAtomFamily } from "../ui/browser-preview"
 import { AgentTaskTool } from "../ui/agent-task-tool"
 import { AgentThinkingTool } from "../ui/agent-thinking-tool"
 import { AgentTodoTool } from "../ui/agent-todo-tool"
@@ -155,6 +183,8 @@ import { AgentsHeaderControls } from "../ui/agents-header-controls"
 import { ChatTitleEditor } from "../ui/chat-title-editor"
 import { MobileChatHeader } from "../ui/mobile-chat-header"
 import { PrStatusBar } from "../ui/pr-status-bar"
+import { FileTreePanel } from "../ui/file-tree-panel"
+import { KanbanPanel } from "../ui/kanban-panel"
 import { SubChatSelector } from "../ui/sub-chat-selector"
 import { SubChatStatusCard } from "../ui/sub-chat-status-card"
 import { autoRenameAgentChat } from "../utils/auto-rename"
@@ -164,7 +194,7 @@ import {
   clearSubChatDraft,
   getSubChatDraft,
 } from "../lib/drafts"
-const clearSubChatSelectionAtom = atom(null, () => {})
+const clearSubChatSelectionAtom = atom(null, () => { })
 const isSubChatMultiSelectModeAtom = atom(false)
 const selectedSubChatIdsAtom = atom(new Set<string>())
 // import { selectedTeamIdAtom } from "@/lib/atoms/team"
@@ -249,6 +279,53 @@ const CodexIcon = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 )
 
+// OpenCode icon
+const OpenCodeIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg width="32" height="40" viewBox="0 0 32 40" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
+    <g clipPath="url(#clip0_1311_94973)">
+      <path d="M24 32H8V16H24V32Z" fill="#4B4646" />
+      <path d="M24 8H8V32H24V8ZM32 40H0V0H32V40Z" fill="#F1ECEC" />
+    </g>
+    <defs>
+      <clipPath id="clip0_1311_94973">
+        <rect width="32" height="40" fill="white" />
+      </clipPath>
+    </defs>
+  </svg>
+)
+
+// OpenAI icon
+const OpenAIIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
+    <path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5155-4.9101 6.0462 6.0462 0 0 0-6.5098-2.9006A6.065 6.065 0 0 0 4.9805 4.1798a5.9847 5.9847 0 0 0-3.9976 2.9006 6.0462 6.0462 0 0 0 .7432 7.0968 5.98 5.98 0 0 0 .51 4.9101 6.0513 6.0513 0 0 0 6.5146 2.9006A5.9847 5.9847 0 0 0 13.2598 24a6.0555 6.0555 0 0 0 5.7716-4.206 5.99 5.99 0 0 0 3.9976-2.9006 6.0555 6.0555 0 0 0-.7468-7.0721zM13.2598 22.4296a4.476 4.476 0 0 1-2.876-1.0403l.141-.0807 4.7785-2.7576a.7952.7952 0 0 0 .3921-.6812v-6.7369l2.0195 1.168a.0713.0713 0 0 1 .038.0517v5.5824a4.5042 4.5042 0 0 1-4.4931 4.4931zM3.6 18.3037a4.4705 4.4705 0 0 1-.5352-3.0137l.142.0849 4.7827 2.7588a.7708.7708 0 0 0 .78 0l5.8428-3.369v2.3321a.0799.0799 0 0 1-.0334.062L9.7402 19.9508a4.4998 4.4998 0 0 1-6.1406-1.6475zM2.3402 7.8955a4.4851 4.4851 0 0 1 2.3658-1.9727V11.6a.7664.7664 0 0 0 .3879.6762l5.8146 3.3555-2.0196 1.168a.0761.0761 0 0 1-.0713 0l-4.8291-2.7861A4.5042 4.5042 0 0 1 2.3402 7.8722zm16.5967 3.8549l-5.8326-3.3867L15.1191 7.2a.0761.0761 0 0 1 .0713 0l4.8291 2.791a4.4943 4.4943 0 0 1-.6761 8.1055v-5.6782a.7891.7891 0 0 0-.4072-.6662zm2.0097-3.0236l-.141-.0849-4.7735-2.7817a.7758.7758 0 0 0-.7847 0L9.4092 9.2298V6.8965a.0661.0661 0 0 1 .02793-.0615l4.8291-2.7867a4.5005 4.5005 0 0 1 6.68 4.66zm-12.6398 4.1352l-2.0196-1.1636a.0799.0799 0 0 1-.0381-.0567V6.0751a4.5005 4.5005 0 0 1 7.3749-3.4532l-.141.0801-4.7778 2.7588a.7952.7952 0 0 0-.393.6807zm1.0972-2.3642l2.6026-1.5 2.6074 1.5v2.999l-2.5972 1.5-2.6074-1.5z" fill="currentColor" />
+  </svg>
+)
+
+// Google icon
+const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
+    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-8h2c.02 2.54 2.45 4.88 5 5.07v2.93zm5-9h-4v-2h4v2zm-2-2.5c-1.93 0-3.5 1.57-3.5 3.5s1.57 3.5 3.5 3.5 3.5-1.57 3.5-3.5-1.57-3.5-3.5-3.5zm-4.5 3.5c0-1.93 1.57-3.5 3.5-3.5v7c-2.54.19-4.98-2.53-5-5.07v-2.93c0-4.15 3.05-7.93 7-8.43V4.57c4.44.5 8 4.48 8 8z" fill="currentColor" />
+  </svg>
+)
+
+// Provider icon helper
+const ProviderIcon = ({ provider, className }: { provider?: string; className?: string }) => {
+  const providerLower = provider?.toLowerCase() || ''
+
+  if (providerLower.includes('openai')) {
+    return <OpenAIIcon className={className} />
+  }
+  if (providerLower.includes('anthropic') || providerLower.includes('claude')) {
+    return <ClaudeCodeIcon className={className} />
+  }
+  if (providerLower.includes('google')) {
+    return <GoogleIcon className={className} />
+  }
+
+  // Default: return null
+  return null
+}
+
 // Model options for Claude Code
 const claudeModels = [
   { id: "opus", name: "Opus" },
@@ -259,8 +336,9 @@ const claudeModels = [
 // Agent providers
 const agents = [
   { id: "claude-code", name: "Claude Code", hasModels: true },
-  { id: "cursor", name: "Cursor CLI", disabled: true },
-  { id: "codex", name: "OpenAI Codex", disabled: true },
+  { id: "opencode", name: "OpenCode", hasModels: true },
+  { id: "cursor", name: "Cursor CLI" },
+  { id: "codex", name: "OpenAI Codex", disabled: false },
 ]
 
 // Helper function to get agent icon
@@ -272,6 +350,8 @@ const getAgentIcon = (agentId: string, className?: string) => {
       return <CursorIcon className={className} />
     case "codex":
       return <CodexIcon className={className} />
+    case "opencode":
+      return <OpenCodeIcon className={className} />
     default:
       return null
   }
@@ -730,6 +810,8 @@ function ChatViewInner({
   isSubChatsSidebarOpen = false,
   sandboxId,
   projectPath,
+  onExecuteInTerminal,
+  onViewFullOutput,
 }: {
   chat: Chat<any>
   subChatId: string
@@ -747,6 +829,8 @@ function ChatViewInner({
   isSubChatsSidebarOpen?: boolean
   sandboxId?: string
   projectPath?: string
+  onExecuteInTerminal?: (command: string) => void
+  onViewFullOutput?: (command: string, stdout: string, stderr: string) => void
 }) {
   // UNCONTROLLED: just track if editor has content for send button
   const [hasContent, setHasContent] = useState(false)
@@ -764,6 +848,11 @@ function ChatViewInner({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const prevChatKeyRef = useRef<string | null>(null)
   const prevSubChatIdRef = useRef<string | null>(null)
+
+  // Undo state
+  const [undoConfirmOpen, setUndoConfirmOpen] = useState(false)
+  const [undoMessageId, setUndoMessageId] = useState<string | null>(null)
+  const [isUndoing, setIsUndoing] = useState(false)
 
   // TTS playback rate state (persists across messages and sessions via localStorage)
   const [ttsPlaybackRate, setTtsPlaybackRate] = useState<PlaybackSpeed>(() => {
@@ -866,7 +955,13 @@ function ChatViewInner({
 
   // Plan mode state (read from global atom)
   const [isPlanMode, setIsPlanMode] = useAtom(isPlanModeAtom)
-
+  
+  // Chat mode state - supports all 5 modes: build, plan, scaling, designer, debug
+  // Map "plan" mode to isPlanMode=true, all others (build, scaling, designer, debug) to isPlanMode=false
+  const [chatMode, setChatMode] = useState<ChatMode>(() => {
+    return isPlanMode ? "plan" : "build"
+  })
+  
   // Mutation for updating sub-chat mode in database
   const updateSubChatModeMutation = api.agents.updateSubChatMode.useMutation({
     onSuccess: () => {
@@ -899,6 +994,36 @@ function ChatViewInner({
     },
   })
 
+  // Sync chatMode with isPlanMode changes
+  useEffect(() => {
+    if (isPlanMode && chatMode !== "plan") {
+      setChatMode("plan")
+    } else if (!isPlanMode && chatMode === "plan") {
+      setChatMode("build")
+    }
+  }, [isPlanMode, chatMode])
+  
+  // Handle chat mode changes - update isPlanMode accordingly
+  const handleChatModeChange = useCallback((mode: ChatMode) => {
+    setChatMode(mode)
+    // Only set isPlanMode for "plan" mode, keep it as is for custom modes
+    if (mode === "plan") {
+      setIsPlanMode(true)
+    } else if (mode === "build" || mode === "scaling" || mode === "designer" || mode === "debug") {
+      setIsPlanMode(false)
+    }
+    // For custom modes (string IDs starting with "custom-"), don't change isPlanMode
+    
+    // Store mode in sub-chat store
+    const newMode = mode === "plan" ? "plan" : mode === "build" || mode === "scaling" || mode === "designer" || mode === "debug" ? "agent" : mode
+    useAgentSubChatStore.getState().updateSubChatMode(subChatId, newMode)
+    
+    // Update in database only for "plan" and "agent" modes (not custom modes - they're localStorage only)
+    if (subChatId && parentChatId && (newMode === "plan" || newMode === "agent")) {
+      updateSubChatModeMutation.mutate({ subChatId, mode: newMode as "plan" | "agent" })
+    }
+  }, [setIsPlanMode, subChatId, parentChatId, updateSubChatModeMutation])
+
   // Track last initialized sub-chat to prevent re-initialization
   const lastInitializedRef = useRef<string | null>(null)
 
@@ -910,12 +1035,26 @@ function ChatViewInner({
         .allSubChats.find((sc) => sc.id === subChatId)
 
       if (subChat?.mode) {
-        setIsPlanMode(subChat.mode === "plan")
+        // Only set isPlanMode for "plan" mode, not for custom modes
+        if (subChat.mode === "plan") {
+          setIsPlanMode(true)
+          setChatMode("plan")
+        } else if (subChat.mode === "build" || subChat.mode === "scaling" || subChat.mode === "designer" || subChat.mode === "debug") {
+          setIsPlanMode(false)
+          setChatMode(subChat.mode)
+        } else if (typeof subChat.mode === "string" && subChat.mode.startsWith("custom-")) {
+          // Custom mode - don't change isPlanMode, just set chatMode
+          setChatMode(subChat.mode)
+        } else {
+          // Legacy "agent" mode maps to "build"
+          setIsPlanMode(false)
+          setChatMode("build")
+        }
       }
       lastInitializedRef.current = subChatId
     }
-    // Dependencies: Only subChatId - setIsPlanMode is stable, useAgentSubChatStore is external
-  }, [subChatId, setIsPlanMode])
+    // Dependencies: Only subChatId - setIsPlanMode and setChatMode are stable, useAgentSubChatStore is external
+  }, [subChatId, setIsPlanMode, setChatMode])
 
   // Track last mode to detect actual user changes (not store updates)
   const lastIsPlanModeRef = useRef<boolean>(isPlanMode)
@@ -943,17 +1082,133 @@ function ChatViewInner({
     // Dependencies: updateSubChatModeMutation.mutate is stable, useAgentSubChatStore is external
   }, [isPlanMode, subChatId, updateSubChatModeMutation.mutate])
 
-  // Model selection state
+  // Fetch OpenCode models (same as new-chat-form)
+  const { data: opencodeModelsData } = trpc.opencode.getModels.useQuery()
+  const opencodeModels = opencodeModelsData ? Object.values(opencodeModelsData) : []
+
+  // Model selection state - support both Claude and OpenCode
   const [lastSelectedModelId, setLastSelectedModelId] = useAtom(
     lastSelectedModelIdAtom,
   )
-  const [selectedAgent, setSelectedAgent] = useState(() => agents[0])
-  const [selectedModel, setSelectedModel] = useState(
-    () =>
-      claudeModels.find((m) => m.id === lastSelectedModelId) || claudeModels[1],
+  const [lastSelectedAgentId, setLastSelectedAgentId] = useAtom(
+    lastSelectedAgentIdAtom,
   )
+  // Determine agent from lastSelectedAgentId or subChat model (same as new-chat-form)
+  const [selectedAgent, setSelectedAgent] = useState(() => {
+    // First try lastSelectedAgentId from atom
+    if (lastSelectedAgentId) {
+      const found = agents.find(a => a.id === lastSelectedAgentId)
+      if (found) return found
+    }
+    // Fallback: try to detect from subChat model - if model is from opencode, use opencode agent
+    const subChat = useAgentSubChatStore.getState().allSubChats.find((sc) => sc.id === subChatId)
+    const model = subChat?.model
+    if (model && opencodeModels.some(m => m.id === model)) {
+      return agents.find(a => a.id === 'opencode') || agents[0]
+    }
+    return agents[0] // Default to claude-code
+  })
+  
+  // Determine available models based on selected agent (same as new-chat-form)
+  const availableModels = selectedAgent.id === 'opencode' ? opencodeModels : claudeModels
+  
+  const [selectedModel, setSelectedModel] = useState(() => {
+    const models = selectedAgent.id === 'opencode' ? opencodeModels : claudeModels
+    if (models.length === 0) return null
+    return models.find((m) => m.id === lastSelectedModelId) || models[0]
+  })
+  
+  // Update selected model when OpenCode models load
+  useEffect(() => {
+    if (selectedAgent.id === 'opencode' && opencodeModels.length > 0 && !selectedModel) {
+      setSelectedModel(opencodeModels[0])
+    }
+  }, [opencodeModels, selectedAgent.id, selectedModel])
+  
+  // Get OpenCode server URL for context checking
+  const { data: opencodeServerUrl } = trpc.opencode.getServerUrl.useQuery()
+  const apiUrl = opencodeServerUrl || 'http://localhost:4096'
+  
+  // Query subChat to get sessionId from database
+  const { data: subChatData } = trpc.chats.getSubChat.useQuery(
+    { id: subChatId },
+    { enabled: selectedAgent.id === 'opencode' && !!subChatId }
+  )
+  const sessionId = subChatData?.sessionId
+  
+  // Poll OpenCode session context every 3 seconds when OpenCode is selected
+  useEffect(() => {
+    if (selectedAgent.id !== 'opencode') return
+    if (!sessionId) return
+    
+    let isActive = true
+    
+    const checkContext = async () => {
+      if (!isActive) return
+      
+      try {
+        // Check session status/context from OpenCode API
+        // First try to get the specific session
+        const sessionResponse = await fetch(`${apiUrl}/session/${sessionId}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
+        
+        if (sessionResponse.ok && isActive) {
+          const sessionData = await sessionResponse.json()
+          // Log context for debugging
+          console.log('[OpenCode] Session context check:', {
+            sessionId,
+            status: sessionData.status,
+            messageCount: sessionData.messages?.length || 0,
+          })
+          
+          // You can use sessionData here to:
+          // - Update UI state
+          // - Trigger file change detection
+          // - Update diff viewer
+          // - Sync with local state
+        }
+        
+        // Also check session status endpoint for overall status
+        const statusResponse = await fetch(`${apiUrl}/session/status?directory=${encodeURIComponent(projectPath || '')}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
+        
+        if (statusResponse.ok && isActive) {
+          const statusData = await statusResponse.json()
+          const currentSessionStatus = statusData[sessionId]
+          if (currentSessionStatus) {
+            console.log('[OpenCode] Session status:', currentSessionStatus)
+          }
+        }
+      } catch (error) {
+        // Silently fail - don't spam console if server is temporarily unavailable
+        if (isActive) {
+          console.debug('[OpenCode] Context check failed:', error)
+        }
+      }
+    }
+    
+    // Check immediately, then every 3 seconds
+    checkContext()
+    const interval = setInterval(checkContext, 3000)
+    
+    return () => {
+      isActive = false
+      clearInterval(interval)
+    }
+  }, [selectedAgent.id, subChatId, apiUrl, projectPath])
+  
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false)
+  const [modelSearch, setModelSearch] = useState("")
   const [shouldOpenClaudeSubmenu, setShouldOpenClaudeSubmenu] = useState(false)
+  const [multiAgentModalOpen, setMultiAgentModalOpen] = useState(false)
 
   // File/image upload hook
   const {
@@ -1007,12 +1262,16 @@ function ChatViewInner({
   const hasShownTooltipRef = useRef(false)
   const [modeDropdownOpen, setModeDropdownOpen] = useState(false)
 
+  // Track answered questions to prevent re-showing after user submits
+  const answeredQuestionsRef = useRef<Set<string>>(new Set())
+
   // Track chat changes for rename trigger reset
   const chatRef = useRef<Chat<any> | null>(null)
 
   if (prevSubChatIdRef.current !== subChatId) {
     hasTriggeredRenameRef.current = false // Reset on sub-chat change
     hasTriggeredAutoGenerateRef.current = false // Reset auto-generate on sub-chat change
+    answeredQuestionsRef.current.clear() // Reset answered questions on chat switch
     prevSubChatIdRef.current = subChatId
   }
   chatRef.current = chat
@@ -1095,17 +1354,229 @@ function ChatViewInner({
     // experimental_throttle: 200,
   })
 
+  // Add event listener to handle custom status reset events
+  useEffect(() => {
+    const handleResetStatus = (event: CustomEvent) => {
+      if (event.detail?.subChatId === subChatId) {
+        console.log(`[SD] C:RESET_EVENT sub=${subChatId.slice(-8)} - resetting chat status`)
+
+        // Force a regeneration to reset the internal state
+        try {
+          regenerate()
+        } catch (error) {
+          console.error("[SD] C:RESET_EVENT - Failed to regenerate:", error)
+        }
+      }
+    }
+
+    window.addEventListener('reset-chat-status', handleResetStatus as EventListener)
+
+    return () => {
+      window.removeEventListener('reset-chat-status', handleResetStatus as EventListener)
+    }
+  }, [subChatId, regenerate])
+
   // Stream debug: log status changes
   const prevStatusRef = useRef(status)
+  const streamingStartRef = useRef<number | null>(null)
+
   useEffect(() => {
     if (prevStatusRef.current !== status) {
       const subId = subChatId.slice(-8)
       console.log(`[SD] C:STATUS sub=${subId} ${prevStatusRef.current} → ${status} msgs=${messages.length}`)
+
+      // Track when streaming starts
+      if ((status === "streaming" || status === "submitted") &&
+        (prevStatusRef.current !== "streaming" && prevStatusRef.current !== "submitted")) {
+        streamingStartRef.current = Date.now()
+        console.log(`[SD] C:STREAMING_START sub=${subId}`)
+      }
+
+      // Reset streaming start time when status returns to ready
+      if (status === "ready" &&
+        (prevStatusRef.current === "streaming" || prevStatusRef.current === "submitted")) {
+        streamingStartRef.current = null
+        console.log(`[SD] C:STREAMING_END sub=${subId}`)
+      }
+
       prevStatusRef.current = status
     }
   }, [status, subChatId, messages.length])
 
+  // Safety check: if streaming for too long without completion, try to reset
+  useEffect(() => {
+    const checkStreamingStuck = () => {
+      if ((status === "streaming" || status === "submitted") &&
+        streamingStartRef.current &&
+        Date.now() - streamingStartRef.current > 30000) { // 30 seconds
+        console.log(`[SD] C:STREAMING_STUCK sub=${subChatId.slice(-8)} - attempting to reset`)
+
+        // Try to force a status reset by calling stop()
+        try {
+          stop()
+          // Reset the streaming start time to avoid repeated checks
+          streamingStartRef.current = null
+        } catch (error) {
+          console.error("[SD] C:STREAMING_STUCK - Failed to reset:", error)
+        }
+      }
+    }
+
+    // Check every 5 seconds
+    const interval = setInterval(checkStreamingStuck, 5000)
+
+    return () => clearInterval(interval)
+  }, [status, stop, subChatId])
+
+  // Additional safety check: ensure status eventually returns to ready after system messages
+  useEffect(() => {
+    // Check if we have any messages and the status is still in loading state
+    if ((status === "streaming" || status === "submitted") &&
+      messages.length > 0 &&
+      streamingStartRef.current) {
+
+      // Check if the last assistant message is complete
+      const lastMessage = messages[messages.length - 1]
+      const hasAssistantMessage = messages.some(m => m.role === 'assistant')
+
+      if (hasAssistantMessage && streamingStartRef.current) {
+        const streamingDuration = Date.now() - streamingStartRef.current
+
+        // If streaming for more than 5 seconds after we have an assistant message,
+        // the stream might be stuck
+        if (streamingDuration > 5000) {
+          console.log(`[SD] C:STATUS_RESET sub=${subChatId.slice(-8)} - forcing ready state`)
+
+          // Force a regeneration to reset the state
+          try {
+            // This will trigger the useChat hook to reset its internal state
+            window.dispatchEvent(new CustomEvent('reset-chat-status', {
+              detail: { subChatId }
+            }))
+          } catch (error) {
+            console.error("[SD] C:STATUS_RESET - Failed to dispatch event:", error)
+          }
+        }
+      }
+    }
+  }, [status, messages, subChatId])
+
   const isStreaming = status === "streaming" || status === "submitted"
+
+  // Ensure status resets to ready after streaming completes
+  // This prevents the send button from staying disabled after streaming finishes
+  useEffect(() => {
+    // If status is stuck in streaming/submitted after messages have been added
+    // and there's no active stream, force reset to ready
+    if ((status === "streaming" || status === "submitted") && messages.length > 0) {
+      const lastMessage = messages[messages.length - 1]
+      // If last message is assistant and has been completed for more than 2 seconds
+      // but status hasn't reset, force a reset
+      const hasCompleteAssistantMessage = lastMessage?.role === "assistant" && 
+        lastMessage?.parts && 
+        lastMessage.parts.length > 0 &&
+        !lastMessage.parts.some((p: any) => p.state === "input-available" || p.state === "input-streaming")
+      
+      if (hasCompleteAssistantMessage && streamingStartRef.current) {
+        const streamingDuration = Date.now() - streamingStartRef.current
+        // If streaming started more than 3 seconds ago and message appears complete
+        // but status hasn't reset, try to reset it
+        if (streamingDuration > 3000) {
+          // Check if stream is actually still active
+          const streamId = agentChatStore.getStreamId(subChatId)
+          if (!streamId || streamingDuration > 5000) {
+            console.log(`[SD] C:AUTO_RESET sub=${subChatId.slice(-8)} - forcing ready after completion`)
+            // Use a timeout to allow natural status transition first
+            const timeoutId = setTimeout(() => {
+              if (status === "streaming" || status === "submitted") {
+                window.dispatchEvent(new CustomEvent('reset-chat-status', {
+                  detail: { subChatId }
+                }))
+              }
+            }, 1000)
+            return () => clearTimeout(timeoutId)
+          }
+        }
+      }
+    }
+  }, [status, messages, subChatId])
+
+  // Get browser preview atoms and state for this chat
+  const currentChatId = parentChatId || subChatId
+  const browserPreviewUrlAtom = useMemo(
+    () => browserPreviewUrlAtomFamily(currentChatId),
+    [currentChatId],
+  )
+  const [, setBrowserPreviewUrl] = useAtom(browserPreviewUrlAtom)
+  const [isPreviewSidebarOpen, setIsPreviewSidebarOpen] = useAtom(
+    agentsPreviewSidebarOpenAtom,
+  )
+
+  // Track last detected port to avoid reopening for same port
+  const lastDetectedPortRef = useRef<number | null>(null)
+
+  // Auto-detect ports from bash tool outputs and open browser preview
+  useEffect(() => {
+    // Only run during streaming to avoid unnecessary checks
+    if (!isStreaming) return
+
+    // Find all bash tool parts with outputs (check most recent first)
+    const bashParts = messages
+      .flatMap((msg: any) => (msg.parts || []).filter((p: any) => p.type === 'tool-Bash' && p.output))
+      .reverse()
+
+    for (const part of bashParts) {
+      const output = part.output
+      const outputText = typeof output === 'string'
+        ? output
+        : (output.stdout || output.output || output.stderr || '')
+
+      // Check command to see if it's a server-starting command
+      const command = part.input?.command || ''
+      const isServerCommand = /(?:npm|yarn|pnpm|bun|node|deno).*(?:start|dev|serve|server|run)/i.test(command) ||
+        /(?:vite|next|react-scripts|webpack-dev-server)/i.test(command)
+
+      // Try to extract port from output (server-start patterns)
+      const portPatterns = [
+        /listening on (?:port )?(\d+)/i,
+        /started on port (\d+)/i,
+        /running on (?:http:\/\/localhost:|port )(\d+)/i,
+        /Local:\s+http:\/\/localhost:(\d+)/i,
+        /http:\/\/localhost:(\d{4,5})/i,
+        /ready in.*localhost:(\d{4,5})/i,
+        /compiled.*localhost:(\d{4,5})/i,
+      ]
+
+      for (const pattern of portPatterns) {
+        const match = outputText.match(pattern)
+        if (match && match[1]) {
+          const port = parseInt(match[1], 10)
+          if (port >= 1000 && port <= 65535) { // Valid port range
+            // Skip if we already detected this port
+            if (lastDetectedPortRef.current === port) {
+              return
+            }
+
+            const url = `http://localhost:${port}`
+            // Only auto-open if it looks like a server command or server-start message
+            const hasServerStartMessage = /(?:listening|started|running|ready|compiled|server)/i.test(outputText)
+
+            if (isServerCommand || hasServerStartMessage) {
+              // Only auto-open if preview sidebar is not already open with this URL
+              const currentUrl = appStore.get(browserPreviewUrlAtom)
+              if (currentUrl !== url) {
+                console.log(`[BrowserPreview] Auto-detected port ${port} from bash output, opening preview`)
+                setBrowserPreviewUrl(url)
+                setIsPreviewSidebarOpen(true)
+                lastDetectedPortRef.current = port
+              }
+              return // Only open once for the most recent match
+            }
+          }
+        }
+      }
+    }
+  }, [messages, currentChatId, setBrowserPreviewUrl, setIsPreviewSidebarOpen, isStreaming])
 
   // Sync loading status to atom for UI indicators
   // When streaming starts, set loading. When it stops, clear loading.
@@ -1162,6 +1633,10 @@ function ChatViewInner({
     pendingUserQuestionsAtom,
   )
 
+  // Check if there are pending questions for the current subchat
+  const hasPendingQuestionsForThisChat = pendingQuestions?.subChatId === subChatId
+
+
   // Memoize the last assistant message to avoid unnecessary recalculations
   const lastAssistantMessage = useMemo(
     () => messages.findLast((m) => m.role === "assistant"),
@@ -1204,6 +1679,10 @@ function ChatViewInner({
 
     // Not streaming - restore or clear based on messages
     if (pendingQuestionPart) {
+      // Skip if this question was already answered by user
+      if (answeredQuestionsRef.current.has(pendingQuestionPart.toolCallId)) {
+        return
+      }
       // Found pending question - set it (or update if different)
       if (
         pendingQuestions?.subChatId !== subChatId ||
@@ -1225,28 +1704,97 @@ function ChatViewInner({
 
   // Handle answering questions
   const handleQuestionsAnswer = useCallback(
-    async (answers: Record<string, string>) => {
+    async (answers: Record<string, string | string[]>) => {
       if (!pendingQuestions) return
-      await trpcClient.claude.respondToolApproval.mutate({
-        toolUseId: pendingQuestions.toolUseId,
-        approved: true,
-        updatedInput: { questions: pendingQuestions.questions, answers },
-      })
+
+      // Format answers as readable text
+      const formattedAnswers = pendingQuestions.questions
+        .map((q: any) => {
+          const answer = answers[q.question]
+          const answerStr = Array.isArray(answer) ? answer.join(', ') : (answer || '')
+          return `**${q.question}**\n${answerStr}`
+        })
+        .join('\n\n')
+
+      // Mark as answered to prevent re-showing
+      answeredQuestionsRef.current.add(pendingQuestions.toolUseId)
+      // Clear questions UI immediately
       setPendingQuestions(null)
+
+      // For OpenCode, use the dedicated function to answer questions
+      try {
+        // Convert answers to the format expected by answerOpenCodeQuestion
+        const answersArray = pendingQuestions.questions.map((q: any) => {
+          const answer = answers[q.question]
+          return Array.isArray(answer) ? answer : [answer || ""]
+        })
+        
+        await window.desktopApi.answerOpenCodeQuestion({
+          subChatId,
+          requestId: pendingQuestions.toolUseId,
+          answers: answersArray,
+          message: formattedAnswers,
+        })
+      } catch (error) {
+        console.error("Failed to answer OpenCode question:", error)
+        // Fallback to the old method if the new method fails
+        await trpcClient.claude.respondToolApproval.mutate({
+          toolUseId: pendingQuestions.toolUseId,
+          approved: true,
+          updatedInput: { questions: pendingQuestions.questions, answers },
+        })
+      }
     },
-    [pendingQuestions, setPendingQuestions],
+    [pendingQuestions, setPendingQuestions, subChatId],
   )
 
   // Handle skipping questions
   const handleQuestionsSkip = useCallback(async () => {
     if (!pendingQuestions) return
-    await trpcClient.claude.respondToolApproval.mutate({
-      toolUseId: pendingQuestions.toolUseId,
-      approved: false,
-      message: QUESTIONS_SKIPPED_MESSAGE,
-    })
+    // Mark as answered to prevent re-showing
+    answeredQuestionsRef.current.add(pendingQuestions.toolUseId)
+    // Clear questions UI immediately BEFORE sending to prevent it from showing again
     setPendingQuestions(null)
-  }, [pendingQuestions, setPendingQuestions])
+    
+    try {
+      await window.desktopApi.answerOpenCodeQuestion({
+        subChatId,
+        requestId: pendingQuestions.toolUseId,
+        answers: [],
+        message: QUESTIONS_SKIPPED_MESSAGE,
+      })
+    } catch (error) {
+      console.error("Failed to skip OpenCode question:", error)
+      // Fallback to the old method if the new method fails
+      await trpcClient.claude.respondToolApproval.mutate({
+        toolUseId: pendingQuestions.toolUseId,
+        approved: false,
+        message: QUESTIONS_SKIPPED_MESSAGE,
+      })
+    }
+  }, [pendingQuestions, setPendingQuestions, subChatId])
+
+  // Handler for answering in prompt
+  const handleAnswerInPrompt = useCallback((questionsText: string) => {
+    console.log('[UI] Answer in prompt:', questionsText)
+
+    // Close the modal
+    setPendingQuestions(null)
+
+    // Insert answer into chat input and auto-send
+    const editor = editorRef.current
+    if (editor) {
+      editor.setValue(questionsText)
+      editor.focus()
+      // Trigger send automatically after short delay
+      setTimeout(() => {
+        const sendButton = document.querySelector('[data-send-button]') as HTMLButtonElement
+        if (sendButton && !sendButton.disabled) {
+          sendButton.click()
+        }
+      }, 100)
+    }
+  }, [setPendingQuestions])
 
   // Watch for pending auth retry message (after successful OAuth flow)
   const [pendingAuthRetry, setPendingAuthRetry] = useAtom(
@@ -1527,7 +2075,7 @@ function ChatViewInner({
     // Save position when LEAVING this tab (use ref because container may already point to new tab)
     const currentSubChatId = subChatId
     return () => {
-      setScrollPositions((prev) => ({
+      setScrollPositions((prev: Record<string, number>) => ({
         ...prev,
         [currentSubChatId]: currentScrollTopRef.current,
       }))
@@ -1592,6 +2140,25 @@ function ChatViewInner({
       return
     }
 
+    // Safety check: if status appears stuck in streaming but stream is actually complete
+    // Allow sending anyway to prevent UI from being stuck
+    if (status === "streaming" || status === "submitted") {
+      const streamId = agentChatStore.getStreamId(subChatId)
+      const streamingDuration = streamingStartRef.current ? Date.now() - streamingStartRef.current : 0
+      // If no active stream ID and streaming has been going for more than 5 seconds,
+      // likely the status is stuck - try to reset it first
+      if (!streamId && streamingDuration > 5000) {
+        console.log(`[SD] C:FORCE_RESET_ON_SEND sub=${subChatId.slice(-8)} - resetting stuck status before send`)
+        try {
+          stop()
+          // Wait a bit for status to reset
+          await new Promise(resolve => setTimeout(resolve, 100))
+        } catch (error) {
+          console.error("[SD] C:FORCE_RESET_ON_SEND - Failed to reset:", error)
+        }
+      }
+    }
+
     // Get value from uncontrolled editor
     const inputValue = editorRef.current?.getValue() || ""
     const hasText = inputValue.trim().length > 0
@@ -1641,7 +2208,7 @@ function ChatViewInner({
           type: "data-file" as const,
           data: {
             url: f.url,
-            mediaType: f.mediaType,
+            mediaType: (f as any).mediaType,
             filename: f.filename,
             size: f.size,
           },
@@ -1657,14 +2224,14 @@ function ChatViewInner({
     // Optimistic update: immediately update chat's updated_at and resort array for instant sidebar resorting
     if (teamId) {
       const now = new Date()
-      utils.agents.getAgentChats.setData({ teamId }, (old) => {
+      utils.agents.getAgentChats.setData({ teamId }, (old: any) => {
         if (!old) return old
         // Update the timestamp and sort by updated_at descending
-        const updated = old.map((c) =>
+        const updated = old.map((c: any) =>
           c.id === parentChatId ? { ...c, updated_at: now } : c,
         )
         return updated.sort(
-          (a, b) =>
+          (a: any, b: any) =>
             new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
         )
       })
@@ -1851,6 +2418,25 @@ function ChatViewInner({
     return false
   }, [messages])
 
+  // Keyboard shortcut: Cmd+Enter to approve plan
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.key === "Enter" &&
+        e.metaKey &&
+        !e.shiftKey &&
+        hasUnapprovedPlan &&
+        !isStreaming
+      ) {
+        e.preventDefault()
+        handleApprovePlan()
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [hasUnapprovedPlan, isStreaming, handleApprovePlan])
+
   // Group messages into pairs: [userMsg, ...assistantMsgs]
   // Each group is a "conversation turn" where user message is sticky within the group
   const messageGroups = useMemo(() => {
@@ -1915,6 +2501,14 @@ function ChatViewInner({
         data-chat-container
       >
         <div className="px-2 max-w-2xl mx-auto -mb-4 pb-8 space-y-4">
+          {/* Command History Panel - shows all bash commands from conversation */}
+          <AgentCommandHistory
+            messages={messages}
+            chatStatus={status}
+            onExecuteInTerminal={onExecuteInTerminal}
+            onViewFullOutput={onViewFullOutput}
+          />
+          
           <div>
             {/* Render message groups - each group has user message sticky within it */}
             {messageGroups.map((group, groupIndex) => {
@@ -1960,11 +2554,11 @@ function ChatViewInner({
                     </motion.div>
                   )}
                   {/* User message text - sticky WITHIN this group */}
+                  {/* z-10 ensures user message stays above scrolling content (tool calls, buttons) */}
                   <div
                     data-user-message-id={msg.id}
                     className={cn(
                       "[&>div]:!mb-4 pointer-events-auto",
-                      // Sticky within the group container
                       "sticky z-10",
                       isMobile
                         ? CHAT_LAYOUT.stickyTopMobile
@@ -1978,6 +2572,28 @@ function ChatViewInner({
                       textContent={textContent || ""}
                       imageParts={[]}
                     />
+
+                    {/* Undo Button */}
+                    {!isMobile && (
+                      <div className="absolute -left-12 top-0 bottom-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 rounded-full bg-background border shadow-sm hover:bg-muted"
+                              onClick={() => {
+                                setUndoMessageId(msg.id)
+                                setUndoConfirmOpen(true)
+                              }}
+                            >
+                              <Undo2 className="h-4 w-4 text-muted-foreground" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Undo this prompt</TooltipContent>
+                        </Tooltip>
+                      </div>
+                    )}
                     {/* Cloning indicator - shown while sandbox is being set up */}
                     {shouldShowCloning && (
                       <div className="mt-4">
@@ -2140,6 +2756,11 @@ function ChatViewInner({
                       idx: number,
                       isFinal = false,
                     ) => {
+                      // Safety check: ensure part exists
+                      if (!part || typeof part !== "object") {
+                        return null
+                      }
+
                       // Skip step-start parts
                       if (part.type === "step-start") {
                         return null
@@ -2206,8 +2827,8 @@ function ChatViewInner({
                               "text-foreground px-2",
                               // Only show Summary styling if there are steps to collapse
                               isFinalText &&
-                                visibleStepsCount > 0 &&
-                                "pt-3 border-t border-border/50",
+                              visibleStepsCount > 0 &&
+                              "pt-3 border-t border-border/50",
                             )}
                           >
                             {/* Only show Summary label if there are steps to collapse */}
@@ -2368,8 +2989,9 @@ function ChatViewInner({
                       }
 
                       // Tool parts - check registry
-                      if (part.type in AgentToolRegistry) {
+                      if (part.type && part.type in AgentToolRegistry) {
                         const meta = AgentToolRegistry[part.type]
+                        if (!meta) return null
                         const { isPending, isError } = getToolStatus(
                           part,
                           status,
@@ -2561,6 +3183,7 @@ function ChatViewInner({
               pendingQuestions={pendingQuestions}
               onAnswer={handleQuestionsAnswer}
               onSkip={handleQuestionsSkip}
+              onAnswerInPrompt={handleAnswerInPrompt}
             />
           </div>
         </div>
@@ -2594,13 +3217,25 @@ function ChatViewInner({
           </div>
         )}
 
+      {/* Question Modal */}
+      {hasPendingQuestionsForThisChat && pendingQuestions && (
+        <div className="px-2 pb-4">
+          <AgentUserQuestion
+            pendingQuestions={pendingQuestions}
+            onAnswer={handleQuestionsAnswer}
+            onSkip={handleQuestionsSkip}
+            onAnswerInPrompt={handleAnswerInPrompt}
+          />
+        </div>
+      )}
+
       {/* Input */}
       <div
         className={cn(
           "px-2 pb-2 shadow-sm shadow-background relative z-10",
           (isStreaming || changedFilesForSubChat.length > 0) &&
-            !(pendingQuestions?.subChatId === subChatId) &&
-            "-mt-3 pt-3",
+          !(pendingQuestions?.subChatId === subChatId) &&
+          "-mt-3 pt-3",
         )}
       >
         <div className="w-full max-w-2xl mx-auto">
@@ -2610,8 +3245,22 @@ function ChatViewInner({
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
           >
-            <div
-              className="relative w-full cursor-text"
+            {/* Smart Suggestions */}
+            <SmartSuggestions
+              chatId={parentChatId}
+              onSuggestionClick={(text) => {
+                editorRef.current?.setValue(text)
+                editorRef.current?.focus()
+              }}
+              context={{
+                hasFiles: true, // Active chat likely has files
+                hasErrors: false,
+                lastMessage: '',
+                recentChanges: [],
+              }}
+            />
+
+            <div className="relative w-full cursor-text"
               onClick={() => editorRef.current?.focus()}
             >
               <PromptInput
@@ -2680,7 +3329,7 @@ function ChatViewInner({
                     onCloseSlashTrigger={handleCloseSlashTrigger}
                     onContentChange={setHasContent}
                     onSubmit={handleSend}
-                    onShiftTab={() => setIsPlanMode((prev) => !prev)}
+                    onShiftTab={() => setIsPlanMode((prev: boolean) => !prev)}
                     placeholder="Plan, @ for context, / for commands"
                     className={cn(
                       "bg-transparent max-h-[200px] overflow-y-auto p-1",
@@ -2693,216 +3342,135 @@ function ChatViewInner({
                 </div>
                 <PromptInputActions className="w-full">
                   <div className="flex items-center gap-0.5 flex-1 min-w-0">
-                    {/* Mode toggle (Agent/Plan) */}
-                    <DropdownMenu
-                      open={modeDropdownOpen}
-                      onOpenChange={(open) => {
-                        setModeDropdownOpen(open)
-                        if (!open) {
-                          if (tooltipTimeoutRef.current) {
-                            clearTimeout(tooltipTimeoutRef.current)
-                            tooltipTimeoutRef.current = null
-                          }
-                          setModeTooltip(null)
-                          hasShownTooltipRef.current = false
-                        }
-                      }}
-                    >
+                    {/* Mode selector - all 5 modes: build, plan, scaling, designer, debug */}
+                    <ChatModeSelector
+                      value={chatMode}
+                      onChange={handleChatModeChange}
+                    />
+
+                    {/* Agent Type selector */}
+                    <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <button className="flex items-center gap-1.5 px-2 py-1 text-sm text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-muted/50 outline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring/70">
-                          {isPlanMode ? (
-                            <PlanIcon className="h-3.5 w-3.5" />
-                          ) : (
-                            <AgentIcon className="h-3.5 w-3.5" />
-                          )}
-                          <span>{isPlanMode ? "Plan" : "Agent"}</span>
+                        <button className="flex items-center gap-1.5 px-2 py-1 text-sm text-muted-foreground hover:text-foreground transition-[background-color,color] duration-150 ease-out rounded-md hover:bg-muted/50 outline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring/70">
+                          {getAgentIcon(selectedAgent.id, "h-3.5 w-3.5")}
+                          <span>{selectedAgent.name}</span>
                           <ChevronDown className="h-3 w-3 shrink-0 opacity-50" />
                         </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent
                         align="start"
-                        sideOffset={6}
-                        className="!min-w-[116px] !w-[116px]"
-                        onCloseAutoFocus={(e) => e.preventDefault()}
+                        className="w-[160px]"
                       >
-                        <DropdownMenuItem
-                          onClick={() => {
-                            // Clear tooltip before closing dropdown (onMouseLeave won't fire)
-                            if (tooltipTimeoutRef.current) {
-                              clearTimeout(tooltipTimeoutRef.current)
-                              tooltipTimeoutRef.current = null
-                            }
-                            setModeTooltip(null)
-                            setIsPlanMode(false)
-                            setModeDropdownOpen(false)
-                          }}
-                          className="justify-between gap-2"
-                          onMouseEnter={(e) => {
-                            if (tooltipTimeoutRef.current) {
-                              clearTimeout(tooltipTimeoutRef.current)
-                              tooltipTimeoutRef.current = null
-                            }
-                            const rect = e.currentTarget.getBoundingClientRect()
-                            const showTooltip = () => {
-                              setModeTooltip({
-                                visible: true,
-                                position: {
-                                  top: rect.top,
-                                  left: rect.right + 8,
-                                },
-                                mode: "agent",
-                              })
-                              hasShownTooltipRef.current = true
-                              tooltipTimeoutRef.current = null
-                            }
-                            if (hasShownTooltipRef.current) {
-                              showTooltip()
-                            } else {
-                              tooltipTimeoutRef.current = setTimeout(
-                                showTooltip,
-                                1000,
-                              )
-                            }
-                          }}
-                          onMouseLeave={() => {
-                            if (tooltipTimeoutRef.current) {
-                              clearTimeout(tooltipTimeoutRef.current)
-                              tooltipTimeoutRef.current = null
-                            }
-                            setModeTooltip(null)
-                          }}
-                        >
-                          <div className="flex items-center gap-2">
-                            <AgentIcon className="w-4 h-4 text-muted-foreground" />
-                            <span>Agent</span>
-                          </div>
-                          {!isPlanMode && (
-                            <CheckIcon className="h-3.5 w-3.5 ml-auto shrink-0" />
-                          )}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => {
-                            // Clear tooltip before closing dropdown (onMouseLeave won't fire)
-                            if (tooltipTimeoutRef.current) {
-                              clearTimeout(tooltipTimeoutRef.current)
-                              tooltipTimeoutRef.current = null
-                            }
-                            setModeTooltip(null)
-                            setIsPlanMode(true)
-                            setModeDropdownOpen(false)
-                          }}
-                          className="justify-between gap-2"
-                          onMouseEnter={(e) => {
-                            if (tooltipTimeoutRef.current) {
-                              clearTimeout(tooltipTimeoutRef.current)
-                              tooltipTimeoutRef.current = null
-                            }
-                            const rect = e.currentTarget.getBoundingClientRect()
-                            const showTooltip = () => {
-                              setModeTooltip({
-                                visible: true,
-                                position: {
-                                  top: rect.top,
-                                  left: rect.right + 8,
-                                },
-                                mode: "plan",
-                              })
-                              hasShownTooltipRef.current = true
-                              tooltipTimeoutRef.current = null
-                            }
-                            if (hasShownTooltipRef.current) {
-                              showTooltip()
-                            } else {
-                              tooltipTimeoutRef.current = setTimeout(
-                                showTooltip,
-                                1000,
-                              )
-                            }
-                          }}
-                          onMouseLeave={() => {
-                            if (tooltipTimeoutRef.current) {
-                              clearTimeout(tooltipTimeoutRef.current)
-                              tooltipTimeoutRef.current = null
-                            }
-                            setModeTooltip(null)
-                          }}
-                        >
-                          <div className="flex items-center gap-2">
-                            <PlanIcon className="w-4 h-4 text-muted-foreground" />
-                            <span>Plan</span>
-                          </div>
-                          {isPlanMode && (
-                            <CheckIcon className="h-3.5 w-3.5 ml-auto shrink-0" />
-                          )}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                      {modeTooltip?.visible &&
-                        createPortal(
-                          <div
-                            className="fixed z-[100000]"
-                            style={{
-                              top: modeTooltip.position.top + 14,
-                              left: modeTooltip.position.left,
-                              transform: "translateY(-50%)",
-                            }}
-                          >
-                            <div
-                              data-tooltip="true"
-                              className="relative rounded-[12px] bg-popover px-2.5 py-1.5 text-xs text-popover-foreground dark max-w-[150px]"
-                            >
-                              <span>
-                                {modeTooltip.mode === "agent"
-                                  ? "Apply changes directly without a plan"
-                                  : "Create a plan before making changes"}
-                              </span>
-                            </div>
-                          </div>,
-                          document.body,
-                        )}
-                    </DropdownMenu>
-
-                    {/* Model selector */}
-                    <DropdownMenu
-                      open={isModelDropdownOpen}
-                      onOpenChange={setIsModelDropdownOpen}
-                    >
-                      <DropdownMenuTrigger asChild>
-                        <button className="flex items-center gap-1.5 px-2 py-1 text-sm text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-muted/50 outline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring/70">
-                          <ClaudeCodeIcon className="h-3.5 w-3.5" />
-                          <span>
-                            {selectedModel?.name}{" "}
-                            <span className="text-muted-foreground">4.5</span>
-                          </span>
-                          <ChevronDown className="h-3 w-3 shrink-0 opacity-50" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start" className="w-[150px]">
-                        {claudeModels.map((model) => {
-                          const isSelected = selectedModel?.id === model.id
+                        {agents.filter(a => !a.disabled).map((agent) => {
+                          const isSelected = selectedAgent.id === agent.id
                           return (
                             <DropdownMenuItem
-                              key={model.id}
+                              key={agent.id}
                               onClick={() => {
-                                setSelectedModel(model)
-                                setLastSelectedModelId(model.id)
+                                setSelectedAgent(agent)
+                                setLastSelectedAgentId(agent.id)
+                                // Reset model selection when switching agents
+                                const newModels = agent.id === 'opencode' ? opencodeModels : claudeModels
+                                if (newModels.length > 0) {
+                                  setSelectedModel(newModels[0])
+                                  setLastSelectedModelId(newModels[0].id)
+                                }
                               }}
                               className="gap-2 justify-between"
                             >
-                              <div className="flex items-center gap-1.5">
-                                <ClaudeCodeIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                                <span>
-                                  {model.name}{" "}
-                                  <span className="text-muted-foreground">
-                                    4.5
-                                  </span>
-                                </span>
+                              <div className="flex items-center gap-2">
+                                {getAgentIcon(agent.id, "h-3.5 w-3.5 text-muted-foreground")}
+                                <span>{agent.name}</span>
                               </div>
                               {isSelected && (
-                                <CheckIcon className="h-3.5 w-3.5 shrink-0" />
+                                <CheckIcon className="h-3.5 w-3.5 ml-auto shrink-0" />
                               )}
                             </DropdownMenuItem>
                           )
                         })}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    {/* Model selector */}
+                    <DropdownMenu 
+                      open={isModelDropdownOpen}
+                      onOpenChange={(open) => {
+                        setIsModelDropdownOpen(open)
+                        if (!open) setModelSearch("")
+                      }}
+                    >
+                      <DropdownMenuTrigger asChild>
+                        <button className="flex items-center gap-1.5 px-2 py-1 text-sm text-muted-foreground hover:text-foreground transition-[background-color,color] duration-150 ease-out rounded-md hover:bg-muted/50 outline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring/70">
+                          {selectedAgent.id === 'opencode' ? (
+                            <OpenCodeIcon className="h-3.5 w-3.5" />
+                          ) : (
+                            <ClaudeCodeIcon className="h-3.5 w-3.5" />
+                          )}
+                          <span>
+                            {selectedModel?.name || (selectedAgent.id === 'opencode' ? 'Loading...' : 'Select Model')}{" "}
+                            {selectedModel && selectedAgent.id !== 'opencode' && (
+                              <span className="text-muted-foreground">4.5</span>
+                            )}
+                          </span>
+                          <ChevronDown className="h-3 w-3 shrink-0 opacity-50" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="w-[280px] max-h-[400px] overflow-hidden flex flex-col">
+                        {selectedAgent.id === 'opencode' && (
+                          <div className="sticky top-0 z-10 p-2 border-b bg-popover">
+                            <input
+                              type="text"
+                              placeholder="Search models..."
+                              value={modelSearch}
+                              onChange={(e) => setModelSearch(e.target.value)}
+                              className="w-full px-2 py-1.5 text-sm bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                              onClick={(e) => e.stopPropagation()}
+                              autoFocus
+                            />
+                          </div>
+                        )}
+                        <div className="overflow-y-auto max-h-[340px]">
+                          {availableModels
+                            .filter((model) => {
+                              if (!modelSearch || selectedAgent.id !== 'opencode') return true
+                              const searchLower = modelSearch.toLowerCase()
+                              return (
+                                model.name.toLowerCase().includes(searchLower) ||
+                                model.id.toLowerCase().includes(searchLower) ||
+                                ((model as any)?.provider || '').toLowerCase().includes(searchLower)
+                              )
+                            })
+                            .map((model) => {
+                              const isSelected = selectedModel?.id === model.id
+                              return (
+                                <DropdownMenuItem
+                                  key={model.id}
+                                  onClick={() => {
+                                    setSelectedModel(model)
+                                    setLastSelectedModelId(model.id)
+                                  }}
+                                  className="gap-2 justify-between"
+                                >
+                                  <div className="flex items-center gap-1.5">
+                                    {selectedAgent.id === 'opencode' ? (
+                                      <ProviderIcon provider={(model as any)?.provider} className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                    ) : (
+                                      <ClaudeCodeIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                    )}
+                                    <span>
+                                      {model.name}
+                                      {selectedAgent.id !== 'opencode' && (
+                                        <span className="text-muted-foreground"> 4.5</span>
+                                      )}
+                                    </span>
+                                  </div>
+                                  {isSelected && (
+                                    <CheckIcon className="h-3.5 w-3.5 shrink-0" />
+                                  )}
+                                </DropdownMenuItem>
+                              )
+                            })}
+                        </div>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -2925,6 +3493,35 @@ function ChatViewInner({
                     {/* Context window indicator */}
                     <AgentContextIndicator messages={messages} />
 
+                    {/* Sandbox toggle button */}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={cn(
+                        "h-7 w-7 rounded-sm outline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring/70",
+                        sandboxId && "bg-primary/10 text-primary hover:bg-primary/20"
+                      )}
+                      onClick={() => {
+                        // Sandbox toggle - in active chat, sandbox is managed differently
+                        // This is a placeholder button that matches new-chat-form UI
+                      }}
+                      title={sandboxId ? "Sandbox enabled" : "Sandbox disabled"}
+                    >
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+                        />
+                      </svg>
+                    </Button>
+
                     {/* Attachment button */}
                     <Button
                       variant="ghost"
@@ -2939,21 +3536,46 @@ function ChatViewInner({
                       <AttachIcon className="h-4 w-4" />
                     </Button>
 
+                    {/* Multi-Agent button */}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 rounded-sm outline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring/70"
+                      onClick={() => setMultiAgentModalOpen(true)}
+                      title="Multi-Agent Run"
+                    >
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                        />
+                      </svg>
+                    </Button>
+
                     {/* Send/Stop button or Implement Plan button */}
                     <div className="ml-1">
                       {/* Show "Implement plan" button when plan is ready and input is empty */}
                       {hasUnapprovedPlan &&
-                      !hasContent &&
-                      images.length === 0 &&
-                      files.length === 0 &&
-                      !isStreaming ? (
+                        !hasContent &&
+                        images.length === 0 &&
+                        files.length === 0 &&
+                        !isStreaming ? (
                         <Button
                           onClick={handleApprovePlan}
                           size="sm"
                           className="h-7 gap-1.5 rounded-lg"
                         >
-                          <CheckIcon className="w-3.5 h-3.5" />
                           Implement plan
+                          <Kbd className="text-primary-foreground/70">
+                            ⌘↵
+                          </Kbd>
                         </Button>
                       ) : (
                         <AgentSendButton
@@ -3004,6 +3626,7 @@ function ChatViewInner({
           sandboxId={sandboxId}
           projectPath={projectPath}
           changedFiles={changedFilesForSubChat}
+          chatId={parentChatId}
         />
 
         {/* Slash command dropdown */}
@@ -3017,6 +3640,57 @@ function ChatViewInner({
           repository={repository}
           isPlanMode={isPlanMode}
         />
+
+        {/* Multi-Agent Modal */}
+        <MultiAgentModal
+          isOpen={multiAgentModalOpen}
+          onClose={() => setMultiAgentModalOpen(false)}
+          availableModels={availableModels.map((m) => ({
+            id: m.id,
+            name: m.name,
+          }))}
+          defaultPrompt=""
+          onRun={async (agents) => {
+            // Multi-agent run functionality - placeholder for now
+            toast.info("Multi-Agent run - functionality depends on your implementation")
+            setMultiAgentModalOpen(false)
+          }}
+        />
+
+        {/* Undo Confirmation Dialog */}
+        <Dialog open={undoConfirmOpen} onOpenChange={setUndoConfirmOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Undo Prompt</DialogTitle>
+              <DialogDescription>
+                Are you sure? This will undo everything that happened in that one prompt.
+                This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex justify-end gap-2 mt-4">
+              <Button variant="outline" onClick={() => setUndoConfirmOpen(false)} disabled={isUndoing}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={async () => {
+                  setIsUndoing(true)
+                  try {
+                    toast.info("Attempting to undo...")
+                    await new Promise(r => setTimeout(r, 1000))
+                    toast.warning("Full undo requires backend implementation.")
+                  } finally {
+                    setIsUndoing(false)
+                    setUndoConfirmOpen(false)
+                  }
+                }}
+                disabled={isUndoing}
+              >
+                {isUndoing ? <span className="flex items-center gap-2"><IconSpinner className="animate-spin" /> Undoing...</span> : "Undo Everything"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </>
   )
@@ -3056,6 +3730,7 @@ export function ChatView({
   const setJustCreatedIds = useSetAtom(justCreatedIdsAtom)
   const selectedChatId = useAtomValue(selectedAgentChatIdAtom)
   const { notifyAgentComplete } = useDesktopNotifications()
+  const [pendingRun, setPendingRun] = useAtom(pendingMultiAgentRunAtom)
 
   // Check if any chat has unseen changes
   const hasAnyUnseenChanges = unseenChanges.size > 0
@@ -3063,15 +3738,92 @@ export function ChatView({
   const [isPreviewSidebarOpen, setIsPreviewSidebarOpen] = useAtom(
     agentsPreviewSidebarOpenAtom,
   )
+  // Browser preview URL atom
+  const browserPreviewUrlAtom = useMemo(
+    () => browserPreviewUrlAtomFamily(chatId),
+    [chatId],
+  )
+  const [, setBrowserPreviewUrl] = useAtom(browserPreviewUrlAtom)
+
+  // Listen for browser preview open events from OpenCode
+  useEffect(() => {
+    const handleOpenBrowserPreview = (e: CustomEvent<{ chatId: string; url: string }>) => {
+      if (e.detail.chatId === chatId) {
+        setBrowserPreviewUrl(e.detail.url)
+        setIsPreviewSidebarOpen(true)
+      }
+    }
+
+    window.addEventListener('open-browser-preview', handleOpenBrowserPreview as EventListener)
+    return () => {
+      window.removeEventListener('open-browser-preview', handleOpenBrowserPreview as EventListener)
+    }
+  }, [chatId, setBrowserPreviewUrl, setIsPreviewSidebarOpen])
+
   // Per-chat diff sidebar state - each chat remembers its own open/close state
   const diffSidebarAtom = useMemo(
     () => diffSidebarOpenAtomFamily(chatId),
     [chatId],
   )
   const [isDiffSidebarOpen, setIsDiffSidebarOpen] = useAtom(diffSidebarAtom)
+  
+  // Per-chat tree sidebar state
+  const treeSidebarAtom = useMemo(
+    () => treeSidebarOpenAtomFamily(chatId),
+    [chatId],
+  )
+  const [isTreeSidebarOpen, setIsTreeSidebarOpen] = useAtom(treeSidebarAtom)
+
+  // Per-chat kanban sidebar state
+  const kanbanSidebarAtom = useMemo(
+    () => kanbanSidebarOpenAtomFamily(chatId),
+    [chatId],
+  )
+  const [isKanbanSidebarOpen, setIsKanbanSidebarOpen] = useAtom(kanbanSidebarAtom)
+  
   const [isTerminalSidebarOpen, setIsTerminalSidebarOpen] = useAtom(
     terminalSidebarOpenAtom,
   )
+  
+  // Terminal command execution state
+  const [terminalInitialCommands, setTerminalInitialCommands] = useState<string[] | undefined>(undefined)
+  
+  // Command output dialog state
+  const [outputDialog, setOutputDialog] = useState<{
+    open: boolean
+    command: string
+    stdout: string
+    stderr: string
+    exitCode?: number
+  }>({
+    open: false,
+    command: "",
+    stdout: "",
+    stderr: "",
+  })
+  
+  // Handler for executing command in terminal
+  const handleExecuteInTerminal = useCallback((command: string) => {
+    setTerminalInitialCommands([command])
+    setIsTerminalSidebarOpen(true)
+    // Clear initialCommands after a short delay to allow it to execute
+    // (terminal uses initialCommands only on mount/reattach)
+    setTimeout(() => {
+      setTerminalInitialCommands(undefined)
+    }, 1000)
+  }, [setIsTerminalSidebarOpen])
+  
+  // Handler for viewing full output
+  const handleViewFullOutput = useCallback((command: string, stdout: string, stderr: string, exitCode?: number) => {
+    setOutputDialog({
+      open: true,
+      command,
+      stdout,
+      stderr,
+      exitCode,
+    })
+  }, [])
+  
   const [diffStats, setDiffStats] = useState({
     fileCount: 0,
     additions: 0,
@@ -3180,6 +3932,7 @@ export function ChatView({
     })
   }, [activeSubChatId, setSubChatUnseenChanges])
   const allSubChats = useAgentSubChatStore((state) => state.allSubChats)
+  const openSubChatIds = useAgentSubChatStore((state) => state.openSubChatIds)
 
   // tRPC utils for optimistic cache updates
   const utils = api.useUtils()
@@ -3203,6 +3956,7 @@ export function ChatView({
     id: string
     name?: string | null
     mode?: "plan" | "agent" | null
+    model?: string | null
     created_at?: Date | string | null
     updated_at?: Date | string | null
     messages?: any
@@ -3294,22 +4048,18 @@ export function ChatView({
   const isQuickSetup = meta?.isQuickSetup || !meta?.sandboxConfig?.port
   const previewPort = meta?.sandboxConfig?.port ?? 3000
 
-  // Check if preview can be opened (sandbox with port exists and not quick setup)
-  const canOpenPreview = !!(
+  // Check if AgentPreview can be opened (sandbox with port exists and not quick setup)
+  const canOpenAgentPreview = !!(
     sandboxId &&
     !isQuickSetup &&
     meta?.sandboxConfig?.port
   )
 
+  // Preview sidebar can always be opened (for BrowserPreview even without sandbox)
+  const canOpenPreview = true
+
   // Check if diff can be opened (worktree for desktop, sandbox for web)
   const canOpenDiff = !!worktreePath || !!sandboxId
-
-  // Close preview sidebar if preview becomes unavailable
-  useEffect(() => {
-    if (!canOpenPreview && isPreviewSidebarOpen) {
-      setIsPreviewSidebarOpen(false)
-    }
-  }, [canOpenPreview, isPreviewSidebarOpen, setIsPreviewSidebarOpen])
 
   // Note: We no longer forcibly close diff sidebar when canOpenDiff is false.
   // The sidebar render is guarded by canOpenDiff, so it naturally hides.
@@ -3475,7 +4225,7 @@ export function ChatView({
   // Calculate total file count across all sub-chats for change detection
   const totalSubChatFileCount = useMemo(() => {
     let count = 0
-    subChatFiles.forEach((files) => {
+    subChatFiles.forEach((files: Array<{ filePath: string; displayPath: string; additions: number; deletions: number }>) => {
       count += files.length
     })
     return count
@@ -3636,6 +4386,7 @@ export function ChatView({
           (sc.mode as "plan" | "agent" | undefined) ||
           existingLocal?.mode ||
           "agent",
+        ...(sc.model && { model: sc.model as string }),
       }
     })
     const dbSubChatIds = new Set(dbSubChats.map((sc) => sc.id))
@@ -3674,6 +4425,12 @@ export function ChatView({
     }
   }, [agentChat, chatId])
 
+  // Track overrides for multi-agent runs
+  const subChatModelOverrides = useRef<Map<string, string>>(new Map())
+
+  // Memoize chat objects to ensure stable references during streaming
+  const chatCacheRef = useRef<Map<string, Chat<any>>>(new Map())
+
   // Create or get Chat instance for a sub-chat
   const getOrCreateChat = useCallback(
     (subChatId: string): Chat<any> | null => {
@@ -3682,9 +4439,11 @@ export function ChatView({
         return null
       }
 
-      // Return existing chat if we have it
-      const existing = agentChatStore.get(subChatId)
+      // Return existing chat if we have it (check both store and cache)
+      const existing = agentChatStore.get(subChatId) || chatCacheRef.current.get(subChatId)
       if (existing) {
+        // Update cache to ensure reference stability
+        chatCacheRef.current.set(subChatId, existing)
         return existing
       }
 
@@ -3696,17 +4455,34 @@ export function ChatView({
       const subChatMeta = useAgentSubChatStore
         .getState()
         .allSubChats.find((sc) => sc.id === subChatId)
+      // Get mode from store, or fallback to "plan" if isPlanMode, otherwise "agent"
       const subChatMode = subChatMeta?.mode || (isPlanMode ? "plan" : "agent")
 
       // Desktop: use IPCChatTransport for local Claude Code execution
       // Note: Extended thinking setting is read dynamically inside the transport
+      const selectedAgentId = (appStore.get(lastSelectedAgentIdAtom) as string) || 'claude-code'
+
+      // Map mode for transport: custom modes map to "build", others map directly
+      const transportMode = typeof subChatMode === "string" && subChatMode.startsWith("custom-")
+        ? "build" // Custom modes use "build" as base mode
+        : (subChatMode === 'agent' ? 'build' : subChatMode)
+
+      // Store custom mode ID separately if it's a custom mode
+      const customModeId = typeof subChatMode === "string" && subChatMode.startsWith("custom-")
+        ? subChatMode
+        : undefined
+
       const transport = worktreePath
         ? new IPCChatTransport({
-            chatId,
-            subChatId,
-            cwd: worktreePath,
-            mode: subChatMode,
-          })
+          chatId,
+          subChatId,
+          cwd: worktreePath,
+          ...(worktreePath ? { projectPath: worktreePath } : {}),
+          mode: transportMode as "plan" | "build" | "scaling" | "designer" | "debug",
+          customModeId, // Pass custom mode ID for prompt rules
+          agentType: selectedAgentId,
+          model: subChatModelOverrides.current.get(subChatId),
+        })
         : null // Web transport not supported in desktop app
 
       if (!transport) {
@@ -3759,7 +4535,7 @@ export function ChatView({
                 try {
                   const audio = new Audio("./sound.mp3")
                   audio.volume = 1.0
-                  audio.play().catch(() => {})
+                  audio.play().catch(() => { })
                 } catch {
                   // Ignore audio errors
                 }
@@ -3776,10 +4552,15 @@ export function ChatView({
       })
 
       agentChatStore.set(subChatId, newChat, chatId)
+      // Store in cache to ensure stable reference during streaming
+      chatCacheRef.current.set(subChatId, newChat)
       // Store streamId at creation time to prevent resume during active streaming
       // tRPC refetch would update stream_id in DB, but store stays stable
       agentChatStore.setStreamId(subChatId, subChat?.stream_id || null)
-      forceUpdate({}) // Trigger re-render to use new chat
+      // Defer force update to next frame to allow streaming to start without interrupting animations/transitions
+      requestAnimationFrame(() => {
+        forceUpdate({}) // Trigger re-render to use new chat
+      })
       return newChat
     },
     [
@@ -3788,6 +4569,8 @@ export function ChatView({
       worktreePath,
       chatId,
       isPlanMode,
+      agentSubChats,
+      subChatModelOverrides,
       setSubChatUnseenChanges,
       selectedChatId,
       setUnseenChanges,
@@ -3795,21 +4578,79 @@ export function ChatView({
     ],
   )
 
+  // Handle pending multi-agent run
+  useEffect(() => {
+    if (
+      pendingRun &&
+      pendingRun.chatId === chatId &&
+      agentChat && // Main chat loaded
+      agentSubChats // Sub-chats loaded
+    ) {
+      const { agents } = pendingRun
+
+      // Determine if ALL sub-chats are present (loaded from DB sync)
+      const allSubChatsPresent = agents.every((a: { subChatId: string }) =>
+        agentSubChats.some(sc => sc.id === a.subChatId)
+      )
+
+      if (!allSubChatsPresent) return
+
+      console.log('Starting multi-agent run for', agents.length, 'agents')
+
+      const store = useAgentSubChatStore.getState()
+
+      agents.forEach((agent: { id: string; subChatId: string; prompt: string; model: string }) => {
+        // Set override and clear existing chat to ensure we use the model override
+        if (agent.model) {
+          subChatModelOverrides.current.set(agent.subChatId, agent.model)
+          // Force cleanup of existing chat so we create new one with override
+          const existing = agentChatStore.get(agent.subChatId)
+          if (existing) {
+            agentChatStore.delete(agent.subChatId)
+          }
+        }
+
+        // Ensure open
+        store.addToOpenSubChats(agent.subChatId)
+
+        // Get chat instance
+        const chat = getOrCreateChat(agent.subChatId)
+        if (chat) {
+          // If chat is already running or has messages, skip
+          const hasMessages = chat.messages.length > 0
+          if (!hasMessages) {
+            // Note: Loading state will be set automatically when chat starts streaming
+            // Send message
+            (chat as any).append({
+              role: 'user',
+              content: agent.prompt
+            })
+          }
+        }
+      })
+
+      // Clear pending run
+      setPendingRun(null)
+    }
+  }, [pendingRun, chatId, agentChat, agentSubChats, getOrCreateChat, setPendingRun, setLoadingSubChats])
+
   // Handle creating a new sub-chat
   const handleCreateNewSubChat = useCallback(async () => {
     const store = useAgentSubChatStore.getState()
     const subChatMode = isPlanMode ? "plan" : "agent"
+    const selectedModelId = appStore.get(lastSelectedModelIdAtom)
 
     // Create sub-chat in DB first to get the real ID
     const newSubChat = await trpcClient.chats.createSubChat.mutate({
       chatId,
       name: "New Agent",
       mode: subChatMode,
+      model: selectedModelId as string | undefined,
     })
     const newId = newSubChat.id
 
     // Track this subchat as just created for typewriter effect
-    setJustCreatedIds((prev) => new Set([...prev, newId]))
+    setJustCreatedIds((prev: Set<string>) => new Set([...prev, newId]))
 
     // Add to allSubChats with placeholder name
     store.addToAllSubChats({
@@ -3817,6 +4658,7 @@ export function ChatView({
       name: "New Agent",
       created_at: new Date().toISOString(),
       mode: subChatMode,
+      model: selectedModelId as string | undefined,
     })
 
     // Add to open tabs and set as active
@@ -3827,11 +4669,14 @@ export function ChatView({
     if (worktreePath) {
       // Desktop: use IPCChatTransport for local Claude Code execution
       // Note: Extended thinking setting is read dynamically inside the transport
+      const selectedAgentId = (appStore.get(lastSelectedAgentIdAtom) as string) || 'claude-code'
       const transport = new IPCChatTransport({
         chatId,
         subChatId: newId,
         cwd: worktreePath,
-        mode: subChatMode,
+        ...(worktreePath ? { projectPath: worktreePath } : {}),
+        mode: subChatMode === 'agent' ? 'build' : subChatMode,
+        agentType: selectedAgentId,
       })
 
       const newChat = new Chat<any>({
@@ -3878,7 +4723,7 @@ export function ChatView({
                 try {
                   const audio = new Audio("./sound.mp3")
                   audio.volume = 1.0
-                  audio.play().catch(() => {})
+                  audio.play().catch(() => { })
                 } catch {
                   // Ignore audio errors
                 }
@@ -3894,8 +4739,13 @@ export function ChatView({
         },
       })
       agentChatStore.set(newId, newChat, chatId)
+      // Store in cache to ensure stable reference during streaming
+      chatCacheRef.current.set(newId, newChat)
       agentChatStore.setStreamId(newId, null) // New chat has no active stream
-      forceUpdate({}) // Trigger re-render
+      // Defer force update to next frame to allow streaming to start without interrupting animations/transitions
+      requestAnimationFrame(() => {
+        forceUpdate({}) // Trigger re-render
+      })
     }
   }, [
     worktreePath,
@@ -4207,7 +5057,7 @@ export function ChatView({
           utils.agents.getAgentChat.setData({ chatId }, (old) => {
             if (!old) return old
             const existsInCache = old.subChats.some(
-              (sc) => sc.id === subChatIdToUpdate,
+              (sc: any) => sc.id === subChatIdToUpdate,
             )
             if (!existsInCache) {
               // Sub-chat not in cache yet (DB save still in flight) - add it
@@ -4230,7 +5080,7 @@ export function ChatView({
             }
             return {
               ...old,
-              subChats: old.subChats.map((sc) =>
+              subChats: old.subChats.map((sc: any) =>
                 sc.id === subChatIdToUpdate ? { ...sc, name } : sc,
               ),
             }
@@ -4241,9 +5091,9 @@ export function ChatView({
           // On desktop, selectedTeamId is always null, so we update unconditionally
           utils.agents.getAgentChats.setData(
             { teamId: selectedTeamId },
-            (old) => {
+            (old: any) => {
               if (!old) return old
-              return old.map((c) =>
+              return old.map((c: any) =>
                 c.id === chatIdToUpdate ? { ...c, name } : c,
               )
             },
@@ -4301,8 +5151,12 @@ export function ChatView({
       <div className="flex-1 overflow-hidden flex">
         {/* Chat Panel */}
         <div
-          className="flex-1 flex flex-col overflow-hidden relative"
-          style={{ minWidth: "350px" }}
+          className="flex-1 flex flex-col overflow-hidden relative bg-cover bg-center"
+          style={{
+            minWidth: "350px",
+            backgroundImage: "url('https://pub-940ccf6255b54fa799a9b01050e6c227.r2.dev/ruixen_moon_2.png')",
+            backgroundAttachment: "fixed",
+          }}
         >
           {/* SubChatSelector header - absolute when sidebar open (desktop only), regular div otherwise */}
           {!shouldHideChatHeader && (
@@ -4347,6 +5201,36 @@ export function ChatView({
                           subChatsSidebarMode === "sidebar"
                         }
                       />
+                      {/* Breadcrumb showing current working directory */}
+                      {worktreePath && (
+                        <div className="ml-2 flex items-center">
+                          <Breadcrumb>
+                            <BreadcrumbList>
+                              {worktreePath.split(/[/\\]/).filter(Boolean).map((segment, idx, arr) => {
+                                const isLast = idx === arr.length - 1
+                                return (
+                                  <Fragment key={idx}>
+                                    <BreadcrumbItem>
+                                      {isLast ? (
+                                        <BreadcrumbPage className="flex items-center gap-1.5">
+                                          {idx === 0 && <FolderIcon className="h-3.5 w-3.5" />}
+                                          <span className="font-mono text-xs">{segment}</span>
+                                        </BreadcrumbPage>
+                                      ) : (
+                                        <span className="flex items-center gap-1.5 text-xs">
+                                          {idx === 0 && <FolderIcon className="h-3.5 w-3.5" />}
+                                          {segment}
+                                        </span>
+                                      )}
+                                    </BreadcrumbItem>
+                                    {!isLast && <BreadcrumbSeparator />}
+                                  </Fragment>
+                                )
+                              })}
+                            </BreadcrumbList>
+                          </Breadcrumb>
+                        </div>
+                      )}
                       <SubChatSelector
                         onCreateNew={handleCreateNewSubChat}
                         isMobile={false}
@@ -4361,6 +5245,43 @@ export function ChatView({
                     </>
                   )}
                 </div>
+                {/* Open Tree Button - shows when tree is closed (desktop only) */}
+                {!isMobileFullscreen &&
+                  !isTreeSidebarOpen &&
+                  worktreePath && (
+                    <Tooltip delayDuration={500}>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setIsTreeSidebarOpen(true)}
+                          className="h-6 w-6 p-0 hover:bg-foreground/10 transition-colors text-foreground flex-shrink-0 rounded-md ml-2"
+                          aria-label="Open file tree"
+                        >
+                          <ListTree className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Open file tree</TooltipContent>
+                    </Tooltip>
+                  )}
+                {/* Open Kanban Button - shows when kanban is closed (desktop only) */}
+                {!isMobileFullscreen && !isKanbanSidebarOpen && (
+                  <Tooltip delayDuration={500}>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setIsKanbanSidebarOpen(true)}
+                        className="h-6 w-6 p-0 hover:bg-foreground/10 transition-colors text-foreground flex-shrink-0 rounded-md ml-2"
+                        aria-label="Open roadmap & tasks"
+                      >
+                        <Kanban className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Open roadmap & tasks</TooltipContent>
+                  </Tooltip>
+                )}
+
                 {/* Open Preview Button - shows when preview is closed (desktop only) */}
                 {!isMobileFullscreen &&
                   !isPreviewSidebarOpen &&
@@ -4395,6 +5316,23 @@ export function ChatView({
                       </span>
                     </PreviewSetupHoverCard>
                   ))}
+                {/* Browser Preview Button - always available (desktop only) */}
+                {!isMobileFullscreen && !isPreviewSidebarOpen && (
+                  <Tooltip delayDuration={500}>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setIsPreviewSidebarOpen(true)}
+                        className="h-6 w-6 p-0 hover:bg-foreground/10 transition-colors text-foreground flex-shrink-0 rounded-md ml-2"
+                        aria-label="Open browser preview"
+                      >
+                        <Globe className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Open browser preview</TooltipContent>
+                  </Tooltip>
+                )}
                 {/* Terminal Button - shows when terminal is closed and worktree exists (desktop only) */}
                 {!isMobileFullscreen &&
                   !isTerminalSidebarOpen &&
@@ -4443,24 +5381,42 @@ export function ChatView({
           )}
 
           {/* Chat Content */}
-          {activeChat && activeSubChatId ? (
-            <ChatViewInner
-              key={activeSubChatId}
-              chat={activeChat}
-              subChatId={activeSubChatId}
-              parentChatId={chatId}
-              isFirstSubChat={isFirstSubChatActive}
-              onAutoRename={handleAutoRename}
-              onCreateNewSubChat={handleCreateNewSubChat}
-              teamId={selectedTeamId || undefined}
-              repository={repository}
-              streamId={agentChatStore.getStreamId(activeSubChatId)}
-              isMobile={isMobileFullscreen}
-              isSubChatsSidebarOpen={subChatsSidebarMode === "sidebar"}
-              sandboxId={sandboxId || undefined}
-              projectPath={worktreePath || undefined}
-            />
-          ) : (
+          {openSubChatIds.map((subChatId) => {
+            const chat = getOrCreateChat(subChatId)
+            const isActive = subChatId === activeSubChatId
+
+            if (!chat) return null
+
+            return (
+              <div
+                key={subChatId}
+                className={cn(
+                  "flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden h-full",
+                  !isActive && "hidden"
+                )}
+              >
+                <ChatViewInner
+                  chat={chat}
+                  subChatId={subChatId}
+                  parentChatId={chatId}
+                  isFirstSubChat={subChatId === getFirstSubChatId(allSubChats)}
+                  onAutoRename={handleAutoRename}
+                  onCreateNewSubChat={handleCreateNewSubChat}
+                  teamId={selectedTeamId || undefined}
+                  repository={repository}
+                  streamId={agentChatStore.getStreamId(subChatId)}
+                  isMobile={isMobileFullscreen}
+                  isSubChatsSidebarOpen={subChatsSidebarMode === "sidebar"}
+                  sandboxId={sandboxId || undefined}
+                  projectPath={worktreePath || undefined}
+                  onExecuteInTerminal={handleExecuteInTerminal}
+                  onViewFullOutput={handleViewFullOutput}
+                />
+              </div>
+            )
+          })}
+
+          {openSubChatIds.length === 0 && (
             <>
               {/* Empty chat area - no loading indicator */}
               <div className="flex-1" />
@@ -4516,7 +5472,7 @@ export function ChatView({
                           <div className="ml-1">
                             <AgentSendButton
                               disabled={true}
-                              onClick={() => {}}
+                              onClick={() => { }}
                             />
                           </div>
                         </div>
@@ -4846,7 +5802,7 @@ export function ChatView({
                   <AgentDiffView
                     ref={diffViewRef}
                     chatId={chatId}
-                    sandboxId={sandboxId}
+                    sandboxId={sandboxId || ''}
                     worktreePath={worktreePath || undefined}
                     repository={repository}
                     onStatsChange={setDiffStats}
@@ -4862,8 +5818,8 @@ export function ChatView({
           </ResizableSidebar>
         )}
 
-        {/* Preview Sidebar - hidden on mobile fullscreen and when preview is not available */}
-        {canOpenPreview && !isMobileFullscreen && (
+        {/* Preview Sidebar - shows AgentPreview (sandbox) or BrowserPreview (localhost) */}
+        {!isMobileFullscreen && (
           <ResizableSidebar
             isOpen={isPreviewSidebarOpen}
             onClose={() => setIsPreviewSidebarOpen(false)}
@@ -4877,47 +5833,7 @@ export function ChatView({
             className="bg-tl-background border-l"
             style={{ borderLeftWidth: "0.5px" }}
           >
-            {isQuickSetup ? (
-              <div className="flex flex-col h-full">
-                {/* Header with close button */}
-                <div className="flex items-center justify-end px-3 h-10 bg-tl-background flex-shrink-0 border-b border-border/50">
-                  <Button
-                    variant="ghost"
-                    className="h-7 w-7 p-0 hover:bg-muted transition-[background-color,transform] duration-150 ease-out active:scale-[0.97] rounded-md"
-                    onClick={() => setIsPreviewSidebarOpen(false)}
-                  >
-                    <IconCloseSidebarRight className="h-4 w-4 text-muted-foreground" />
-                  </Button>
-                </div>
-                {/* Content */}
-                <div className="flex flex-col items-center justify-center flex-1 p-6 text-center">
-                  <div className="text-muted-foreground mb-4">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="48"
-                      height="48"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="opacity-50"
-                    >
-                      <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
-                      <line x1="8" y1="21" x2="16" y2="21" />
-                      <line x1="12" y1="17" x2="12" y2="21" />
-                    </svg>
-                  </div>
-                  <p className="text-sm text-muted-foreground mb-2">
-                    Preview not available
-                  </p>
-                  <p className="text-xs text-muted-foreground/70 max-w-[200px]">
-                    Set up this repository to enable live preview
-                  </p>
-                </div>
-              </div>
-            ) : (
+            {canOpenAgentPreview && !isQuickSetup && sandboxId ? (
               <AgentPreview
                 chatId={chatId}
                 sandboxId={sandboxId}
@@ -4926,7 +5842,67 @@ export function ChatView({
                 hideHeader={false}
                 onClose={() => setIsPreviewSidebarOpen(false)}
               />
+            ) : (
+              <BrowserPreview
+                chatId={chatId}
+                hideHeader={false}
+                onClose={() => setIsPreviewSidebarOpen(false)}
+              />
             )}
+          </ResizableSidebar>
+        )}
+
+        {/* File Tree Sidebar - shows when worktree exists (desktop only) */}
+        {!isMobileFullscreen && worktreePath && (
+          <ResizableSidebar
+            isOpen={isTreeSidebarOpen}
+            onClose={() => setIsTreeSidebarOpen(false)}
+            widthAtom={agentsPreviewSidebarWidthAtom}
+            minWidth={250}
+            side="right"
+            animationDuration={0}
+            initialWidth={300}
+            exitWidth={0}
+            showResizeTooltip={true}
+            className="bg-tl-background border-l"
+            style={{ borderLeftWidth: "0.5px" }}
+          >
+            <div className="flex flex-col h-full">
+              {/* Header */}
+              <div className="flex items-center justify-between px-4 py-2 border-b">
+                <h3 className="text-sm font-medium">File Tree</h3>
+                <Button
+                  variant="ghost"
+                  className="h-7 w-7 p-0 hover:bg-muted transition-[background-color,transform] duration-150 ease-out active:scale-[0.97] rounded-md flex-shrink-0"
+                  onClick={() => setIsTreeSidebarOpen(false)}
+                >
+                  <IconCloseSidebarRight className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              </div>
+              {/* Tree Content */}
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <FileTreePanel projectPath={worktreePath} />
+              </div>
+            </div>
+          </ResizableSidebar>
+        )}
+
+        {/* Kanban Sidebar - shows when enabled (desktop only) */}
+        {!isMobileFullscreen && (
+          <ResizableSidebar
+            isOpen={isKanbanSidebarOpen}
+            onClose={() => setIsKanbanSidebarOpen(false)}
+            widthAtom={agentsPreviewSidebarWidthAtom}
+            minWidth={300}
+            side="right"
+            animationDuration={0}
+            initialWidth={400}
+            exitWidth={0}
+            showResizeTooltip={true}
+            className="bg-tl-background border-l"
+            style={{ borderLeftWidth: "0.5px" }}
+          >
+            <KanbanPanel chatId={chatId} onClose={() => setIsKanbanSidebarOpen(false)} />
           </ResizableSidebar>
         )}
 
@@ -4936,8 +5912,21 @@ export function ChatView({
             chatId={chatId}
             cwd={worktreePath}
             workspaceId={chatId}
+            initialCommands={terminalInitialCommands}
           />
         )}
+        
+        {/* Command Output Dialog */}
+        <CommandOutputDialog
+          open={outputDialog.open}
+          onOpenChange={(open) =>
+            setOutputDialog((prev) => ({ ...prev, open }))
+          }
+          command={outputDialog.command}
+          stdout={outputDialog.stdout}
+          stderr={outputDialog.stderr}
+          exitCode={outputDialog.exitCode}
+        />
       </div>
     </div>
   )

@@ -30,3 +30,7 @@ electron.vite.config.*.mjs
 
 # Claude binary (downloaded at build time)
 resources/bin/
+
+# Build script backups
+.patches/
+.custom-files/

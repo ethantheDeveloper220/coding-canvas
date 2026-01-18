@@ -1,0 +1,126 @@
+From c384541563905246c3d1546c56fd191c74374f2f Mon Sep 17 00:00:00 2001
+From: serafim <serafimcloud@gmail.com>
+Date: Fri, 16 Jan 2026 20:12:36 -0800
+Subject: [PATCH] Release v0.0.18
+
+## What's New
+
+### Features
+- Added Cmd+Enter shortcut for "Implement plan" button
+- Improved archive popover: auto-unarchive on selection, input clears on revisit
+
+### Fixes
+- Fixed sidebar flickering when switching between chats
+---
+ .../features/agents/main/active-chat.tsx      |  6 +++---
+ .../features/sub-chats/sub-chat-selector.tsx  | 20 ++++++++++---------
+ .../features/sub-chats/sub-chats-sidebar.tsx  | 20 ++++++++++---------
+ 3 files changed, 25 insertions(+), 21 deletions(-)
+
+diff --git a/src/renderer/features/agents/main/active-chat.tsx b/src/renderer/features/agents/main/active-chat.tsx
+index 07caac6..6f0d3a3 100644
+--- a/src/renderer/features/agents/main/active-chat.tsx
++++ b/src/renderer/features/agents/main/active-chat.tsx
+@@ -3041,7 +3041,7 @@ function ChatViewInner({
+                   isDragOver && "ring-2 ring-primary/50 border-primary/50",
+                   isFocused && !isDragOver && "ring-2 ring-primary/50",
+                 )}
+-                maxHeight={240}
++                maxHeight={200}
+                 onSubmit={handleSend}
+                 contextItems={
+                   images.length > 0 || files.length > 0 ? (
+@@ -3110,7 +3110,7 @@ function ChatViewInner({
+                     onShiftTab={() => setIsPlanMode((prev) => !prev)}
+                     placeholder="Plan, @ for context, / for commands"
+                     className={cn(
+-                      "bg-transparent max-h-[240px] overflow-y-auto p-1",
++                      "bg-transparent max-h-[200px] overflow-y-auto p-1",
+                       isMobile && "min-h-[56px]",
+                     )}
+                     onPaste={handlePaste}
+@@ -3380,7 +3380,7 @@ function ChatViewInner({
+                           className="h-7 gap-1.5 rounded-lg"
+                         >
+                           Implement plan
+-                          <Kbd className="text-primary-foreground/80">
++                          <Kbd className="text-primary-foreground/70">
+                             ⌘↵
+                           </Kbd>
+                         </Button>
+diff --git a/src/renderer/features/sub-chats/sub-chat-selector.tsx b/src/renderer/features/sub-chats/sub-chat-selector.tsx
+index a9b3f22..4492212 100644
+--- a/src/renderer/features/sub-chats/sub-chat-selector.tsx
++++ b/src/renderer/features/sub-chats/sub-chat-selector.tsx
+@@ -23,6 +23,7 @@ import {
+   useAgentSubChatStore,
+   type SubChatMeta,
+ } from "../agents/stores/sub-chat-store"
++import { useShallow } from "zustand/react/shallow"
+ import { PopoverTrigger } from "../../components/ui/popover"
+ import {
+   Tooltip,
+@@ -80,15 +81,16 @@ export function SubChatSelector({
+   isDiffSidebarOpen = false,
+   diffStats,
+ }: SubChatSelectorProps) {
+-  const activeSubChatId = useAgentSubChatStore((state) => state.activeSubChatId)
+-  const openSubChatIds = useAgentSubChatStore((state) => state.openSubChatIds)
+-  const pinnedSubChatIds = useAgentSubChatStore(
+-    (state) => state.pinnedSubChatIds,
+-  )
+-  const allSubChats = useAgentSubChatStore((state) => state.allSubChats)
+-  const parentChatId = useAgentSubChatStore((state) => state.chatId)
+-  const togglePinSubChat = useAgentSubChatStore(
+-    (state) => state.togglePinSubChat,
++  // Use shallow comparison to prevent re-renders when arrays have same content
++  const { activeSubChatId, openSubChatIds, pinnedSubChatIds, allSubChats, parentChatId, togglePinSubChat } = useAgentSubChatStore(
++    useShallow((state) => ({
++      activeSubChatId: state.activeSubChatId,
++      openSubChatIds: state.openSubChatIds,
++      pinnedSubChatIds: state.pinnedSubChatIds,
++      allSubChats: state.allSubChats,
++      parentChatId: state.chatId,
++      togglePinSubChat: state.togglePinSubChat,
++    }))
+   )
+   const [loadingSubChats] = useAtom(loadingSubChatsAtom)
+   const subChatUnseenChanges = useAtomValue(agentsSubChatUnseenChangesAtom)
+diff --git a/src/renderer/features/sub-chats/sub-chats-sidebar.tsx b/src/renderer/features/sub-chats/sub-chats-sidebar.tsx
+index 7319cd3..5945fdf 100644
+--- a/src/renderer/features/sub-chats/sub-chats-sidebar.tsx
++++ b/src/renderer/features/sub-chats/sub-chats-sidebar.tsx
+@@ -20,6 +20,7 @@ import {
+   useAgentSubChatStore,
+   type SubChatMeta,
+ } from "../../lib/stores/sub-chat-store"
++import { useShallow } from "zustand/react/shallow"
+ import {
+   ArchiveIcon,
+   IconDoubleChevronLeft,
+@@ -69,15 +70,16 @@ export function SubChatsSidebar({
+   isLoading = false,
+   agentName,
+ }: SubChatsSidebarProps) {
+-  const activeSubChatId = useAgentSubChatStore((state) => state.activeSubChatId)
+-  const openSubChatIds = useAgentSubChatStore((state) => state.openSubChatIds)
+-  const pinnedSubChatIds = useAgentSubChatStore(
+-    (state) => state.pinnedSubChatIds,
+-  )
+-  const allSubChats = useAgentSubChatStore((state) => state.allSubChats)
+-  const parentChatId = useAgentSubChatStore((state) => state.chatId)
+-  const togglePinSubChat = useAgentSubChatStore(
+-    (state) => state.togglePinSubChat,
++  // Use shallow comparison to prevent re-renders when arrays have same content
++  const { activeSubChatId, openSubChatIds, pinnedSubChatIds, allSubChats, parentChatId, togglePinSubChat } = useAgentSubChatStore(
++    useShallow((state) => ({
++      activeSubChatId: state.activeSubChatId,
++      openSubChatIds: state.openSubChatIds,
++      pinnedSubChatIds: state.pinnedSubChatIds,
++      allSubChats: state.allSubChats,
++      parentChatId: state.chatId,
++      togglePinSubChat: state.togglePinSubChat,
++    }))
+   )
+   const [loadingSubChats] = useAtom(loadingSubChatsAtom)
+ 

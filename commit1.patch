@@ -1,0 +1,96 @@
+From 26d8620425cd4a62a1d5afca57ca35101d3a37da Mon Sep 17 00:00:00 2001
+From: serafim <serafimcloud@gmail.com>
+Date: Sat, 17 Jan 2026 09:26:21 -0800
+Subject: [PATCH] Release v0.0.20
+
+## What's New
+
+### Fixes
+- Fixed z-index layering for sticky user message bubble
+- Removed MCP servers indicator from header
+---
+ package.json                                        |  2 +-
+ src/renderer/features/agents/main/active-chat.tsx   |  8 ++------
+ src/renderer/features/agents/ui/agent-todo-tool.tsx | 12 ++----------
+ 3 files changed, 5 insertions(+), 17 deletions(-)
+
+diff --git a/package.json b/package.json
+index 243272f..b39a986 100644
+--- a/package.json
++++ b/package.json
+@@ -1,6 +1,6 @@
+ {
+   "name": "21st-desktop",
+-  "version": "0.0.19",
++  "version": "0.0.20",
+   "private": true,
+   "description": "1Code - UI for parallel work with AI agents",
+   "author": "21st.dev",
+diff --git a/src/renderer/features/agents/main/active-chat.tsx b/src/renderer/features/agents/main/active-chat.tsx
+index 0164979..4d1b434 100644
+--- a/src/renderer/features/agents/main/active-chat.tsx
++++ b/src/renderer/features/agents/main/active-chat.tsx
+@@ -170,7 +170,6 @@ import { AgentWebFetchTool } from "../ui/agent-web-fetch-tool"
+ import { AgentWebSearchCollapsible } from "../ui/agent-web-search-collapsible"
+ import { AgentsHeaderControls } from "../ui/agents-header-controls"
+ import { ChatTitleEditor } from "../ui/chat-title-editor"
+-import { McpServersIndicator } from "../ui/mcp-servers-indicator"
+ import { MobileChatHeader } from "../ui/mobile-chat-header"
+ import { PrStatusBar } from "../ui/pr-status-bar"
+ import { SubChatSelector } from "../ui/sub-chat-selector"
+@@ -2430,13 +2429,12 @@ function ChatViewInner({
+                         </motion.div>
+                       )}
+                       {/* User message text - sticky WITHIN this group */}
++                      {/* z-10 ensures user message stays above scrolling content (tool calls, buttons) */}
+                       <div
+                         data-user-message-id={msg.id}
+                         className={cn(
+                           "[&>div]:!mb-4 pointer-events-auto",
+-                          // Sticky within the group container
+-                          // No z-index here to avoid blocking dropdowns/tooltips
+-                          "sticky",
++                          "sticky z-10",
+                           isMobile
+                             ? CHAT_LAYOUT.stickyTopMobile
+                             : isSubChatsSidebarOpen
+@@ -4907,8 +4905,6 @@ export function ChatView({
+                         isDiffSidebarOpen={isDiffSidebarOpen}
+                         diffStats={diffStats}
+                       />
+-                      {/* MCP Servers indicator */}
+-                      <McpServersIndicator projectPath={originalProjectPath} />
+                     </>
+                   )}
+                 </div>
+diff --git a/src/renderer/features/agents/ui/agent-todo-tool.tsx b/src/renderer/features/agents/ui/agent-todo-tool.tsx
+index a7eb596..a034d69 100644
+--- a/src/renderer/features/agents/ui/agent-todo-tool.tsx
++++ b/src/renderer/features/agents/ui/agent-todo-tool.tsx
+@@ -498,12 +498,8 @@ export const AgentTodoTool = memo(function AgentTodoTool({
+       } : undefined}
+     >
+       {/* TOP BLOCK - Plan title with expand/collapse button */}
+-      {/* z-[9] - UNDER user message (user message has z-10) */}
+       <div
+-        className={cn(
+-          "rounded-t-lg border border-b-0 border-border bg-muted/30 px-2.5 py-1.5 cursor-pointer hover:bg-muted/40 transition-colors duration-150",
+-          isCreationToolCall && "relative z-[9]"
+-        )}
++        className="rounded-t-lg border border-b-0 border-border bg-muted/30 px-2.5 py-1.5 cursor-pointer hover:bg-muted/40 transition-colors duration-150"
+         onClick={() => setIsExpanded(!isExpanded)}
+         role="button"
+         aria-expanded={isExpanded}
+@@ -543,11 +539,7 @@ export const AgentTodoTool = memo(function AgentTodoTool({
+       </div>
+ 
+       {/* BOTTOM BLOCK - Current task + progress (expandable) */}
+-      {/* z-20 - ABOVE user message shadow */}
+-      <div className={cn(
+-        "rounded-b-lg border border-border bg-muted/20 shadow-xl shadow-background",
+-        isCreationToolCall && "relative z-20"
+-      )}>
++      <div className="rounded-b-lg border border-border bg-muted/20 shadow-xl shadow-background">
+         {/* Collapsed view - progress circle + current task + count */}
+         {!isExpanded && (
+           <div

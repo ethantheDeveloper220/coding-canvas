@@ -30,6 +30,7 @@ import {
   useAgentSubChatStore,
   type SubChatMeta,
 } from "../agents/stores/sub-chat-store"
+import { useShallow } from "zustand/react/shallow"
 import {
   PlusIcon,
   ArchiveIcon,
@@ -97,15 +98,16 @@ export function AgentsSubChatsSidebar({
   isLoading = false,
   agentName,
 }: AgentsSubChatsSidebarProps) {
-  const activeSubChatId = useAgentSubChatStore((state) => state.activeSubChatId)
-  const openSubChatIds = useAgentSubChatStore((state) => state.openSubChatIds)
-  const pinnedSubChatIds = useAgentSubChatStore(
-    (state) => state.pinnedSubChatIds,
-  )
-  const allSubChats = useAgentSubChatStore((state) => state.allSubChats)
-  const parentChatId = useAgentSubChatStore((state) => state.chatId)
-  const togglePinSubChat = useAgentSubChatStore(
-    (state) => state.togglePinSubChat,
+  // Use shallow comparison to prevent re-renders when arrays have same content
+  const { activeSubChatId, openSubChatIds, pinnedSubChatIds, allSubChats, parentChatId, togglePinSubChat } = useAgentSubChatStore(
+    useShallow((state) => ({
+      activeSubChatId: state.activeSubChatId,
+      openSubChatIds: state.openSubChatIds,
+      pinnedSubChatIds: state.pinnedSubChatIds,
+      allSubChats: state.allSubChats,
+      parentChatId: state.chatId,
+      togglePinSubChat: state.togglePinSubChat,
+    }))
   )
   const [loadingSubChats] = useAtom(loadingSubChatsAtom)
   const subChatFiles = useAtomValue(subChatFilesAtom)
@@ -137,6 +139,16 @@ export function AgentsSubChatsSidebar({
   const [subChatToArchive, setSubChatToArchive] = useState<SubChatMeta | null>(
     null,
   )
+  
+  // Track previously focused element to restore focus after dialogs close
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null)
+  
+  // Save focus before opening archive dialog
+  useEffect(() => {
+    if (archiveAgentDialogOpen) {
+      previouslyFocusedRef.current = document.activeElement as HTMLElement | null
+    }
+  }, [archiveAgentDialogOpen])
 
   // SubChat name tooltip state (for truncated names)
   const [subChatTooltip, setSubChatTooltip] = useState<{
@@ -1611,6 +1623,13 @@ export function AgentsSubChatsSidebar({
         onClose={() => {
           setRenameDialogOpen(false)
           setRenamingSubChat(null)
+          // Focus back to the main content area when dialog is closed
+          setTimeout(() => {
+            const mainContent = document.querySelector('[role="main"]') as HTMLElement | null
+            if (mainContent) {
+              mainContent.focus()
+            }
+          }, 0)
         }}
         onSave={handleRenameSave}
         currentName={renamingSubChat?.name || ""}
@@ -1624,6 +1643,14 @@ export function AgentsSubChatsSidebar({
           setArchiveAgentDialogOpen(open)
           if (!open) {
             setSubChatToArchive(null)
+            // Focus back to the main content area when dialog is closed/canceled
+            // to ensure user can continue chatting
+            setTimeout(() => {
+              const mainContent = document.querySelector('[role="main"]') as HTMLElement | null
+              if (mainContent) {
+                mainContent.focus()
+              }
+            }, 0)
           }
         }}
       >

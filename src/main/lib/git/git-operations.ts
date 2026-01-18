@@ -19,6 +19,38 @@ async function hasUpstreamBranch(
 	}
 }
 
+/**
+ * Check if git user name and email are configured
+ */
+async function getGitUserConfig(
+	git: ReturnType<typeof simpleGit>,
+): Promise<{ name: string | null; email: string | null }> {
+	try {
+		const [name, email] = await Promise.all([
+			git.getConfig("user.name").catch(() => ({ value: null })),
+			git.getConfig("user.email").catch(() => ({ value: null })),
+		]);
+		return {
+			name: name.value || null,
+			email: email.value || null,
+		};
+	} catch {
+		return { name: null, email: null };
+	}
+}
+
+/**
+ * Ensure git user config is set before committing
+ */
+async function ensureGitUserConfig(git: ReturnType<typeof simpleGit>): Promise<void> {
+	const config = await getGitUserConfig(git);
+	if (!config.name || !config.email) {
+		throw new Error(
+			"GIT_USER_CONFIG_REQUIRED: Please configure your git username and email before committing",
+		);
+	}
+}
+
 export const createGitOperationsRouter = () => {
 	return router({
 		// NOTE: saveFile is defined in file-contents.ts with hardened path validation
@@ -32,12 +64,31 @@ export const createGitOperationsRouter = () => {
 				}),
 			)
 			.mutation(
-				async ({ input }): Promise<{ success: boolean; hash: string }> => {
+				async ({ input }): Promise<{ success: boolean; hash: string; message?: string }> => {
 					assertRegisteredWorktree(input.worktreePath);
 
 					const git = simpleGit(input.worktreePath);
+
+					// Check if git user config is set
+					await ensureGitUserConfig(git);
+
+					// Stage all changes (git's built-in binary detection will handle filtering via .gitignore and attributes)
+					await git.add("-A");
+
+					// Check if there are actually changes to commit
+					const newStatus = await git.status();
+					const hasChanges = newStatus.staged.length > 0;
+
+					if (!hasChanges) {
+						throw new Error("No changes to commit (binary files are automatically excluded)");
+					}
+
 					const result = await git.commit(input.message);
-					return { success: true, hash: result.commit };
+					return { 
+						success: true, 
+						hash: result.commit,
+						message: "Successfully committed changes",
+					};
 				},
 			),
 
@@ -168,6 +219,90 @@ export const createGitOperationsRouter = () => {
 			.query(async ({ input }) => {
 				assertRegisteredWorktree(input.worktreePath);
 				return await fetchGitHubPRStatus(input.worktreePath);
+			}),
+
+		/**
+		 * Get git user configuration (name and email)
+		 */
+		getGitUserConfig: publicProcedure
+			.input(
+				z.object({
+					worktreePath: z.string(),
+				}),
+			)
+			.query(async ({ input }) => {
+				assertRegisteredWorktree(input.worktreePath);
+				const git = simpleGit(input.worktreePath);
+				return await getGitUserConfig(git);
+			}),
+
+		/**
+		 * Set git user configuration (name and email)
+		 */
+		setGitUserConfig: publicProcedure
+			.input(
+				z.object({
+					worktreePath: z.string(),
+					name: z.string().min(1),
+					email: z.string().email().min(1),
+				}),
+			)
+			.mutation(async ({ input }) => {
+				assertRegisteredWorktree(input.worktreePath);
+				const git = simpleGit(input.worktreePath);
+
+				await git.addConfig("user.name", input.name, false, "local");
+				await git.addConfig("user.email", input.email, false, "local");
+
+				return { success: true, name: input.name, email: input.email };
+			}),
+
+		/**
+		 * Get git remote URL (GitHub URL)
+		 */
+		getGitRemoteUrl: publicProcedure
+			.input(
+				z.object({
+					worktreePath: z.string(),
+				}),
+			)
+			.query(async ({ input }) => {
+				assertRegisteredWorktree(input.worktreePath);
+				const git = simpleGit(input.worktreePath);
+
+				try {
+					const remoteUrl = await git.remote(["get-url", "origin"]);
+					return { url: remoteUrl.trim() || null };
+				} catch {
+					return { url: null };
+				}
+			}),
+
+		/**
+		 * Set git remote URL (GitHub URL)
+		 */
+		setGitRemoteUrl: publicProcedure
+			.input(
+				z.object({
+					worktreePath: z.string(),
+					url: z.string().url(),
+				}),
+			)
+			.mutation(async ({ input }) => {
+				assertRegisteredWorktree(input.worktreePath);
+				const git = simpleGit(input.worktreePath);
+
+				// Check if remote already exists
+				try {
+					await git.remote(["get-url", "origin"]);
+					// Remote exists, update it
+					await git.remote(["set-url", "origin", input.url]);
+				} catch {
+					// Remote doesn't exist, add it
+					await git.addRemote("origin", input.url);
+				}
+
+				return { success: true, url: input.url };
 			}),
 	});
 };

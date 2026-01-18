@@ -1,4 +1,4 @@
-import { ArrowRight, Code2, Github, Shield, Sparkles, Zap } from "lucide-react"
+﻿import { ArrowRight, Code2, Github, Shield, Sparkles, Zap } from "lucide-react"
 
 export function LandingPage() {
     return (
@@ -16,7 +16,7 @@ export function LandingPage() {
                         <div className="w-6 h-6 rounded bg-primary flex items-center justify-center">
                             <Sparkles className="w-4 h-4 text-primary-foreground" />
                         </div>
-                        <span className="text-sm font-semibold">1Code</span>
+                        <span className="text-sm font-semibold">Seamless AI</span>
                     </div>
                     <div className="flex items-center gap-4">
                         <a href="#/pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
@@ -43,7 +43,7 @@ export function LandingPage() {
                         </div>
 
                         <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
-                            Code Smarter, Ship Faster
+                            Ship Faster And Launch Faster
                         </h1>
 
                         <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
@@ -137,9 +137,9 @@ export function LandingPage() {
                         <div className="w-5 h-5 rounded bg-primary flex items-center justify-center">
                             <Sparkles className="w-3 h-3 text-primary-foreground" />
                         </div>
-                        <span>1Code</span>
+                        <span>Seamless AI</span>
                     </div>
-                    <p>© 2026 1Code. All rights reserved.</p>
+                    <p>┬⌐ 2026 Seamless AI. All rights reserved.</p>
                 </div>
             </footer>
         </div>

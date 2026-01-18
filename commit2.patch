@@ -1,0 +1,2980 @@
+From 33c2462c03e0a2cd34f288db473761aaf4dc2b7e Mon Sep 17 00:00:00 2001
+From: serafim <serafimcloud@gmail.com>
+Date: Sat, 17 Jan 2026 00:04:07 -0800
+Subject: [PATCH] Release v0.0.19
+
+## What's New
+
+### Features
+- Added Cmd+Enter shortcut for "Implement plan" button
+- Improved archive popover: auto-unarchive on selection, input clears on revisit
+---
+ package.json                                  |   2 +-
+ src/main/lib/claude/transform.ts              |  37 +-
+ src/main/lib/claude/types.ts                  |  20 +
+ src/main/lib/trpc/routers/claude.ts           | 158 +++++++-
+ src/preload/index.ts                          |   9 +
+ .../dialogs/agents-settings-dialog.tsx        |  11 +-
+ .../dialogs/settings-tabs/agents-mcp-tab.tsx  | 245 +++++++++++
+ src/renderer/features/agents/atoms/index.ts   |   3 +-
+ .../agents/commands/builtin-commands.ts       |   7 +
+ .../features/agents/commands/types.ts         |   1 +
+ .../components/agents-settings-dialog.tsx     |  26 +-
+ .../features/agents/lib/ipc-chat-transport.ts |  38 +-
+ .../features/agents/main/active-chat.tsx      | 255 ++++++++----
+ .../features/agents/main/new-chat-form.tsx    |  10 +
+ .../agents/mentions/agents-file-mention.tsx   | 161 +++++++-
+ .../mentions/agents-mentions-editor.tsx       |  44 +-
+ .../agents/mentions/render-file-mentions.tsx  |  52 ++-
+ .../features/agents/ui/agent-bash-tool.tsx    |  23 +-
+ .../agents/ui/agent-context-indicator.tsx     |  22 +-
+ .../features/agents/ui/agent-todo-tool.tsx    | 277 +++++++++----
+ .../agents/ui/agent-user-message-bubble.tsx   |   4 +-
+ .../agents/ui/mcp-servers-indicator.tsx       | 380 ++++++++++++++++++
+ .../agents/ui/sub-chat-status-card.tsx        |  13 +-
+ src/renderer/features/changes/ChangesView.tsx |   8 +-
+ src/renderer/lib/atoms/index.ts               |  36 +-
+ .../lib/hooks/use-file-change-listener.ts     |  28 ++
+ 26 files changed, 1619 insertions(+), 251 deletions(-)
+ create mode 100644 src/renderer/components/dialogs/settings-tabs/agents-mcp-tab.tsx
+ create mode 100644 src/renderer/features/agents/ui/mcp-servers-indicator.tsx
+ create mode 100644 src/renderer/lib/hooks/use-file-change-listener.ts
+
+diff --git a/package.json b/package.json
+index 36cf9a9..243272f 100644
+--- a/package.json
++++ b/package.json
+@@ -1,6 +1,6 @@
+ {
+   "name": "21st-desktop",
+-  "version": "0.0.18",
++  "version": "0.0.19",
+   "private": true,
+   "description": "1Code - UI for parallel work with AI agents",
+   "author": "21st.dev",
+diff --git a/src/main/lib/claude/transform.ts b/src/main/lib/claude/transform.ts
+index b70c0a8..8d98a2c 100644
+--- a/src/main/lib/claude/transform.ts
++++ b/src/main/lib/claude/transform.ts
+@@ -1,4 +1,4 @@
+-import type { UIMessageChunk, MessageMetadata } from "./types"
++import type { UIMessageChunk, MessageMetadata, MCPServerStatus, MCPServer } from "./types"
+ 
+ export function createTransformer() {
+   let textId: string | null = null
+@@ -73,6 +73,11 @@ export function createTransformer() {
+   }
+ 
+   return function* transform(msg: any): Generator<UIMessageChunk> {
++    // Debug: log all message types to understand what SDK sends
++    if (msg.type === "system") {
++      console.log("[transform] SYSTEM message:", msg.subtype, msg)
++    }
++
+     // Track parent_tool_use_id for nested tools
+     // Only update when explicitly present (don't reset on messages without it)
+     if (msg.parent_tool_use_id !== undefined) {
+@@ -323,6 +328,36 @@ export function createTransformer() {
+ 
+     // ===== SYSTEM STATUS (compacting, etc.) =====
+     if (msg.type === "system") {
++      // Session init - extract MCP servers, plugins, tools
++      if (msg.subtype === "init") {
++        console.log("[MCP Transform] Received SDK init message:", {
++          tools: msg.tools?.length,
++          mcp_servers: msg.mcp_servers,
++          plugins: msg.plugins,
++          skills: msg.skills?.length,
++        })
++        // Map MCP servers with validated status type and additional info
++        const mcpServers: MCPServer[] = (msg.mcp_servers || []).map(
++          (s: { name: string; status: string; serverInfo?: { name: string; version: string }; error?: string }) => ({
++            name: s.name,
++            status: (["connected", "failed", "pending", "needs-auth"].includes(
++              s.status,
++            )
++              ? s.status
++              : "pending") as MCPServerStatus,
++            ...(s.serverInfo && { serverInfo: s.serverInfo }),
++            ...(s.error && { error: s.error }),
++          }),
++        )
++        yield {
++          type: "session-init",
++          tools: msg.tools || [],
++          mcpServers,
++          plugins: msg.plugins || [],
++          skills: msg.skills || [],
++        }
++      }
++
+       // Compacting status - show as a tool
+       if (msg.subtype === "status" && msg.status === "compacting") {
+         // Create unique ID and save for matching with boundary event
+diff --git a/src/main/lib/claude/types.ts b/src/main/lib/claude/types.ts
+index 0e8f1b0..8c0216f 100644
+--- a/src/main/lib/claude/types.ts
++++ b/src/main/lib/claude/types.ts
+@@ -44,6 +44,26 @@ export type UIMessageChunk =
+       toolCallId: string
+       state: "input-streaming" | "output-available"
+     }
++  // Session initialization (MCP servers, plugins, tools)
++  | {
++      type: "session-init"
++      tools: string[]
++      mcpServers: MCPServer[]
++      plugins: { name: string; path: string }[]
++      skills: string[]
++    }
++
++export type MCPServerStatus = "connected" | "failed" | "pending" | "needs-auth"
++
++export type MCPServer = {
++  name: string
++  status: MCPServerStatus
++  serverInfo?: {
++    name: string
++    version: string
++  }
++  error?: string
++}
+ 
+ export type MessageMetadata = {
+   sessionId?: string
+diff --git a/src/main/lib/trpc/routers/claude.ts b/src/main/lib/trpc/routers/claude.ts
+index e2d2548..59fe647 100644
+--- a/src/main/lib/trpc/routers/claude.ts
++++ b/src/main/lib/trpc/routers/claude.ts
+@@ -1,6 +1,6 @@
+ import { observable } from "@trpc/server/observable"
+ import { eq } from "drizzle-orm"
+-import { app, safeStorage } from "electron"
++import { app, safeStorage, BrowserWindow } from "electron"
+ import path from "path"
+ import * as os from "os"
+ import * as fs from "fs/promises"
+@@ -18,8 +18,8 @@ import { publicProcedure, router } from "../index"
+ import { buildAgentsOption } from "./agent-utils"
+ 
+ /**
+- * Parse @[agent:name] and @[skill:name] mentions from prompt text
+- * Returns the cleaned prompt and lists of mentioned agents/skills
++ * Parse @[agent:name], @[skill:name], and @[tool:name] mentions from prompt text
++ * Returns the cleaned prompt and lists of mentioned agents/skills/tools
+  */
+ function parseMentions(prompt: string): {
+   cleanedPrompt: string
+@@ -27,14 +27,16 @@ function parseMentions(prompt: string): {
+   skillMentions: string[]
+   fileMentions: string[]
+   folderMentions: string[]
++  toolMentions: string[]
+ } {
+   const agentMentions: string[] = []
+   const skillMentions: string[] = []
+   const fileMentions: string[] = []
+   const folderMentions: string[] = []
++  const toolMentions: string[] = []
+ 
+   // Match @[prefix:name] pattern
+-  const mentionRegex = /@\[(file|folder|skill|agent):([^\]]+)\]/g
++  const mentionRegex = /@\[(file|folder|skill|agent|tool):([^\]]+)\]/g
+   let match
+ 
+   while ((match = mentionRegex.exec(prompt)) !== null) {
+@@ -52,17 +54,34 @@ function parseMentions(prompt: string): {
+       case "folder":
+         folderMentions.push(name)
+         break
++      case "tool":
++        // Validate tool name format: only alphanumeric, underscore, hyphen allowed
++        // This prevents prompt injection via malicious tool names
++        if (/^[a-zA-Z0-9_-]+$/.test(name)) {
++          toolMentions.push(name)
++        }
++        break
+     }
+   }
+ 
+-  // Clean agent/skill mentions from prompt (they will be added as context)
++  // Clean agent/skill/tool mentions from prompt (they will be added as context or hints)
+   // Keep file/folder mentions as they are useful context
+-  const cleanedPrompt = prompt
++  let cleanedPrompt = prompt
+     .replace(/@\[agent:[^\]]+\]/g, "")
+     .replace(/@\[skill:[^\]]+\]/g, "")
++    .replace(/@\[tool:[^\]]+\]/g, "")
+     .trim()
+ 
+-  return { cleanedPrompt, agentMentions, skillMentions, fileMentions, folderMentions }
++  // Add tool usage hints if tools were mentioned
++  // Tool names are already validated to contain only safe characters
++  if (toolMentions.length > 0) {
++    const toolHints = toolMentions
++      .map((t) => `Use the ${t} tool for this request.`)
++      .join(" ")
++    cleanedPrompt = `${toolHints}\n\n${cleanedPrompt}`
++  }
++
++  return { cleanedPrompt, agentMentions, skillMentions, fileMentions, folderMentions, toolMentions }
+ }
+ 
+ /**
+@@ -149,6 +168,7 @@ export const claudeRouter = router({
+         chatId: z.string(),
+         prompt: z.string(),
+         cwd: z.string(),
++        projectPath: z.string().optional(), // Original project path for MCP config lookup
+         mode: z.enum(["plan", "agent"]).default("agent"),
+         sessionId: z.string().optional(),
+         model: z.string().optional(),
+@@ -379,6 +399,9 @@ export const claudeRouter = router({
+               input.subChatId
+             )
+ 
++            // MCP servers to pass to SDK (read from ~/.claude.json)
++            let mcpServersForSdk: Record<string, any> | undefined
++
+             // Ensure isolated config dir exists and symlink skills/agents from ~/.claude/
+             // This is needed because SDK looks for skills at $CLAUDE_CONFIG_DIR/skills/
+             try {
+@@ -413,6 +436,37 @@ export const claudeRouter = router({
+               } catch (symlinkErr) {
+                 // Ignore symlink errors (might already exist or permission issues)
+               }
++
++              // Read MCP servers from ~/.claude.json for the original project path
++              // These will be passed directly to the SDK via options.mcpServers
++              const claudeJsonSource = path.join(os.homedir(), ".claude.json")
++              try {
++                const claudeJsonSourceExists = await fs.stat(claudeJsonSource).then(() => true).catch(() => false)
++
++                if (claudeJsonSourceExists) {
++                  // Read original config
++                  const originalConfig = JSON.parse(await fs.readFile(claudeJsonSource, "utf-8"))
++
++                  // Look for project-specific MCP config using original project path
++                  // Config structure: { "projects": { "/path/to/project": { "mcpServers": {...} } } }
++                  const lookupPath = input.projectPath || input.cwd
++                  const projectConfig = originalConfig.projects?.[lookupPath]
++
++                  // Debug logging
++                  console.log(`[claude] MCP config lookup: lookupPath=${lookupPath}, found=${!!projectConfig?.mcpServers}`)
++                  if (projectConfig?.mcpServers) {
++                    console.log(`[claude] MCP servers found: ${Object.keys(projectConfig.mcpServers).join(", ")}`)
++                    // Store MCP servers to pass to SDK
++                    mcpServersForSdk = projectConfig.mcpServers
++                  } else {
++                    // Log available project paths in config for debugging
++                    const projectPaths = Object.keys(originalConfig.projects || {}).filter(k => originalConfig.projects[k]?.mcpServers)
++                    console.log(`[claude] No MCP servers for ${lookupPath}. Config has MCP for: ${projectPaths.join(", ") || "(none)"}`)
++                  }
++                }
++              } catch (configErr) {
++                console.error(`[claude] Failed to read MCP config:`, configErr)
++              }
+             } catch (mkdirErr) {
+               console.error(`[claude] Failed to setup isolated config dir:`, mkdirErr)
+             }
+@@ -423,7 +477,7 @@ export const claudeRouter = router({
+               ...(claudeCodeToken && {
+                 CLAUDE_CODE_OAUTH_TOKEN: claudeCodeToken,
+               }),
+-              // Isolate Claude's config/session storage per subChat
++              // Re-enable CLAUDE_CONFIG_DIR now that we properly map MCP configs
+               CLAUDE_CONFIG_DIR: isolatedConfigDir,
+             }
+ 
+@@ -431,6 +485,8 @@ export const claudeRouter = router({
+             const claudeBinaryPath = getBundledClaudeBinaryPath()
+ 
+             const resumeSessionId = input.sessionId || existingSessionId || undefined
++            console.log(`[SD] Query options - cwd: ${input.cwd}, projectPath: ${input.projectPath || "(not set)"}, mcpServers: ${mcpServersForSdk ? Object.keys(mcpServersForSdk).join(", ") : "(none)"}`)
++
+             const queryOptions = {
+               prompt,
+               options: {
+@@ -442,6 +498,8 @@ export const claudeRouter = router({
+                 },
+                 // Register mentioned agents with SDK via options.agents
+                 ...(Object.keys(agentsOption).length > 0 && { agents: agentsOption }),
++                // Pass MCP servers from original project config directly to SDK
++                ...(mcpServersForSdk && { mcpServers: mcpServersForSdk }),
+                 env: finalEnv,
+                 permissionMode:
+                   input.mode === "plan"
+@@ -657,6 +715,18 @@ export const claudeRouter = router({
+                   currentSessionId = msgAny.session_id // Share with cleanup
+                 }
+ 
++                // Debug: Log system messages from SDK
++                if (msgAny.type === "system") {
++                  // Full log to see all fields including MCP errors
++                  console.log(`[SD] SYSTEM message: subtype=${msgAny.subtype}`, JSON.stringify({
++                    cwd: msgAny.cwd,
++                    mcp_servers: msgAny.mcp_servers,
++                    tools: msgAny.tools,
++                    plugins: msgAny.plugins,
++                    permissionMode: msgAny.permissionMode,
++                  }, null, 2))
++                }
++
+                 // Transform and emit + accumulate
+                 for (const chunk of transform(msg)) {
+                   chunkCount++
+@@ -707,6 +777,21 @@ export const claudeRouter = router({
+                       if (toolPart) {
+                         toolPart.result = chunk.output
+                         toolPart.state = "result"
++
++                        // Notify renderer about file changes for Write/Edit tools
++                        if (toolPart.type === "tool-Write" || toolPart.type === "tool-Edit") {
++                          const filePath = toolPart.input?.file_path
++                          if (filePath) {
++                            const windows = BrowserWindow.getAllWindows()
++                            for (const win of windows) {
++                              win.webContents.send("file-changed", {
++                                filePath,
++                                type: toolPart.type,
++                                subChatId: input.subChatId
++                              })
++                            }
++                          }
++                        }
+                       }
+                       // Stop streaming after ExitPlanMode completes in plan mode
+                       // Match by toolCallId since toolName is undefined in output chunks
+@@ -724,6 +809,22 @@ export const claudeRouter = router({
+                     case "message-metadata":
+                       metadata = { ...metadata, ...chunk.messageMetadata }
+                       break
++                    case "system-Compact":
++                      // Add system-Compact to parts so it renders in the chat
++                      // Find existing part by toolCallId or add new one
++                      const existingCompact = parts.find(
++                        (p) => p.type === "system-Compact" && p.toolCallId === chunk.toolCallId
++                      )
++                      if (existingCompact) {
++                        existingCompact.state = chunk.state
++                      } else {
++                        parts.push({
++                          type: "system-Compact",
++                          toolCallId: chunk.toolCallId,
++                          state: chunk.state,
++                        })
++                      }
++                      break
+                   }
+                   // Break from chunk loop if plan is done
+                   if (planCompleted) {
+@@ -953,6 +1054,47 @@ export const claudeRouter = router({
+       })
+     }),
+ 
++  /**
++   * Get MCP servers configuration for a project
++   * This allows showing MCP servers in UI before starting a chat session
++   */
++  getMcpConfig: publicProcedure
++    .input(z.object({ projectPath: z.string() }))
++    .query(async ({ input }) => {
++      const claudeJsonPath = path.join(os.homedir(), ".claude.json")
++
++      try {
++        const exists = await fs.stat(claudeJsonPath).then(() => true).catch(() => false)
++        if (!exists) {
++          return { mcpServers: [], projectPath: input.projectPath }
++        }
++
++        const configContent = await fs.readFile(claudeJsonPath, "utf-8")
++        const config = JSON.parse(configContent)
++
++        // Look for project-specific MCP config
++        const projectConfig = config.projects?.[input.projectPath]
++
++        if (!projectConfig?.mcpServers) {
++          return { mcpServers: [], projectPath: input.projectPath }
++        }
++
++        // Convert to array format with names
++        const mcpServers = Object.entries(projectConfig.mcpServers).map(([name, serverConfig]) => ({
++          name,
++          // Status will be "pending" until SDK actually connects
++          status: "pending" as const,
++          // Include config details for display (command, args, etc)
++          config: serverConfig as Record<string, unknown>,
++        }))
++
++        return { mcpServers, projectPath: input.projectPath }
++      } catch (error) {
++        console.error("[getMcpConfig] Error reading config:", error)
++        return { mcpServers: [], projectPath: input.projectPath, error: String(error) }
++      }
++    }),
++
+   /**
+    * Cancel active session
+    */
+diff --git a/src/preload/index.ts b/src/preload/index.ts
+index 3b68ef4..ec8ee8d 100644
+--- a/src/preload/index.ts
++++ b/src/preload/index.ts
+@@ -138,6 +138,13 @@ contextBridge.exposeInMainWorld("desktopApi", {
+     ipcRenderer.on("shortcut:new-agent", handler)
+     return () => ipcRenderer.removeListener("shortcut:new-agent", handler)
+   },
++
++  // File change events (from Claude Write/Edit tools)
++  onFileChanged: (callback: (data: { filePath: string; type: string; subChatId: string }) => void) => {
++    const handler = (_event: unknown, data: { filePath: string; type: string; subChatId: string }) => callback(data)
++    ipcRenderer.on("file-changed", handler)
++    return () => ipcRenderer.removeListener("file-changed", handler)
++  },
+ })
+ 
+ // Type definitions
+@@ -213,6 +220,8 @@ export interface DesktopApi {
+   onAuthError: (callback: (error: string) => void) => () => void
+   // Shortcuts
+   onShortcutNewAgent: (callback: () => void) => () => void
++  // File changes
++  onFileChanged: (callback: (data: { filePath: string; type: string; subChatId: string }) => void) => () => void
+ }
+ 
+ declare global {
+diff --git a/src/renderer/components/dialogs/agents-settings-dialog.tsx b/src/renderer/components/dialogs/agents-settings-dialog.tsx
+index 0f86087..3e8226c 100644
+--- a/src/renderer/components/dialogs/agents-settings-dialog.tsx
++++ b/src/renderer/components/dialogs/agents-settings-dialog.tsx
+@@ -10,13 +10,14 @@ import {
+   EyeOpenFilledIcon,
+   SlidersFilledIcon,
+ } from "../../icons"
+-import { SkillIconFilled, CustomAgentIconFilled } from "../ui/icons"
++import { SkillIconFilled, CustomAgentIconFilled, OriginalMCPIcon } from "../ui/icons"
+ import { AgentsAppearanceTab } from "./settings-tabs/agents-appearance-tab"
+ import { AgentsProfileTab } from "./settings-tabs/agents-profile-tab"
+ import { AgentsPreferencesTab } from "./settings-tabs/agents-preferences-tab"
+ import { AgentsDebugTab } from "./settings-tabs/agents-debug-tab"
+ import { AgentsSkillsTab } from "./settings-tabs/agents-skills-tab"
+ import { AgentsCustomAgentsTab } from "./settings-tabs/agents-custom-agents-tab"
++import { AgentsMcpTab } from "./settings-tabs/agents-mcp-tab"
+ 
+ // Hook to detect narrow screen
+ function useIsNarrowScreen(): boolean {
+@@ -76,6 +77,12 @@ const ALL_TABS = [
+     description: "Manage custom Claude agents",
+     beta: true,
+   },
++  {
++    id: "mcp" as SettingsTab,
++    label: "MCP Servers",
++    icon: OriginalMCPIcon,
++    description: "Model Context Protocol servers",
++  },
+   // Debug tab - always shown in desktop for development
+   ...(isDevelopment
+     ? [
+@@ -203,6 +210,8 @@ export function AgentsSettingsDialog({
+         return <AgentsSkillsTab />
+       case "agents":
+         return <AgentsCustomAgentsTab />
++      case "mcp":
++        return <AgentsMcpTab />
+       case "debug":
+         return isDevelopment ? <AgentsDebugTab /> : null
+       default:
+diff --git a/src/renderer/components/dialogs/settings-tabs/agents-mcp-tab.tsx b/src/renderer/components/dialogs/settings-tabs/agents-mcp-tab.tsx
+new file mode 100644
+index 0000000..2a413b4
+--- /dev/null
++++ b/src/renderer/components/dialogs/settings-tabs/agents-mcp-tab.tsx
+@@ -0,0 +1,245 @@
++"use client"
++
++import { useState, useEffect } from "react"
++import { ChevronRight } from "lucide-react"
++import { motion, AnimatePresence } from "motion/react"
++import { useAtomValue } from "jotai"
++import { sessionInfoAtom } from "../../../lib/atoms"
++import { cn } from "../../../lib/utils"
++import { OriginalMCPIcon } from "../../ui/icons"
++
++// Hook to detect narrow screen
++function useIsNarrowScreen(): boolean {
++  const [isNarrow, setIsNarrow] = useState(false)
++
++  useEffect(() => {
++    const checkWidth = () => {
++      setIsNarrow(window.innerWidth <= 768)
++    }
++
++    checkWidth()
++    window.addEventListener("resize", checkWidth)
++    return () => window.removeEventListener("resize", checkWidth)
++  }, [])
++
++  return isNarrow
++}
++
++// Status indicator dot
++function StatusDot({ status }: { status: string }) {
++  return (
++    <span
++      className={cn(
++        "w-2 h-2 rounded-full flex-shrink-0",
++        status === "connected" && "bg-foreground",
++        status !== "connected" && "bg-muted-foreground/50",
++        status === "pending" && "animate-pulse",
++      )}
++    />
++  )
++}
++
++// Get status text
++function getStatusText(status: string): string {
++  switch (status) {
++    case "connected":
++      return "Connected"
++    case "failed":
++      return "Failed"
++    case "needs-auth":
++      return "Needs auth"
++    case "pending":
++      return "Connecting..."
++    default:
++      return status
++  }
++}
++
++interface ServerRowProps {
++  server: {
++    name: string
++    status: string
++    serverInfo?: { name: string; version: string }
++    error?: string
++  }
++  tools: string[]
++  isExpanded: boolean
++  onToggle: () => void
++}
++
++function ServerRow({ server, tools, isExpanded, onToggle }: ServerRowProps) {
++  const hasTools = tools.length > 0
++
++  return (
++    <div>
++      <button
++        onClick={hasTools ? onToggle : undefined}
++        className={cn(
++          "w-full flex items-center gap-3 p-3 text-left transition-colors",
++          hasTools && "hover:bg-muted/50 cursor-pointer",
++          !hasTools && "cursor-default",
++        )}
++      >
++        {/* Expand chevron */}
++        <ChevronRight
++          className={cn(
++            "h-3.5 w-3.5 text-muted-foreground transition-transform flex-shrink-0",
++            isExpanded && "rotate-90",
++            !hasTools && "opacity-0",
++          )}
++        />
++
++        {/* Status dot */}
++        <StatusDot status={server.status} />
++
++        {/* Server info */}
++        <div className="flex-1 min-w-0">
++          <div className="flex items-center gap-2">
++            <span className="text-sm font-medium text-foreground truncate">
++              {server.name}
++            </span>
++            {server.serverInfo?.version && (
++              <span className="text-xs text-muted-foreground">
++                v{server.serverInfo.version}
++              </span>
++            )}
++          </div>
++          {server.error && (
++            <p className="text-xs text-muted-foreground truncate mt-0.5">
++              {server.error}
++            </p>
++          )}
++        </div>
++
++        {/* Status / tool count */}
++        <span className="text-xs text-muted-foreground flex-shrink-0">
++          {server.status === "connected" && hasTools
++            ? `${tools.length} tool${tools.length !== 1 ? "s" : ""}`
++            : getStatusText(server.status)}
++        </span>
++      </button>
++
++      {/* Expanded tools list */}
++      <AnimatePresence>
++        {isExpanded && hasTools && (
++          <motion.div
++            initial={{ height: 0, opacity: 0 }}
++            animate={{ height: "auto", opacity: 1 }}
++            exit={{ height: 0, opacity: 0 }}
++            transition={{ duration: 0.15 }}
++            className="overflow-hidden"
++          >
++            <div className="pl-10 pr-3 pb-3 space-y-1">
++              {tools.map((tool) => (
++                <div
++                  key={tool}
++                  className="text-xs text-muted-foreground font-mono py-0.5"
++                >
++                  {tool}
++                </div>
++              ))}
++            </div>
++          </motion.div>
++        )}
++      </AnimatePresence>
++    </div>
++  )
++}
++
++export function AgentsMcpTab() {
++  const isNarrowScreen = useIsNarrowScreen()
++  const [expandedServer, setExpandedServer] = useState<string | null>(null)
++
++  const sessionInfo = useAtomValue(sessionInfoAtom)
++  const mcpServers = sessionInfo?.mcpServers || []
++  const tools = sessionInfo?.tools || []
++
++  // Group tools by server
++  const toolsByServer = mcpServers.reduce(
++    (acc, server) => {
++      const serverTools = tools
++        .filter((tool) => tool.startsWith(`mcp__${server.name}__`))
++        .map((tool) => tool.split("__").slice(2).join("__"))
++      acc[server.name] = serverTools
++      return acc
++    },
++    {} as Record<string, string[]>,
++  )
++
++  const handleToggleServer = (serverName: string) => {
++    setExpandedServer(expandedServer === serverName ? null : serverName)
++  }
++
++  return (
++    <div className="p-6 space-y-6 overflow-y-auto max-h-[70vh]">
++      {/* Header */}
++      {!isNarrowScreen && (
++        <div className="flex flex-col space-y-1.5 text-center sm:text-left">
++          <h3 className="text-sm font-semibold text-foreground">MCP Servers</h3>
++          <a
++            href="https://docs.anthropic.com/en/docs/claude-code/mcp"
++            target="_blank"
++            rel="noopener noreferrer"
++            className="text-xs text-muted-foreground hover:text-foreground underline transition-colors"
++          >
++            Documentation
++          </a>
++        </div>
++      )}
++
++      {/* Servers List */}
++      <div className="space-y-4">
++        {mcpServers.length === 0 ? (
++          <div className="bg-background rounded-lg border border-border p-6 text-center">
++            <OriginalMCPIcon className="h-8 w-8 text-muted-foreground/50 mx-auto mb-3" />
++            <p className="text-sm text-muted-foreground mb-2">
++              No MCP servers configured
++            </p>
++            <p className="text-xs text-muted-foreground">
++              Add servers to{" "}
++              <code className="px-1 py-0.5 bg-muted rounded">~/.claude.json</code>
++            </p>
++          </div>
++        ) : (
++          <div className="bg-background rounded-lg border border-border overflow-hidden">
++            <div className="divide-y divide-border">
++              {mcpServers.map((server) => (
++                <ServerRow
++                  key={server.name}
++                  server={server}
++                  tools={toolsByServer[server.name] || []}
++                  isExpanded={expandedServer === server.name}
++                  onToggle={() => handleToggleServer(server.name)}
++                />
++              ))}
++            </div>
++          </div>
++        )}
++      </div>
++
++      {/* Info Section */}
++      <div className="pt-4 border-t border-border space-y-3">
++        <div>
++          <h4 className="text-xs font-medium text-foreground mb-1.5">
++            How to use MCP Tools
++          </h4>
++          <p className="text-xs text-muted-foreground">
++            Mention a tool in chat with{" "}
++            <code className="px-1 py-0.5 bg-muted rounded">@tool-name</code> or
++            ask Claude to use it directly.
++          </p>
++        </div>
++        <div>
++          <h4 className="text-xs font-medium text-foreground mb-1.5">
++            Configuring Servers
++          </h4>
++          <p className="text-xs text-muted-foreground">
++            Add MCP server configuration to{" "}
++            <code className="px-1 py-0.5 bg-muted rounded">~/.claude.json</code>{" "}
++            under your project path.
++          </p>
++        </div>
++      </div>
++    </div>
++  )
++}
+diff --git a/src/renderer/features/agents/atoms/index.ts b/src/renderer/features/agents/atoms/index.ts
+index 19ce1cd..18464f2 100644
+--- a/src/renderer/features/agents/atoms/index.ts
++++ b/src/renderer/features/agents/atoms/index.ts
+@@ -465,7 +465,8 @@ export const lastSelectedBranchesAtom = atomWithStorage<Record<string, string>>(
+ )
+ 
+ // Compacting status per sub-chat
+-// Map<subChatId, { status: "compacting" | "idle", lastCompact?: { trigger, preTokens } }>
++// Set<subChatId> - subChats currently being compacted
++export const compactingSubChatsAtom = atom<Set<string>>(new Set())
+ 
+ // Track IDs of chats/subchats created in this browser session (NOT persisted - resets on reload)
+ // Used to determine whether to show placeholder + typewriter effect
+diff --git a/src/renderer/features/agents/commands/builtin-commands.ts b/src/renderer/features/agents/commands/builtin-commands.ts
+index ddfd37d..f3968c1 100644
+--- a/src/renderer/features/agents/commands/builtin-commands.ts
++++ b/src/renderer/features/agents/commands/builtin-commands.ts
+@@ -50,6 +50,13 @@ export const BUILTIN_SLASH_COMMANDS: SlashCommandOption[] = [
+     description: "Switch to Agent mode (applies changes directly)",
+     category: "builtin",
+   },
++  {
++    id: "builtin:compact",
++    name: "compact",
++    command: "/compact",
++    description: "Compact conversation context to reduce token usage",
++    category: "builtin",
++  },
+   // Prompt-based commands
+   {
+     id: "builtin:review",
+diff --git a/src/renderer/features/agents/commands/types.ts b/src/renderer/features/agents/commands/types.ts
+index 3492d4e..4d37902 100644
+--- a/src/renderer/features/agents/commands/types.ts
++++ b/src/renderer/features/agents/commands/types.ts
+@@ -33,6 +33,7 @@ export type BuiltinCommandAction =
+   | { type: "clear" }
+   | { type: "plan" }
+   | { type: "agent" }
++  | { type: "compact" }
+   // Prompt-based commands (send to agent)
+   | { type: "review" }
+   | { type: "pr-comments" }
+diff --git a/src/renderer/features/agents/components/agents-settings-dialog.tsx b/src/renderer/features/agents/components/agents-settings-dialog.tsx
+index cde5446..99573fc 100644
+--- a/src/renderer/features/agents/components/agents-settings-dialog.tsx
++++ b/src/renderer/features/agents/components/agents-settings-dialog.tsx
+@@ -1,10 +1,9 @@
+ "use client"
+ 
+-// import { agentsSettingsDialogActiveTabAtom } from "@/lib/atoms/agents-settings-dialog"
+ import { atom } from "jotai"
+-const agentsSettingsDialogActiveTabAtom = atom<string | null>(null)
+-// import { SettingsTab } from "@/lib/atoms/settings-dialog"
+-type SettingsTab = string
++import { type SettingsTab } from "../../../lib/atoms"
++
++const agentsSettingsDialogActiveTabAtom = atom<SettingsTab | null>(null)
+ import { cn } from "../../../lib/utils"
+ import { useAtom } from "jotai"
+ import { X } from "lucide-react"
+@@ -14,10 +13,12 @@ import { createPortal } from "react-dom"
+ import {
+   EyeOpenFilledIcon,
+   ProfileIconFilled,
++  OriginalMCPIcon,
+ } from "../../../components/ui/icons"
+ import { AgentsAppearanceTab } from "./settings-tabs/agents-appearance-tab"
+ import { AgentsProfileTab } from "./settings-tabs/agents-profile-tab"
+-import { AgentsDebugTab } from "./settings-tabs/agents-debug-tab"
++import { AgentsMcpTab } from "../../../components/dialogs/settings-tabs/agents-mcp-tab"
++import { AgentsDebugTab } from "../../../components/dialogs/settings-tabs/agents-debug-tab"
+ import { Bug } from "lucide-react"
+ 
+ // Check if we're in development mode
+@@ -41,6 +42,12 @@ const ALL_TABS = [
+     icon: EyeOpenFilledIcon,
+     description: "Theme settings",
+   },
++  {
++    id: "mcp" as SettingsTab,
++    label: "MCP Servers",
++    icon: OriginalMCPIcon,
++    description: "Model Context Protocol servers",
++  },
+   // Debug tab - only shown in development
+   ...(isDevelopment
+     ? [
+@@ -91,6 +98,13 @@ export function AgentsSettingsDialog({
+   const [mounted, setMounted] = useState(false)
+   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null)
+ 
++  // Set default tab when dialog opens
++  useEffect(() => {
++    if (isOpen && !activeTab) {
++      setActiveTab(ALL_TABS[0].id)
++    }
++  }, [isOpen, activeTab, setActiveTab])
++
+   // Handle keyboard navigation
+   useEffect(() => {
+     if (!isOpen) return
+@@ -120,6 +134,8 @@ export function AgentsSettingsDialog({
+         return <AgentsProfileTab />
+       case "appearance":
+         return <AgentsAppearanceTab />
++      case "mcp":
++        return <AgentsMcpTab />
+       case "debug":
+         return isDevelopment ? <AgentsDebugTab /> : null
+       default:
+diff --git a/src/renderer/features/agents/lib/ipc-chat-transport.ts b/src/renderer/features/agents/lib/ipc-chat-transport.ts
+index 3a0c1ff..94df221 100644
+--- a/src/renderer/features/agents/lib/ipc-chat-transport.ts
++++ b/src/renderer/features/agents/lib/ipc-chat-transport.ts
+@@ -4,11 +4,13 @@ import { toast } from "sonner"
+ import {
+   agentsLoginModalOpenAtom,
+   extendedThinkingEnabledAtom,
++  sessionInfoAtom,
+ } from "../../../lib/atoms"
+ import { appStore } from "../../../lib/jotai-store"
+ import { trpcClient } from "../../../lib/trpc"
+ import {
+   askUserQuestionResultsAtom,
++  compactingSubChatsAtom,
+   lastSelectedModelIdAtom,
+   MODEL_ID_MAP,
+   pendingAuthRetryMessageAtom,
+@@ -89,6 +91,7 @@ type IPCChatTransportConfig = {
+   chatId: string
+   subChatId: string
+   cwd: string
++  projectPath?: string // Original project path for MCP config lookup (when using worktrees)
+   mode: "plan" | "agent"
+   model?: string
+ }
+@@ -138,7 +141,7 @@ export class IPCChatTransport implements ChatTransport<UIMessage> {
+     const subId = this.config.subChatId.slice(-8)
+     let chunkCount = 0
+     let lastChunkType = ""
+-    console.log(`[SD] R:START sub=${subId}`)
++    console.log(`[SD] R:START sub=${subId} cwd=${this.config.cwd} projectPath=${this.config.projectPath || "(not set)"}`)
+ 
+     return new ReadableStream({
+       start: (controller) => {
+@@ -148,6 +151,7 @@ export class IPCChatTransport implements ChatTransport<UIMessage> {
+             chatId: this.config.chatId,
+             prompt,
+             cwd: this.config.cwd,
++            projectPath: this.config.projectPath, // Original project path for MCP config lookup
+             mode: currentMode,
+             sessionId,
+             ...(maxThinkingTokens && { maxThinkingTokens }),
+@@ -184,6 +188,38 @@ export class IPCChatTransport implements ChatTransport<UIMessage> {
+                 appStore.set(askUserQuestionResultsAtom, newResults)
+               }
+ 
++              // Handle compacting status - track in atom for UI display
++              if (chunk.type === "system-Compact") {
++                const compacting = appStore.get(compactingSubChatsAtom)
++                const newCompacting = new Set(compacting)
++                if (chunk.state === "input-streaming") {
++                  // Compacting started
++                  newCompacting.add(this.config.subChatId)
++                } else {
++                  // Compacting finished (output-available)
++                  newCompacting.delete(this.config.subChatId)
++                }
++                appStore.set(compactingSubChatsAtom, newCompacting)
++              }
++
++              // Handle session init - store MCP servers, plugins, tools info
++              if (chunk.type === "session-init") {
++                console.log("[MCP] Received session-init:", {
++                  tools: chunk.tools?.length,
++                  mcpServers: chunk.mcpServers,
++                  plugins: chunk.plugins,
++                  skills: chunk.skills?.length,
++                  // Debug: show all tools to check for MCP tools (format: mcp__servername__toolname)
++                  allTools: chunk.tools,
++                })
++                appStore.set(sessionInfoAtom, {
++                  tools: chunk.tools,
++                  mcpServers: chunk.mcpServers,
++                  plugins: chunk.plugins,
++                  skills: chunk.skills,
++                })
++              }
++
+               // Clear pending questions ONLY when agent has moved on
+               // Don't clear on tool-input-* chunks (still building the question input)
+               // Clear when we get tool-output-* (answer received) or text-delta (agent moved on)
+diff --git a/src/renderer/features/agents/main/active-chat.tsx b/src/renderer/features/agents/main/active-chat.tsx
+index 6f0d3a3..0164979 100644
+--- a/src/renderer/features/agents/main/active-chat.tsx
++++ b/src/renderer/features/agents/main/active-chat.tsx
+@@ -39,6 +39,7 @@ import {
+   PromptInputContextItems,
+ } from "../../../components/ui/prompt-input"
+ import { ResizableSidebar } from "../../../components/ui/resizable-sidebar"
++import { TextShimmer } from "../../../components/ui/text-shimmer"
+ import {
+   Tooltip,
+   TooltipContent,
+@@ -62,7 +63,9 @@ import {
+ } from "lucide-react"
+ import { motion } from "motion/react"
+ import {
++  createContext,
+   useCallback,
++  useContext,
+   useEffect,
+   useLayoutEffect,
+   useMemo,
+@@ -91,6 +94,7 @@ import {
+   agentsSubChatUnseenChangesAtom,
+   agentsUnseenChangesAtom,
+   clearLoading,
++  compactingSubChatsAtom,
+   diffSidebarOpenAtomFamily,
+   isPlanModeAtom,
+   justCreatedIdsAtom,
+@@ -166,6 +170,7 @@ import { AgentWebFetchTool } from "../ui/agent-web-fetch-tool"
+ import { AgentWebSearchCollapsible } from "../ui/agent-web-search-collapsible"
+ import { AgentsHeaderControls } from "../ui/agents-header-controls"
+ import { ChatTitleEditor } from "../ui/chat-title-editor"
++import { McpServersIndicator } from "../ui/mcp-servers-indicator"
+ import { MobileChatHeader } from "../ui/mobile-chat-header"
+ import { PrStatusBar } from "../ui/pr-status-bar"
+ import { SubChatSelector } from "../ui/sub-chat-selector"
+@@ -697,6 +702,46 @@ function PlayButton({
+   )
+ }
+ 
++// Message group wrapper - measures user message height for sticky todo positioning
++interface MessageGroupProps {
++  children: React.ReactNode
++}
++
++function MessageGroup({ children }: MessageGroupProps) {
++  const groupRef = useRef<HTMLDivElement>(null)
++  const userMessageRef = useRef<HTMLDivElement | null>(null)
++
++  useEffect(() => {
++    const groupEl = groupRef.current
++    if (!groupEl) return
++
++    // Find the actual bubble element (not the wrapper which includes gradient)
++    const bubbleEl = groupEl.querySelector('[data-user-bubble]') as HTMLDivElement | null
++    if (!bubbleEl) return
++
++    userMessageRef.current = bubbleEl
++
++    const updateHeight = () => {
++      const height = bubbleEl.offsetHeight
++      // Set CSS variable directly on DOM - no React state, no re-renders
++      groupEl.style.setProperty('--user-message-height', `${height}px`)
++    }
++
++    updateHeight()
++
++    const observer = new ResizeObserver(updateHeight)
++    observer.observe(bubbleEl)
++
++    return () => observer.disconnect()
++  }, [])
++
++  return (
++    <div ref={groupRef} className="relative">
++      {children}
++    </div>
++  )
++}
++
+ // Collapsible steps component for intermediate content before final response
+ interface CollapsibleStepsProps {
+   stepsCount: number
+@@ -1030,6 +1075,7 @@ function ChatViewInner({
+   const [showingFilesList, setShowingFilesList] = useState(false)
+   const [showingSkillsList, setShowingSkillsList] = useState(false)
+   const [showingAgentsList, setShowingAgentsList] = useState(false)
++  const [showingToolsList, setShowingToolsList] = useState(false)
+ 
+   // Slash command dropdown state
+   const [showSlashDropdown, setShowSlashDropdown] = useState(false)
+@@ -1213,6 +1259,19 @@ function ChatViewInner({
+ 
+   const isStreaming = status === "streaming" || status === "submitted"
+ 
++  // Track compacting status from SDK
++  const compactingSubChats = useAtomValue(compactingSubChatsAtom)
++  const isCompacting = compactingSubChats.has(subChatId)
++
++  // Handler to trigger manual context compaction
++  const handleCompact = useCallback(() => {
++    if (isStreaming) return // Can't compact while streaming
++    sendMessage({
++      role: "user",
++      parts: [{ type: "text", text: "/compact" }],
++    })
++  }, [isStreaming, sendMessage])
++
+   // Keep refs updated for scroll save cleanup to use
+   useEffect(() => {
+     currentStatusRef.current = status
+@@ -2046,6 +2105,10 @@ function ChatViewInner({
+         setShowingAgentsList(true)
+         return
+       }
++      if (mention.id === "tools") {
++        setShowingToolsList(true)
++        return
++      }
+     }
+ 
+     // Otherwise: insert mention as normal
+@@ -2055,6 +2118,7 @@ function ChatViewInner({
+     setShowingFilesList(false)
+     setShowingSkillsList(false)
+     setShowingAgentsList(false)
++    setShowingToolsList(false)
+   }, [])
+ 
+   // Slash command handlers
+@@ -2096,6 +2160,10 @@ function ChatViewInner({
+               setIsPlanMode(false)
+             }
+             break
++          case "compact":
++            // Trigger context compaction
++            handleCompact()
++            break
+           // Prompt-based commands - auto-send to agent
+           case "review":
+           case "pr-comments":
+@@ -2120,7 +2188,7 @@ function ChatViewInner({
+         setTimeout(() => handleSend(), 0)
+       }
+     },
+-    [isPlanMode, setIsPlanMode, handleSend, onCreateNewSubChat],
++    [isPlanMode, setIsPlanMode, handleSend, onCreateNewSubChat, handleCompact],
+   )
+ 
+   // Paste handler for images and plain text
+@@ -2345,78 +2413,79 @@ function ChatViewInner({
+                 group.assistantMsgs.length === 0
+ 
+               return (
+-                <div key={msg.id} className="relative">
+-                  {/* Attachments - NOT sticky, scroll normally */}
+-                  {imageParts.length > 0 && (
+-                    <motion.div
+-                      className="mb-2 pointer-events-auto"
+-                      initial={{ opacity: 0 }}
+-                      animate={{ opacity: 1 }}
+-                      transition={{ duration: 0.1, ease: "easeOut" }}
+-                    >
+-                      <AgentUserMessageBubble
+-                        messageId={msg.id}
+-                        textContent=""
+-                        imageParts={imageParts}
+-                      />
+-                    </motion.div>
+-                  )}
+-                  {/* User message text - sticky WITHIN this group */}
+-                  <div
+-                    data-user-message-id={msg.id}
+-                    className={cn(
+-                      "[&>div]:!mb-4 pointer-events-auto",
+-                      // Sticky within the group container
+-                      "sticky z-10",
+-                      isMobile
+-                        ? CHAT_LAYOUT.stickyTopMobile
+-                        : isSubChatsSidebarOpen
+-                          ? CHAT_LAYOUT.stickyTopSidebarOpen
+-                          : CHAT_LAYOUT.stickyTopSidebarClosed,
+-                    )}
+-                  >
+-                    <AgentUserMessageBubble
+-                      messageId={msg.id}
+-                      textContent={textContent || ""}
+-                      imageParts={[]}
+-                    />
+-                    {/* Cloning indicator - shown while sandbox is being set up */}
+-                    {shouldShowCloning && (
+-                      <div className="mt-4">
+-                        <AgentToolCall
+-                          icon={AgentToolRegistry["tool-cloning"].icon}
+-                          title={AgentToolRegistry["tool-cloning"].title({})}
+-                          isPending={true}
+-                          isError={false}
++                <MessageGroup key={msg.id}>
++                      {/* Attachments - NOT sticky, scroll normally */}
++                      {imageParts.length > 0 && (
++                        <motion.div
++                          className="mb-2 pointer-events-auto"
++                          initial={{ opacity: 0 }}
++                          animate={{ opacity: 1 }}
++                          transition={{ duration: 0.1, ease: "easeOut" }}
++                        >
++                          <AgentUserMessageBubble
++                            messageId={msg.id}
++                            textContent=""
++                            imageParts={imageParts}
++                          />
++                        </motion.div>
++                      )}
++                      {/* User message text - sticky WITHIN this group */}
++                      <div
++                        data-user-message-id={msg.id}
++                        className={cn(
++                          "[&>div]:!mb-4 pointer-events-auto",
++                          // Sticky within the group container
++                          // No z-index here to avoid blocking dropdowns/tooltips
++                          "sticky",
++                          isMobile
++                            ? CHAT_LAYOUT.stickyTopMobile
++                            : isSubChatsSidebarOpen
++                              ? CHAT_LAYOUT.stickyTopSidebarOpen
++                              : CHAT_LAYOUT.stickyTopSidebarClosed,
++                        )}
++                      >
++                        <AgentUserMessageBubble
++                          messageId={msg.id}
++                          textContent={textContent || ""}
++                          imageParts={[]}
+                         />
++                        {/* Cloning indicator - shown while sandbox is being set up */}
++                        {shouldShowCloning && (
++                          <div className="mt-4">
++                            <AgentToolCall
++                              icon={AgentToolRegistry["tool-cloning"].icon}
++                              title={AgentToolRegistry["tool-cloning"].title({})}
++                              isPending={true}
++                              isError={false}
++                            />
++                          </div>
++                        )}
++                        {/* Setup error with retry */}
++                        {shouldShowSetupError && (
++                          <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
++                            <div className="flex items-center gap-2 text-destructive text-sm">
++                              <span>
++                                Failed to set up sandbox
++                                {sandboxSetupError ? `: ${sandboxSetupError}` : ""}
++                              </span>
++                              {onRetrySetup && (
++                                <Button
++                                  variant="ghost"
++                                  size="sm"
++                                  onClick={onRetrySetup}
++                                >
++                                  Retry
++                                </Button>
++                              )}
++                            </div>
++                          </div>
++                        )}
+                       </div>
+-                    )}
+-                    {/* Setup error with retry */}
+-                    {shouldShowSetupError && (
+-                      <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+-                        <div className="flex items-center gap-2 text-destructive text-sm">
+-                          <span>
+-                            Failed to set up sandbox
+-                            {sandboxSetupError ? `: ${sandboxSetupError}` : ""}
+-                          </span>
+-                          {onRetrySetup && (
+-                            <Button
+-                              variant="ghost"
+-                              size="sm"
+-                              onClick={onRetrySetup}
+-                            >
+-                              Retry
+-                            </Button>
+-                          )}
+-                        </div>
+-                      </div>
+-                    )}
+-                  </div>
+ 
+-                  {/* Assistant messages in this group */}
+-                  {group.assistantMsgs.map((assistantMsg) => {
+-                    const isLastMessage =
+-                      assistantMsg.id === messages[messages.length - 1]?.id
++                      {/* Assistant messages in this group */}
++                      {group.assistantMsgs.map((assistantMsg) => {
++                        const isLastMessage =
++                          assistantMsg.id === messages[messages.length - 1]?.id
+ 
+                     // Assistant message - flat layout, no bubble (like Canvas)
+                     const contentParts =
+@@ -2753,6 +2822,7 @@ function ChatViewInner({
+                       }
+ 
+                       // Special handling for tool-TodoWrite - todo list with progress
++                      // All todos render inline - sticky behavior is handled by IntersectionObserver
+                       if (part.type === "tool-TodoWrite") {
+                         return (
+                           <AgentTodoTool
+@@ -2956,17 +3026,17 @@ function ChatViewInner({
+                   {isStreaming &&
+                     isLastUserMessage &&
+                     group.assistantMsgs.length === 0 &&
+-                    sandboxSetupStatus === "ready" && (
+-                      <div className="mt-4">
+-                        <AgentToolCall
+-                          icon={AgentToolRegistry["tool-planning"].icon}
+-                          title={AgentToolRegistry["tool-planning"].title({})}
+-                          isPending={true}
+-                          isError={false}
+-                        />
+-                      </div>
+-                    )}
+-                </div>
++                        sandboxSetupStatus === "ready" && (
++                          <div className="mt-4">
++                            <AgentToolCall
++                              icon={AgentToolRegistry["tool-planning"].icon}
++                              title={AgentToolRegistry["tool-planning"].title({})}
++                              isPending={true}
++                              isError={false}
++                            />
++                          </div>
++                        )}
++                </MessageGroup>
+               )
+             })}
+           </div>
+@@ -2995,6 +3065,7 @@ function ChatViewInner({
+               <SubChatStatusCard
+                 chatId={parentChatId}
+                 isStreaming={isStreaming}
++                isCompacting={isCompacting}
+                 changedFiles={changedFilesForSubChat}
+                 worktreePath={projectPath}
+                 onStop={async () => {
+@@ -3102,6 +3173,7 @@ function ChatViewInner({
+                       setShowingFilesList(false)
+                       setShowingSkillsList(false)
+                       setShowingAgentsList(false)
++                      setShowingToolsList(false)
+                     }}
+                     onSlashTrigger={handleSlashTrigger}
+                     onCloseSlashTrigger={handleCloseSlashTrigger}
+@@ -3349,8 +3421,13 @@ function ChatViewInner({
+                       }}
+                     />
+ 
+-                    {/* Context window indicator */}
+-                    <AgentContextIndicator messages={messages} />
++                    {/* Context window indicator - click to compact */}
++                    <AgentContextIndicator
++                      messages={messages}
++                      onCompact={handleCompact}
++                      isCompacting={isCompacting}
++                      disabled={isStreaming}
++                    />
+ 
+                     {/* Attachment button */}
+                     <Button
+@@ -3430,6 +3507,7 @@ function ChatViewInner({
+             setShowingFilesList(false)
+             setShowingSkillsList(false)
+             setShowingAgentsList(false)
++            setShowingToolsList(false)
+           }}
+           onSelect={handleMentionSelect}
+           searchText={mentionSearchText}
+@@ -3443,6 +3521,7 @@ function ChatViewInner({
+           showingFilesList={showingFilesList}
+           showingSkillsList={showingSkillsList}
+           showingAgentsList={showingAgentsList}
++          showingToolsList={showingToolsList}
+         />
+ 
+         {/* Slash command dropdown */}
+@@ -3711,6 +3790,8 @@ export function ChatView({
+ 
+   // Desktop: use worktreePath instead of sandbox
+   const worktreePath = agentChat?.worktreePath as string | null
++  // Desktop: original project path for MCP config lookup
++  const originalProjectPath = (agentChat as any)?.project?.path as string | undefined
+   // Fallback for web: use sandbox_id
+   const sandboxId = agentChat?.sandbox_id
+   const sandboxUrl = sandboxId ? `https://3003-${sandboxId}.e2b.app` : null
+@@ -4136,11 +4217,14 @@ export function ChatView({
+ 
+       // Desktop: use IPCChatTransport for local Claude Code execution
+       // Note: Extended thinking setting is read dynamically inside the transport
++      // projectPath: original project path for MCP config lookup (worktreePath is the cwd)
++      const projectPath = (agentChat as any)?.project?.path as string | undefined
+       const transport = worktreePath
+         ? new IPCChatTransport({
+             chatId,
+             subChatId,
+             cwd: worktreePath,
++            projectPath,
+             mode: subChatMode,
+           })
+         : null // Web transport not supported in desktop app
+@@ -4266,10 +4350,13 @@ export function ChatView({
+     if (worktreePath) {
+       // Desktop: use IPCChatTransport for local Claude Code execution
+       // Note: Extended thinking setting is read dynamically inside the transport
++      // projectPath: original project path for MCP config lookup (worktreePath is the cwd)
++      const projectPath = (agentChat as any)?.project?.path as string | undefined
+       const transport = new IPCChatTransport({
+         chatId,
+         subChatId: newId,
+         cwd: worktreePath,
++        projectPath,
+         mode: subChatMode,
+       })
+ 
+@@ -4820,6 +4907,8 @@ export function ChatView({
+                         isDiffSidebarOpen={isDiffSidebarOpen}
+                         diffStats={diffStats}
+                       />
++                      {/* MCP Servers indicator */}
++                      <McpServersIndicator projectPath={originalProjectPath} />
+                     </>
+                   )}
+                 </div>
+diff --git a/src/renderer/features/agents/main/new-chat-form.tsx b/src/renderer/features/agents/main/new-chat-form.tsx
+index bc1f7a5..c4911c7 100644
+--- a/src/renderer/features/agents/main/new-chat-form.tsx
++++ b/src/renderer/features/agents/main/new-chat-form.tsx
+@@ -230,6 +230,7 @@ export function NewChatForm({
+   const [showingFilesList, setShowingFilesList] = useState(false)
+   const [showingSkillsList, setShowingSkillsList] = useState(false)
+   const [showingAgentsList, setShowingAgentsList] = useState(false)
++  const [showingToolsList, setShowingToolsList] = useState(false)
+ 
+   // Slash command dropdown state
+   const [showSlashDropdown, setShowSlashDropdown] = useState(false)
+@@ -685,6 +686,10 @@ export function NewChatForm({
+         setShowingAgentsList(true)
+         return
+       }
++      if (mention.id === "tools") {
++        setShowingToolsList(true)
++        return
++      }
+     }
+ 
+     // Otherwise: insert mention as normal
+@@ -694,6 +699,7 @@ export function NewChatForm({
+     setShowingFilesList(false)
+     setShowingSkillsList(false)
+     setShowingAgentsList(false)
++    setShowingToolsList(false)
+   }, [])
+ 
+   // Save draft to localStorage when content changes
+@@ -758,6 +764,7 @@ export function NewChatForm({
+         setShowingFilesList(false)
+         setShowingSkillsList(false)
+         setShowingAgentsList(false)
++        setShowingToolsList(false)
+         setShowMentionDropdown(true)
+       }
+     },
+@@ -770,6 +777,7 @@ export function NewChatForm({
+     setShowingFilesList(false)
+     setShowingSkillsList(false)
+     setShowingAgentsList(false)
++    setShowingToolsList(false)
+   }, [])
+ 
+   // Slash command handlers
+@@ -1437,6 +1445,7 @@ export function NewChatForm({
+                     setShowingFilesList(false)
+                     setShowingSkillsList(false)
+                     setShowingAgentsList(false)
++                    setShowingToolsList(false)
+                   }}
+                   onSelect={handleMentionSelect}
+                   searchText={mentionSearchText}
+@@ -1445,6 +1454,7 @@ export function NewChatForm({
+                   showingFilesList={showingFilesList}
+                   showingSkillsList={showingSkillsList}
+                   showingAgentsList={showingAgentsList}
++                  showingToolsList={showingToolsList}
+                 />
+ 
+                 {/* Slash command dropdown */}
+diff --git a/src/renderer/features/agents/mentions/agents-file-mention.tsx b/src/renderer/features/agents/mentions/agents-file-mention.tsx
+index bbfed00..a4d00af 100644
+--- a/src/renderer/features/agents/mentions/agents-file-mention.tsx
++++ b/src/renderer/features/agents/mentions/agents-file-mention.tsx
+@@ -16,13 +16,16 @@ import {
+ } from "react"
+ import { flushSync } from "react-dom"
+ import { createRoot } from "react-dom/client"
++import { useAtomValue } from "jotai"
+ import type { FileMentionOption } from "./agents-mentions-editor"
+ import { MENTION_PREFIXES } from "./agents-mentions-editor"
++import { sessionInfoAtom } from "../../../lib/atoms"
+ import {
+   FilesIcon,
+   IconSpinner,
+   SkillIcon,
+   CustomAgentIcon,
++  OriginalMCPIcon,
+ } from "../../../components/ui/icons"
+ import { ChevronRight } from "lucide-react"
+ import {
+@@ -107,6 +110,7 @@ interface AgentsFileMentionProps {
+   showingFilesList?: boolean
+   showingSkillsList?: boolean
+   showingAgentsList?: boolean
++  showingToolsList?: boolean
+ }
+ 
+ // Category navigation options (shown on root view)
+@@ -114,6 +118,7 @@ const CATEGORY_OPTIONS: FileMentionOption[] = [
+   { id: "files", label: "Files & Folders", type: "category", path: "", repository: "" },
+   { id: "skills", label: "Skills", type: "category", path: "", repository: "" },
+   { id: "agents", label: "Agents", type: "category", path: "", repository: "" },
++  { id: "tools", label: "MCP Tools", type: "category", path: "", repository: "" },
+ ]
+ 
+ // Known file extensions with icons
+@@ -308,12 +313,34 @@ export function getFileIconByExtension(
+   }
+ }
+ 
++// Tool icon component (MCP icon) - slightly larger for visibility
++function ToolIcon({ className }: { className?: string }) {
++  // Override size to h-3.5 w-3.5 for better visibility
++  const sizeClass = className?.replace(/h-3\b/, "h-3.5").replace(/w-3\b/, "w-3.5") || className
++  return <OriginalMCPIcon className={sizeClass} />
++}
++
++/**
++ * Format MCP tool name for display
++ * Converts snake_case/underscore names to readable format
++ * e.g., "get_design_context" -> "Get design context"
++ */
++function formatToolName(toolName: string): string {
++  return toolName
++    .replace(/_/g, " ")
++    .replace(/\b\w/g, (c) => c.toUpperCase())
++    .replace(/\s+/g, " ")
++    .trim()
++}
++
+ // Create SVG icon element in DOM based on file extension or type
+-export function createFileIconElement(filename: string, type?: "file" | "folder" | "skill" | "agent" | "category"): SVGSVGElement {
++export function createFileIconElement(filename: string, type?: "file" | "folder" | "skill" | "agent" | "category" | "tool"): SVGSVGElement {
+   const IconComponent = type === "skill"
+     ? SkillIcon
+     : type === "agent"
+       ? CustomAgentIcon
++    : type === "tool"
++      ? ToolIcon
+     : type === "folder"
+       ? FolderOpenIcon
+       : (getFileIconByExtension(filename) ?? FilesIcon)
+@@ -403,6 +430,8 @@ function CustomAgentIconWrapper({ className }: { className?: string }) {
+   return <CustomAgentIcon className={className} />
+ }
+ 
++// ToolIconWrapper removed - use ToolIcon instead (they were identical)
++
+ // Category icon component
+ function CategoryIcon({ className, categoryId }: { className?: string; categoryId: string }) {
+   if (categoryId === "files") {
+@@ -414,13 +443,18 @@ function CategoryIcon({ className, categoryId }: { className?: string; categoryI
+   if (categoryId === "agents") {
+     return <CustomAgentIcon className={className} />
+   }
++  if (categoryId === "tools") {
++    // Override size to h-3.5 w-3.5 for better visibility
++    const sizeClass = className?.replace(/h-3\b/, "h-3.5").replace(/w-3\b/, "w-3.5") || className
++    return <OriginalMCPIcon className={sizeClass} />
++  }
+   return <FilesIcon className={className} />
+ }
+ 
+ /**
+- * Get icon component for a file, folder, skill, agent, or category option
++ * Get icon component for a file, folder, skill, agent, tool, or category option
+  */
+-export function getOptionIcon(option: { id?: string; label: string; type?: "file" | "folder" | "skill" | "agent" | "category" }) {
++export function getOptionIcon(option: { id?: string; label: string; type?: "file" | "folder" | "skill" | "agent" | "category" | "tool" }) {
+   if (option.type === "category") {
+     // Return a wrapper component for categories
+     return function CategoryIconWrapper({ className }: { className?: string }) {
+@@ -433,6 +467,9 @@ export function getOptionIcon(option: { id?: string; label: string; type?: "file
+   if (option.type === "agent") {
+     return CustomAgentIconWrapper
+   }
++  if (option.type === "tool") {
++    return ToolIcon
++  }
+   if (option.type === "folder") {
+     return FolderIcon
+   }
+@@ -571,6 +608,7 @@ function sortFilesByRelevance<T extends { label: string; path?: string }>(
+ /**
+  * Render tooltip content for a mention option
+  * Skills/agents show description, tools, model info
++ * Tools show MCP server name
+  * Files/folders show path
+  */
+ function renderTooltipContent(option: FileMentionOption) {
+@@ -603,6 +641,15 @@ function renderTooltipContent(option: FileMentionOption) {
+     )
+   }
+ 
++  if (option.type === "tool") {
++    // Show full tool name (e.g., mcp__figma-local-mcp__get_figjam)
++    return (
++      <div className="text-xs text-muted-foreground font-mono">
++        {option.path}
++      </div>
++    )
++  }
++
+   // Files - just path
+   return (
+     <div className="text-xs text-muted-foreground font-mono truncate w-full">
+@@ -627,6 +674,7 @@ export const AgentsFileMention = memo(function AgentsFileMention({
+   showingFilesList = false,
+   showingSkillsList = false,
+   showingAgentsList = false,
++  showingToolsList = false,
+ }: AgentsFileMentionProps) {
+   const dropdownRef = useRef<HTMLDivElement>(null)
+   const [selectedIndex, setSelectedIndex] = useState(0)
+@@ -635,6 +683,9 @@ export const AgentsFileMention = memo(function AgentsFileMention({
+ 
+   const [hoverIndex, setHoverIndex] = useState<number | null>(null)
+ 
++  // Get session info (MCP servers, tools) from atom
++  const sessionInfo = useAtomValue(sessionInfoAtom)
++
+   // Fetch skills from filesystem (cached for 5 minutes)
+   const { data: skills = [], isFetching: isFetchingSkills } = trpc.skills.listEnabled.useQuery(undefined, {
+     enabled: isOpen,
+@@ -801,13 +852,66 @@ export const AgentsFileMention = memo(function AgentsFileMention({
+       }))
+   }, [customAgents, debouncedSearchText])
+ 
+-  // Check if we have skills or agents
+-  const hasSkills = skillOptions.length > 0
+-  const hasAgents = agentOptions.length > 0
+-  const hasOnlyFiles = !hasSkills && !hasAgents
++  // Convert MCP tools to mention options (stable, doesn't depend on search)
++  // MCP tools have format like "mcp__servername__toolname"
++  const allToolOptions: FileMentionOption[] = useMemo(() => {
++    if (!sessionInfo?.tools || !sessionInfo?.mcpServers) return []
+ 
+-  // Determine if we're in a subpage view (or showing files directly when no skills/agents)
+-  const isInSubpage = showingFilesList || showingSkillsList || showingAgentsList || hasOnlyFiles
++    // Get connected MCP server names
++    const connectedServers = new Set(
++      sessionInfo.mcpServers
++        .filter(s => s.status === "connected")
++        .map(s => s.name)
++    )
++
++    // Filter tools that belong to MCP servers (format: mcp__servername__toolname)
++    const mcpTools = sessionInfo.tools.filter(tool => {
++      if (!tool.startsWith("mcp__")) return false
++      const parts = tool.split("__")
++      if (parts.length < 3) return false
++      const serverName = parts[1]
++      return connectedServers.has(serverName)
++    })
++
++    return mcpTools.map(tool => {
++      const parts = tool.split("__")
++      const serverName = parts[1]
++      const toolName = parts.slice(2).join("__")
++      const displayName = formatToolName(toolName)
++      return {
++        id: `${MENTION_PREFIXES.TOOL}${tool}`,
++        label: displayName, // readable name without underscores
++        path: tool, // full tool name for tooltip/mention
++        repository: "",
++        truncatedPath: serverName, // show server name as context
++        type: "tool" as const,
++        mcpServer: serverName,
++      }
++    })
++  }, [sessionInfo])
++
++  // Filtered tool options based on search
++  const toolOptions: FileMentionOption[] = useMemo(() => {
++    if (!debouncedSearchText) return allToolOptions
++
++    const searchLower = debouncedSearchText.toLowerCase()
++    return allToolOptions.filter(tool => {
++      // Search by: display name, raw tool name, full path, server name
++      return matchesMultiWordSearch(tool.label, searchLower) ||
++             matchesMultiWordSearch(tool.path, searchLower) ||
++             matchesMultiWordSearch(tool.mcpServer || "", searchLower)
++    })
++  }, [allToolOptions, debouncedSearchText])
++
++  // Check if we have skills, agents, or tools
++  // Use base data (not search-filtered) for stable category display
++  const hasSkills = skills.length > 0
++  const hasAgents = customAgents.length > 0
++  const hasTools = allToolOptions.length > 0
++  const hasOnlyFiles = !hasSkills && !hasAgents && !hasTools
++
++  // Determine if we're in a subpage view (or showing files directly when no skills/agents/tools)
++  const isInSubpage = showingFilesList || showingSkillsList || showingAgentsList || showingToolsList || hasOnlyFiles
+ 
+   // Filter category options based on available data
+   const availableCategoryOptions = useMemo(() => {
+@@ -815,17 +919,18 @@ export const AgentsFileMention = memo(function AgentsFileMention({
+       if (category.id === "files") return true // Always show files
+       if (category.id === "skills") return hasSkills
+       if (category.id === "agents") return hasAgents
++      if (category.id === "tools") return hasTools
+       return true
+     })
+-  }, [hasSkills, hasAgents])
++  }, [hasSkills, hasAgents, hasTools])
+ 
+   // Combined options for keyboard navigation
+   // Subpage views show only that category's items
+   // Root view shows changed files + category navigation options
+   // Search filters globally in root view, within category in subpage
+-  // If no skills or agents, skip root view and show files directly
++  // If no skills, agents, or tools, skip root view and show files directly
+   const options: FileMentionOption[] = useMemo(() => {
+-    // SUBPAGE: Files (or if no skills/agents, show files directly)
++    // SUBPAGE: Files (or if no skills/agents/tools, show files directly)
+     if (showingFilesList || hasOnlyFiles) {
+       const allFiles = [...changedFileOptions, ...repoFileOptions]
+       if (debouncedSearchText) {
+@@ -844,20 +949,25 @@ export const AgentsFileMention = memo(function AgentsFileMention({
+       return agentOptions // already filtered by search in agentOptions memo
+     }
+ 
++    // SUBPAGE: MCP Tools
++    if (showingToolsList) {
++      return toolOptions // already filtered by search in toolOptions memo
++    }
++
+     // ROOT VIEW
+     if (debouncedSearchText) {
+-      // Global search: search across changed files + categories + skills + agents + repo files
++      // Global search: search across changed files + categories + skills + agents + tools + repo files
+       const searchLower = debouncedSearchText.toLowerCase()
+       const filteredCategories = availableCategoryOptions.filter(c =>
+         c.label.toLowerCase().includes(searchLower)
+       )
+-      const allItems = [...changedFileOptions, ...filteredCategories, ...skillOptions, ...agentOptions, ...repoFileOptions]
++      const allItems = [...changedFileOptions, ...filteredCategories, ...skillOptions, ...agentOptions, ...toolOptions, ...repoFileOptions]
+       return sortFilesByRelevance(allItems, debouncedSearchText)
+     }
+ 
+     // No search: Changed files FIRST (quick access), then category navigation
+     return [...changedFileOptions, ...availableCategoryOptions]
+-  }, [showingFilesList, showingSkillsList, showingAgentsList, debouncedSearchText, changedFileOptions, repoFileOptions, skillOptions, agentOptions, hasOnlyFiles, availableCategoryOptions])
++  }, [showingFilesList, showingSkillsList, showingAgentsList, showingToolsList, debouncedSearchText, changedFileOptions, repoFileOptions, skillOptions, agentOptions, toolOptions, hasOnlyFiles, availableCategoryOptions])
+ 
+   // Track previous values for smarter selection reset
+   const prevIsOpenRef = useRef(isOpen)
+@@ -865,6 +975,7 @@ export const AgentsFileMention = memo(function AgentsFileMention({
+   const prevShowingFilesListRef = useRef(showingFilesList)
+   const prevShowingSkillsListRef = useRef(showingSkillsList)
+   const prevShowingAgentsListRef = useRef(showingAgentsList)
++  const prevShowingToolsListRef = useRef(showingToolsList)
+ 
+   // CONSOLIDATED: Single useLayoutEffect for selection management (was 3 separate)
+   useLayoutEffect(() => {
+@@ -873,7 +984,8 @@ export const AgentsFileMention = memo(function AgentsFileMention({
+     const didSubpageChange =
+       showingFilesList !== prevShowingFilesListRef.current ||
+       showingSkillsList !== prevShowingSkillsListRef.current ||
+-      showingAgentsList !== prevShowingAgentsListRef.current
++      showingAgentsList !== prevShowingAgentsListRef.current ||
++      showingToolsList !== prevShowingToolsListRef.current
+ 
+     // Reset to 0 when opening, search changes, or subpage changes
+     if (didJustOpen || didSearchChange || didSubpageChange) {
+@@ -890,7 +1002,8 @@ export const AgentsFileMention = memo(function AgentsFileMention({
+     prevShowingFilesListRef.current = showingFilesList
+     prevShowingSkillsListRef.current = showingSkillsList
+     prevShowingAgentsListRef.current = showingAgentsList
+-  }, [isOpen, debouncedSearchText, options.length, selectedIndex, showingFilesList, showingSkillsList, showingAgentsList])
++    prevShowingToolsListRef.current = showingToolsList
++  }, [isOpen, debouncedSearchText, options.length, selectedIndex, showingFilesList, showingSkillsList, showingAgentsList, showingToolsList])
+ 
+   // Reset placement when closed
+   useEffect(() => {
+@@ -982,15 +1095,18 @@ export const AgentsFileMention = memo(function AgentsFileMention({
+   // Calculate dropdown dimensions (matching canvas style)
+   // Narrower dropdown when showing only categories (no changed files)
+   const hasChangedFiles = changedFileOptions.length > 0
+-  const isRootView = !showingFilesList && !showingSkillsList && !showingAgentsList && !hasOnlyFiles
+-  // Narrow dropdown for root view (categories only) and skills/agents subpages
++  const isRootView = !showingFilesList && !showingSkillsList && !showingAgentsList && !showingToolsList && !hasOnlyFiles
++  // Narrow dropdown for root view (categories only) and skills/agents/tools subpages
+   // Wide dropdown for files (showingFilesList or hasOnlyFiles)
+-  const useNarrowWidth = (isRootView && !hasChangedFiles && !debouncedSearchText) || showingSkillsList || showingAgentsList
++  const useNarrowWidth = (isRootView && !hasChangedFiles && !debouncedSearchText) || showingSkillsList || showingAgentsList || showingToolsList
+   const dropdownWidth = useNarrowWidth ? 200 : 320
+   const itemHeight = 28
+-  const headerHeight = 24
++  const headerHeight = 28 // header with py-1.5 and text-xs
++  // Only add header height when header is actually shown (in subpages or when searching)
++  const showsHeader = !isRootView || !!debouncedSearchText
++  const paddingHeight = 8 // py-1 on container = 4px top + 4px bottom
+   const requestedHeight = Math.min(
+-    options.length * itemHeight + headerHeight + 8,
++    options.length * itemHeight + (showsHeader ? headerHeight : 0) + paddingHeight,
+     200,
+   )
+   const gap = 8
+@@ -1091,6 +1207,7 @@ export const AgentsFileMention = memo(function AgentsFileMention({
+                       {(showingFilesList || hasOnlyFiles) ? "Files & Folders" :
+                        showingSkillsList ? "Skills" :
+                        showingAgentsList ? "Agents" :
++                       showingToolsList ? "MCP Tools" :
+                        "Results"}
+                     </span>
+                     {isFetching && !isLoading && (
+diff --git a/src/renderer/features/agents/mentions/agents-mentions-editor.tsx b/src/renderer/features/agents/mentions/agents-mentions-editor.tsx
+index ce34fa6..9ed5b82 100644
+--- a/src/renderer/features/agents/mentions/agents-mentions-editor.tsx
++++ b/src/renderer/features/agents/mentions/agents-mentions-editor.tsx
+@@ -16,19 +16,20 @@ import { createFileIconElement } from "./agents-file-mention"
+ const LARGE_TEXT_THRESHOLD = 50000
+ 
+ export interface FileMentionOption {
+-  id: string // file:owner/repo:path/to/file.tsx or folder:owner/repo:path/to/folder or skill:skill-name
+-  label: string // filename or folder name or skill name
++  id: string // file:owner/repo:path/to/file.tsx or folder:owner/repo:path/to/folder or skill:skill-name or tool:mcp-tool-name
++  label: string // filename or folder name or skill name or tool name
+   path: string // full path or skill description
+   repository: string
+   truncatedPath?: string // directory path for inline display or skill description
+   additions?: number // for changed files
+   deletions?: number // for changed files
+-  type?: "file" | "folder" | "skill" | "agent" | "category" // entry type (default: file)
+-  // Extended data for rich tooltips (skills/agents)
+-  description?: string // skill/agent description
++  type?: "file" | "folder" | "skill" | "agent" | "category" | "tool" // entry type (default: file)
++  // Extended data for rich tooltips (skills/agents/tools)
++  description?: string // skill/agent/tool description
+   tools?: string[] // agent allowed tools
+   model?: string // agent model
+   source?: "user" | "project" // skill/agent source
++  mcpServer?: string // MCP server name for tools
+ }
+ 
+ // Mention ID prefixes
+@@ -37,6 +38,7 @@ export const MENTION_PREFIXES = {
+   FOLDER: "folder:",
+   SKILL: "skill:",
+   AGENT: "agent:",
++  TOOL: "tool:", // MCP tools
+ } as const
+ 
+ type TriggerPayload = {
+@@ -219,6 +221,23 @@ function buildContentFromSerialized(
+       const skillName = id.slice(MENTION_PREFIXES.SKILL.length)
+       option = { id, label: skillName, path: "", repository: "", type: "skill" }
+     }
++    if (!option && id.startsWith(MENTION_PREFIXES.AGENT)) {
++      // Parse agent mention: agent:agent-name
++      const agentName = id.slice(MENTION_PREFIXES.AGENT.length)
++      option = { id, label: agentName, path: "", repository: "", type: "agent" }
++    }
++    if (!option && id.startsWith(MENTION_PREFIXES.TOOL)) {
++      // Parse tool mention: tool:mcp__servername__toolname
++      const toolPath = id.slice(MENTION_PREFIXES.TOOL.length)
++      // Extract readable name from tool path (e.g., mcp__figma__get_design -> Get design)
++      const parts = toolPath.split("__")
++      const toolName = parts.length >= 3 ? parts.slice(2).join("__") : toolPath
++      const displayName = toolName
++        .replace(/_/g, " ")
++        .replace(/\b\w/g, (c) => c.toUpperCase())
++        .trim()
++      option = { id, label: displayName, path: toolPath, repository: "", type: "tool" }
++    }
+     if (option) {
+       root.appendChild(createMentionNode(option))
+       root.appendChild(document.createTextNode(" "))
+@@ -509,6 +528,21 @@ export const AgentsMentionsEditor = memo(
+             const skillName = id.slice(MENTION_PREFIXES.SKILL.length)
+             return { id, label: skillName, path: "", repository: "", type: "skill" }
+           }
++          if (id.startsWith(MENTION_PREFIXES.AGENT)) {
++            const agentName = id.slice(MENTION_PREFIXES.AGENT.length)
++            return { id, label: agentName, path: "", repository: "", type: "agent" }
++          }
++          if (id.startsWith(MENTION_PREFIXES.TOOL)) {
++            const toolPath = id.slice(MENTION_PREFIXES.TOOL.length)
++            // Extract readable name from tool path (e.g., mcp__figma__get_design -> Get design)
++            const parts = toolPath.split("__")
++            const toolName = parts.length >= 3 ? parts.slice(2).join("__") : toolPath
++            const displayName = toolName
++              .replace(/_/g, " ")
++              .replace(/\b\w/g, (c) => c.toUpperCase())
++              .trim()
++            return { id, label: displayName, path: toolPath, repository: "", type: "tool" }
++          }
+           return null
+         },
+         [],
+diff --git a/src/renderer/features/agents/mentions/render-file-mentions.tsx b/src/renderer/features/agents/mentions/render-file-mentions.tsx
+index 17de327..5fed0e4 100644
+--- a/src/renderer/features/agents/mentions/render-file-mentions.tsx
++++ b/src/renderer/features/agents/mentions/render-file-mentions.tsx
+@@ -2,7 +2,7 @@
+ 
+ import { useMemo } from "react"
+ import { getFileIconByExtension } from "./agents-file-mention"
+-import { FilesIcon, SkillIcon, CustomAgentIcon } from "../../../components/ui/icons"
++import { FilesIcon, SkillIcon, CustomAgentIcon, OriginalMCPIcon } from "../../../components/ui/icons"
+ import { MENTION_PREFIXES } from "./agents-mentions-editor"
+ 
+ // Custom folder icon matching design
+@@ -29,20 +29,21 @@ interface ParsedMention {
+   label: string
+   path: string
+   repository: string
+-  type: "file" | "folder" | "skill" | "agent"
++  type: "file" | "folder" | "skill" | "agent" | "tool"
+ }
+ 
+ /**
+- * Parse file/folder/skill/agent mention ID into its components
+- * Format: file:owner/repo:path/to/file.tsx or folder:owner/repo:path/to/folder or skill:skill-name or agent:agent-name
++ * Parse file/folder/skill/agent/tool mention ID into its components
++ * Format: file:owner/repo:path/to/file.tsx or folder:owner/repo:path/to/folder or skill:skill-name or agent:agent-name or tool:mcp__server__toolname
+  */
+ function parseMention(id: string): ParsedMention | null {
+   const isFile = id.startsWith(MENTION_PREFIXES.FILE)
+   const isFolder = id.startsWith(MENTION_PREFIXES.FOLDER)
+   const isSkill = id.startsWith(MENTION_PREFIXES.SKILL)
+   const isAgent = id.startsWith(MENTION_PREFIXES.AGENT)
++  const isTool = id.startsWith(MENTION_PREFIXES.TOOL)
+ 
+-  if (!isFile && !isFolder && !isSkill && !isAgent) return null
++  if (!isFile && !isFolder && !isSkill && !isAgent && !isTool) return null
+ 
+   // Handle skill mentions (simpler format: skill:name)
+   if (isSkill) {
+@@ -68,6 +69,25 @@ function parseMention(id: string): ParsedMention | null {
+     }
+   }
+ 
++  // Handle tool mentions (format: tool:mcp__servername__toolname)
++  if (isTool) {
++    const toolPath = id.slice(MENTION_PREFIXES.TOOL.length)
++    // Extract readable name from tool path (e.g., mcp__figma__get_design -> Get design)
++    const parts = toolPath.split("__")
++    const toolName = parts.length >= 3 ? parts.slice(2).join("__") : toolPath
++    const displayName = toolName
++      .replace(/_/g, " ")
++      .replace(/\b\w/g, (c) => c.toUpperCase())
++      .trim()
++    return {
++      id,
++      label: displayName,
++      path: toolPath,
++      repository: "",
++      type: "tool",
++    }
++  }
++
+   const parts = id.split(":")
+   if (parts.length < 3) return null
+ 
+@@ -86,29 +106,33 @@ function parseMention(id: string): ParsedMention | null {
+ }
+ 
+ /**
+- * Component to render a single file/folder/skill/agent mention chip (matching canvas style)
++ * Component to render a single file/folder/skill/agent/tool mention chip (matching canvas style)
+  */
+ function MentionChip({ mention }: { mention: ParsedMention }) {
+   const Icon = mention.type === "skill"
+     ? SkillIcon
+     : mention.type === "agent"
+       ? CustomAgentIcon
+-      : mention.type === "folder"
+-        ? FolderOpenIcon
+-        : (getFileIconByExtension(mention.label) ?? FilesIcon)
++      : mention.type === "tool"
++        ? OriginalMCPIcon
++        : mention.type === "folder"
++          ? FolderOpenIcon
++          : (getFileIconByExtension(mention.label) ?? FilesIcon)
+ 
+   const title = mention.type === "skill"
+     ? `Skill: ${mention.label}`
+     : mention.type === "agent"
+       ? `Agent: ${mention.label}`
+-      : `${mention.repository}:${mention.path}`
+-  
++      : mention.type === "tool"
++        ? `MCP Tool: ${mention.path}`
++        : `${mention.repository}:${mention.path}`
++
+   return (
+     <span
+       className="inline-flex items-center gap-1 px-[6px] rounded-[6px] text-sm align-middle bg-black/[0.04] dark:bg-white/[0.08] text-foreground/80 select-none"
+       title={title}
+     >
+-      <Icon className="h-3 w-3 text-muted-foreground flex-shrink-0" />
++      <Icon className={mention.type === "tool" ? "h-3.5 w-3.5 text-muted-foreground flex-shrink-0" : "h-3 w-3 text-muted-foreground flex-shrink-0"} />
+       <span>{mention.label}</span>
+     </span>
+   )
+@@ -215,8 +239,8 @@ export function extractFileMentions(text: string): ParsedMention[] {
+ }
+ 
+ /**
+- * Check if text contains any file, folder, skill, or agent mentions
++ * Check if text contains any file, folder, skill, agent, or tool mentions
+  */
+ export function hasFileMentions(text: string): boolean {
+-  return /@\[(file|folder|skill|agent):[^\]]+\]/.test(text)
++  return /@\[(file|folder|skill|agent|tool):[^\]]+\]/.test(text)
+ }
+diff --git a/src/renderer/features/agents/ui/agent-bash-tool.tsx b/src/renderer/features/agents/ui/agent-bash-tool.tsx
+index 3504724..0bcb80c 100644
+--- a/src/renderer/features/agents/ui/agent-bash-tool.tsx
++++ b/src/renderer/features/agents/ui/agent-bash-tool.tsx
+@@ -146,24 +146,11 @@ export const AgentBashTool = memo(function AgentBashTool({
+               }}
+               className="p-1 rounded-md hover:bg-accent transition-[background-color,transform] duration-150 ease-out active:scale-95"
+             >
+-              <div className="relative w-4 h-4">
+-                <ExpandIcon
+-                  className={cn(
+-                    "absolute inset-0 w-4 h-4 text-muted-foreground transition-[opacity,transform] duration-200 ease-out",
+-                    isOutputExpanded
+-                      ? "opacity-0 scale-75"
+-                      : "opacity-100 scale-100",
+-                  )}
+-                />
+-                <CollapseIcon
+-                  className={cn(
+-                    "absolute inset-0 w-4 h-4 text-muted-foreground transition-[opacity,transform] duration-200 ease-out",
+-                    isOutputExpanded
+-                      ? "opacity-100 scale-100"
+-                      : "opacity-0 scale-75",
+-                  )}
+-                />
+-              </div>
++              {isOutputExpanded ? (
++                <CollapseIcon className="w-4 h-4 text-muted-foreground" />
++              ) : (
++                <ExpandIcon className="w-4 h-4 text-muted-foreground" />
++              )}
+             </button>
+           )}
+         </div>
+diff --git a/src/renderer/features/agents/ui/agent-context-indicator.tsx b/src/renderer/features/agents/ui/agent-context-indicator.tsx
+index 7b34765..901576f 100644
+--- a/src/renderer/features/agents/ui/agent-context-indicator.tsx
++++ b/src/renderer/features/agents/ui/agent-context-indicator.tsx
+@@ -22,6 +22,9 @@ interface AgentContextIndicatorProps {
+   messages: Array<{ metadata?: AgentMessageMetadata }>
+   modelId?: ModelId
+   className?: string
++  onCompact?: () => void
++  isCompacting?: boolean
++  disabled?: boolean
+ }
+ 
+ function formatTokens(tokens: number): string {
+@@ -87,6 +90,9 @@ export const AgentContextIndicator = memo(function AgentContextIndicator({
+   messages,
+   modelId = "sonnet",
+   className,
++  onCompact,
++  isCompacting,
++  disabled,
+ }: AgentContextIndicatorProps) {
+   // Calculate session totals from all message metadata
+   const sessionTotals = useMemo(() => {
+@@ -120,16 +126,28 @@ export const AgentContextIndicator = memo(function AgentContextIndicator({
+ 
+   const isEmpty = sessionTotals.totalTokens === 0
+ 
++  const isClickable = onCompact && !disabled && !isCompacting
++
+   return (
+     <Tooltip delayDuration={300}>
+       <TooltipTrigger asChild>
+         <div
++          onClick={isClickable ? onCompact : undefined}
+           className={cn(
+-            "h-4 w-4 flex items-center justify-center cursor-default",
++            "h-4 w-4 flex items-center justify-center",
++            isClickable
++              ? "cursor-pointer hover:opacity-70 transition-opacity"
++              : "cursor-default",
++            disabled && "opacity-50",
+             className,
+           )}
+         >
+-          <CircularProgress percent={percentUsed} size={14} strokeWidth={2.5} />
++          <CircularProgress
++            percent={percentUsed}
++            size={14}
++            strokeWidth={2.5}
++            className={isCompacting ? "animate-pulse" : undefined}
++          />
+         </div>
+       </TooltipTrigger>
+       <TooltipContent side="top" sideOffset={8}>
+diff --git a/src/renderer/features/agents/ui/agent-todo-tool.tsx b/src/renderer/features/agents/ui/agent-todo-tool.tsx
+index 83a1315..a7eb596 100644
+--- a/src/renderer/features/agents/ui/agent-todo-tool.tsx
++++ b/src/renderer/features/agents/ui/agent-todo-tool.tsx
+@@ -18,7 +18,7 @@ import { Circle } from "lucide-react"
+ import { AgentToolCall } from "./agent-tool-call"
+ import { currentTodosAtomFamily } from "../atoms"
+ 
+-interface TodoItem {
++export interface TodoItem {
+   content: string
+   status: "pending" | "in_progress" | "completed"
+   activeForm?: string
+@@ -122,6 +122,77 @@ function getStatusIconComponent(status: TodoItem["status"]) {
+   }
+ }
+ 
++// Pie-style progress circle - fills sectors like pizza slices
++const ProgressCircle = ({
++  completed,
++  total,
++  size = 16,
++  className,
++}: {
++  completed: number
++  total: number
++  size?: number
++  className?: string
++}) => {
++  const cx = size / 2
++  const cy = size / 2
++  const outerRadius = (size - 1) / 2
++  const innerRadius = outerRadius - 1.5 // Leave space for outer border
++
++  // Create pie segments (no borders on segments, just fill)
++  const segments = []
++  for (let i = 0; i < total; i++) {
++    const startAngle = (i / total) * 360 - 90 // Start from top
++    const endAngle = ((i + 1) / total) * 360 - 90
++    const gap = total > 1 ? 4 : 0 // Gap between segments
++    const adjustedStartAngle = startAngle + gap / 2
++    const adjustedEndAngle = endAngle - gap / 2
++
++    // Convert to radians
++    const startRad = (adjustedStartAngle * Math.PI) / 180
++    const endRad = (adjustedEndAngle * Math.PI) / 180
++
++    // Calculate arc points
++    const x1 = cx + innerRadius * Math.cos(startRad)
++    const y1 = cy + innerRadius * Math.sin(startRad)
++    const x2 = cx + innerRadius * Math.cos(endRad)
++    const y2 = cy + innerRadius * Math.sin(endRad)
++
++    const largeArcFlag = endAngle - startAngle > 180 ? 1 : 0
++    const pathData = `M ${cx} ${cy} L ${x1} ${y1} A ${innerRadius} ${innerRadius} 0 ${largeArcFlag} 1 ${x2} ${y2} Z`
++
++    segments.push(
++      <path
++        key={i}
++        d={pathData}
++        fill={i < completed ? "currentColor" : "transparent"}
++        opacity={i < completed ? 0.7 : 0.15}
++      />,
++    )
++  }
++
++  return (
++    <svg
++      width={size}
++      height={size}
++      viewBox={`0 0 ${size} ${size}`}
++      className={cn("text-muted-foreground", className)}
++    >
++      {/* Outer border circle */}
++      <circle
++        cx={cx}
++        cy={cy}
++        r={outerRadius}
++        fill="none"
++        stroke="currentColor"
++        strokeWidth={0.5}
++        opacity={0.3}
++      />
++      {segments}
++    </svg>
++  )
++}
++
+ const TodoStatusIcon = ({
+   status,
+   isPending,
+@@ -235,13 +306,6 @@ export const AgentTodoTool = memo(function AgentTodoTool({
+     }
+   }, [newTodos, setTodoState, creationToolCallId, part.toolCallId, isCreationToolCall, syncedTodos.length])
+ 
+-  // Auto-expand on creation
+-  useEffect(() => {
+-    if (changes.type === "creation") {
+-      setIsExpanded(true)
+-    }
+-  }, [changes.type])
+-
+   // Check if we're still streaming input (data not yet complete)
+   const isStreaming = part.state === "input-streaming"
+ 
+@@ -255,12 +319,16 @@ export const AgentTodoTool = memo(function AgentTodoTool({
+       return null
+     }
+ 
+-    // For creation tool calls, show the placeholder
++    // For creation tool calls, show the placeholder - also sticky with top offset
+     return (
+-      <div className="flex items-start gap-1.5 py-0.5 rounded-md px-2">
+-        <div className="flex-1 min-w-0 flex items-center gap-1.5">
+-          <div className="text-xs text-muted-foreground flex items-center gap-1.5 min-w-0">
+-            <span className="font-medium whitespace-nowrap flex-shrink-0">
++      <div
++        className="mx-2 sticky bg-background"
++        style={{ top: 'calc(var(--user-message-height, 28px) - 29px)' }}
++      >
++        <div className="rounded-lg border border-border bg-muted/30 px-2.5 py-1.5">
++          <div className="flex items-center gap-1.5">
++            <PlanIcon className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
++            <span className="text-xs font-medium whitespace-nowrap flex-shrink-0">
+               {isPending ? (
+                 <TextShimmer
+                   as="span"
+@@ -407,26 +475,35 @@ export const AgentTodoTool = memo(function AgentTodoTool({
+   ).length
+   const totalTodos = displayTodos.length
+ 
+-  // Header title
+-  const getHeaderTitle = () => {
+-    if (isPending) {
+-      return <span>Updating todos...</span>
+-    }
+-    return (
+-      <span>
+-        To-dos{" "}
+-        <span className="text-muted-foreground/60">
+-          {completedCount}/{totalTodos}
+-        </span>
+-      </span>
+-    )
+-  }
++  // Find current task (first in_progress, or first pending if none in progress)
++  const currentTask = displayTodos.find((t) => t.status === "in_progress")
++    || displayTodos.find((t) => t.status === "pending")
++
++  // Find current task index for progress display
++  const currentTaskIndex = currentTask
++    ? displayTodos.findIndex((t) => t === currentTask) + 1
++    : completedCount
+ 
+   return (
+-    <div className="rounded-lg border border-border bg-muted/30 overflow-hidden mx-2">
+-      {/* Header - click anywhere to expand/collapse */}
++    <div
++      className={cn(
++        "mx-2",
++        // Make entire creation todo sticky
++        isCreationToolCall && "sticky bg-background"
++      )}
++      style={isCreationToolCall ? {
++        // Offset so TOP BLOCK (title) goes fully under user message
++        // TOP BLOCK height: py-1.5 (12px) + text-xs (~16px) + border (1px) = ~29px
++        top: 'calc(var(--user-message-height, 28px) - 29px)'
++      } : undefined}
++    >
++      {/* TOP BLOCK - Plan title with expand/collapse button */}
++      {/* z-[9] - UNDER user message (user message has z-10) */}
+       <div
+-        className="flex items-center justify-between px-2.5 py-2 cursor-pointer hover:bg-muted/50 transition-colors duration-150"
++        className={cn(
++          "rounded-t-lg border border-b-0 border-border bg-muted/30 px-2.5 py-1.5 cursor-pointer hover:bg-muted/40 transition-colors duration-150",
++          isCreationToolCall && "relative z-[9]"
++        )}
+         onClick={() => setIsExpanded(!isExpanded)}
+         role="button"
+         aria-expanded={isExpanded}
+@@ -439,31 +516,16 @@ export const AgentTodoTool = memo(function AgentTodoTool({
+           }
+         }}
+       >
+-        <div className="flex items-center gap-2 min-w-0 flex-1">
+-          <PlanIcon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+-          <div className="flex items-center gap-2 min-w-0 flex-1">
+-            {isPending ? (
+-              <TextShimmer
+-                as="span"
+-                duration={1.2}
+-                className="text-xs font-medium"
+-              >
+-                {getHeaderTitle()}
+-              </TextShimmer>
+-            ) : (
+-              <span className="text-xs font-medium text-foreground">
+-                {getHeaderTitle()}
+-              </span>
+-            )}
+-          </div>
+-        </div>
+-
+-        {/* Right side */}
+-        <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+-          {isPending && <IconSpinner className="w-3 h-3" />}
+-
++        <div className="flex items-center gap-1.5">
++          <PlanIcon className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
++          <span className="text-xs font-medium text-foreground">
++            To-dos
++          </span>
++          <span className="text-xs text-muted-foreground truncate flex-1">
++            {displayTodos[0]?.content || "Todo List"}
++          </span>
+           {/* Expand/Collapse icon */}
+-          <div className="relative w-4 h-4">
++          <div className="relative w-4 h-4 flex-shrink-0">
+             <ExpandIcon
+               className={cn(
+                 "absolute inset-0 w-4 h-4 text-muted-foreground transition-[opacity,transform] duration-200 ease-out",
+@@ -480,38 +542,89 @@ export const AgentTodoTool = memo(function AgentTodoTool({
+         </div>
+       </div>
+ 
+-      {/* Expanded content - todo list */}
+-      {isExpanded && (
+-        <div className="border-t border-border max-h-[300px] overflow-y-auto">
+-          {displayTodos.map((todo, idx) => (
+-            <div
+-              key={idx}
+-              className={cn(
+-                "flex items-center gap-2 px-2.5 py-1.5",
+-                idx !== displayTodos.length - 1 && "border-b border-border/30",
++      {/* BOTTOM BLOCK - Current task + progress (expandable) */}
++      {/* z-20 - ABOVE user message shadow */}
++      <div className={cn(
++        "rounded-b-lg border border-border bg-muted/20 shadow-xl shadow-background",
++        isCreationToolCall && "relative z-20"
++      )}>
++        {/* Collapsed view - progress circle + current task + count */}
++        {!isExpanded && (
++          <div
++            className="flex items-center gap-2.5 px-2.5 py-1.5 cursor-pointer hover:bg-muted/30 transition-colors duration-150"
++            onClick={() => setIsExpanded(true)}
++          >
++            {/* Progress circle or checkmark when all completed */}
++            {completedCount === totalTodos && totalTodos > 0 ? (
++              <div className="w-4 h-4 rounded-full bg-muted flex items-center justify-center flex-shrink-0" style={{ border: "0.5px solid hsl(var(--border))" }}>
++                <CheckIcon className="w-2.5 h-2.5 text-muted-foreground" />
++              </div>
++            ) : (
++              <ProgressCircle
++                completed={completedCount}
++                total={totalTodos}
++                size={16}
++                className="flex-shrink-0"
++              />
++            )}
++
++            {/* Current task name */}
++            <div className="flex items-center gap-1.5 min-w-0 flex-1">
++              {currentTask && (
++                <span className="text-xs text-muted-foreground truncate">
++                  {currentTask.status === "in_progress"
++                    ? currentTask.activeForm || currentTask.content
++                    : currentTask.content}
++                </span>
+               )}
+-            >
+-              <TodoStatusIcon status={todo.status} isPending={isPending} />
+-              <span
++              {!currentTask && completedCount === totalTodos && totalTodos > 0 && (
++                <span className="text-xs text-muted-foreground truncate">
++                  {displayTodos[totalTodos - 1]?.content}
++                </span>
++              )}
++            </div>
++
++            {/* Right side - task count */}
++            <span className="text-xs text-muted-foreground tabular-nums flex-shrink-0">
++              {currentTaskIndex}/{totalTodos}
++            </span>
++          </div>
++        )}
++
++        {/* Expanded content - full todo list */}
++        {isExpanded && (
++          <div
++            className="max-h-[300px] overflow-y-auto cursor-pointer"
++            onClick={() => setIsExpanded(false)}
++          >
++            {displayTodos.map((todo, idx) => (
++              <div
++                key={idx}
+                 className={cn(
+-                  "text-xs truncate",
+-                  // During streaming (isPending), use consistent muted color for all items
+-                  // to avoid jarring color changes as items stream in
+-                  isPending
+-                    ? "text-muted-foreground"
+-                    : todo.status === "completed"
+-                      ? "line-through text-muted-foreground"
+-                      : todo.status === "pending"
+-                        ? "text-muted-foreground"
+-                        : "text-foreground",
++                  "flex items-center gap-2 px-2.5 py-1.5",
++                  idx !== displayTodos.length - 1 && "border-b border-border/30",
+                 )}
+               >
+-                {todo.content}
+-              </span>
+-            </div>
+-          ))}
+-        </div>
+-      )}
++                <TodoStatusIcon status={todo.status} isPending={isPending} />
++                <span
++                  className={cn(
++                    "text-xs truncate",
++                    isPending
++                      ? "text-muted-foreground"
++                      : todo.status === "completed"
++                        ? "line-through text-muted-foreground"
++                        : todo.status === "pending"
++                          ? "text-muted-foreground"
++                          : "text-foreground",
++                  )}
++                >
++                  {todo.content}
++                </span>
++              </div>
++            ))}
++          </div>
++        )}
++      </div>
+     </div>
+   )
+ })
+diff --git a/src/renderer/features/agents/ui/agent-user-message-bubble.tsx b/src/renderer/features/agents/ui/agent-user-message-bubble.tsx
+index ccb9c74..5285580 100644
+--- a/src/renderer/features/agents/ui/agent-user-message-bubble.tsx
++++ b/src/renderer/features/agents/ui/agent-user-message-bubble.tsx
+@@ -48,7 +48,7 @@ export const AgentUserMessageBubble = memo(function AgentUserMessageBubble({
+ 
+   return (
+     <>
+-      <div className="flex justify-start">
++      <div className="flex justify-start drop-shadow-[0_10px_20px_hsl(var(--background))]" data-user-bubble>
+         <div className="space-y-2 w-full">
+           {/* Show attached images from stored message */}
+           {imageParts.length > 0 && (
+@@ -82,7 +82,7 @@ export const AgentUserMessageBubble = memo(function AgentUserMessageBubble({
+               ref={contentRef}
+               onClick={() => showGradient && setIsExpanded(true)}
+               className={cn(
+-                "relative max-h-[100px] overflow-hidden bg-input-background border px-3 py-2 rounded-xl whitespace-pre-wrap text-sm transition-[filter] shadow-xl shadow-background",
++                "relative max-h-[100px] overflow-hidden bg-input-background border px-3 py-2 rounded-xl whitespace-pre-wrap text-sm transition-[filter]",
+                 showGradient && "cursor-pointer hover:brightness-110",
+               )}
+             >
+diff --git a/src/renderer/features/agents/ui/mcp-servers-indicator.tsx b/src/renderer/features/agents/ui/mcp-servers-indicator.tsx
+new file mode 100644
+index 0000000..23bfd9a
+--- /dev/null
++++ b/src/renderer/features/agents/ui/mcp-servers-indicator.tsx
+@@ -0,0 +1,380 @@
++"use client"
++
++import { useAtom } from "jotai"
++import { ChevronRight, Loader2 } from "lucide-react"
++import { memo, useEffect, useMemo, useRef, useState } from "react"
++import { Button } from "../../../components/ui/button"
++import {
++  Popover,
++  PopoverContent,
++  PopoverTrigger,
++} from "../../../components/ui/popover"
++import {
++  Tooltip,
++  TooltipContent,
++  TooltipTrigger,
++} from "../../../components/ui/tooltip"
++import { OriginalMCPIcon } from "../../../components/ui/icons"
++import { sessionInfoAtom, type MCPServerStatus } from "../../../lib/atoms"
++import { cn } from "../../../lib/utils"
++import { trpc } from "../../../lib/trpc"
++
++interface McpServersIndicatorProps {
++  projectPath?: string
++}
++
++/**
++ * MCP Servers Indicator
++ *
++ * Shows a badge with the count of connected MCP servers.
++ * Clicking it opens a popover with:
++ * - List of MCP servers with status (connected/failed/pending)
++ * - Expandable servers showing their tools
++ * - Link to configure in ~/.claude.json
++ */
++export const McpServersIndicator = memo(function McpServersIndicator({
++  projectPath,
++}: McpServersIndicatorProps) {
++  const [sessionInfo, setSessionInfo] = useAtom(sessionInfoAtom)
++
++  // Fetch MCP config on mount if we have projectPath and no session info yet
++  const { data: mcpConfig } = trpc.claude.getMcpConfig.useQuery(
++    { projectPath: projectPath! },
++    {
++      enabled: !!projectPath && !sessionInfo?.mcpServers?.length,
++      staleTime: 5 * 60 * 1000, // 5 minutes
++    },
++  )
++
++  // Update sessionInfo with MCP config if we don't have it yet
++  useEffect(() => {
++    if (mcpConfig?.mcpServers?.length && !sessionInfo?.mcpServers?.length) {
++      setSessionInfo((prev) => ({
++        tools: prev?.tools || [],
++        mcpServers: mcpConfig.mcpServers.map((s) => ({
++          name: s.name,
++          status: s.status,
++        })),
++        plugins: prev?.plugins || [],
++        skills: prev?.skills || [],
++      }))
++    }
++  }, [mcpConfig, sessionInfo?.mcpServers?.length, setSessionInfo])
++  const [isOpen, setIsOpen] = useState(false)
++  const [expandedServers, setExpandedServers] = useState<Set<string>>(new Set())
++  const [focusedIndex, setFocusedIndex] = useState(-1)
++  const serverButtonsRef = useRef<(HTMLButtonElement | null)[]>([])
++
++  // Count connected servers
++  const connectedCount = useMemo(() => {
++    if (!sessionInfo?.mcpServers) return 0
++    return sessionInfo.mcpServers.filter((s) => s.status === "connected").length
++  }, [sessionInfo?.mcpServers])
++
++  // Get tools grouped by MCP server
++  const toolsByServer = useMemo(() => {
++    if (!sessionInfo?.tools || !sessionInfo?.mcpServers) return new Map()
++
++    const map = new Map<string, string[]>()
++
++    // Initialize map with all servers
++    for (const server of sessionInfo.mcpServers) {
++      map.set(server.name, [])
++    }
++
++    // Group tools by server (format: mcp__servername__toolname)
++    for (const tool of sessionInfo.tools) {
++      if (!tool.startsWith("mcp__")) continue
++      const parts = tool.split("__")
++      if (parts.length < 3) continue
++      const serverName = parts[1]
++      const toolName = parts.slice(2).join("__") // Handle tools with __ in name
++
++      const serverTools = map.get(serverName) || []
++      serverTools.push(toolName)
++      map.set(serverName, serverTools)
++    }
++
++    return map
++  }, [sessionInfo?.tools, sessionInfo?.mcpServers])
++
++  // Don't show if no session info or no MCP servers
++  if (!sessionInfo?.mcpServers || sessionInfo.mcpServers.length === 0) {
++    return null
++  }
++
++  const toggleServer = (serverName: string) => {
++    setExpandedServers((prev) => {
++      const next = new Set(prev)
++      if (next.has(serverName)) {
++        next.delete(serverName)
++      } else {
++        next.add(serverName)
++      }
++      return next
++    })
++  }
++
++  const getStatusIcon = (status: MCPServerStatus) => {
++    switch (status) {
++      case "connected":
++        return (
++          <span
++            className="w-2 h-2 rounded-full bg-green-500"
++            aria-label="Connected"
++          />
++        )
++      case "failed":
++        return (
++          <span
++            className="w-2 h-2 rounded-full bg-red-500"
++            aria-label="Connection failed"
++          />
++        )
++      case "needs-auth":
++        return (
++          <span
++            className="w-2 h-2 rounded-full bg-yellow-500"
++            aria-label="Needs authentication"
++          />
++        )
++      case "pending":
++        return (
++          <Loader2
++            className="w-3 h-3 text-muted-foreground animate-spin"
++            aria-label="Connecting"
++          />
++        )
++      default:
++        return (
++          <span
++            className="w-2 h-2 rounded-full bg-muted-foreground/50"
++            aria-label="Unknown status"
++          />
++        )
++    }
++  }
++
++  const getStatusText = (status: MCPServerStatus) => {
++    switch (status) {
++      case "connected":
++        return "Connected"
++      case "failed":
++        return "Connection failed"
++      case "needs-auth":
++        return "Needs authentication"
++      case "pending":
++        return "Connecting..."
++      default:
++        return status
++    }
++  }
++
++  // Keyboard navigation handler
++  const handleKeyDown = (e: React.KeyboardEvent) => {
++    const serverCount = sessionInfo.mcpServers.length
++
++    switch (e.key) {
++      case "ArrowDown":
++        e.preventDefault()
++        setFocusedIndex((prev) => {
++          const next = prev < serverCount - 1 ? prev + 1 : 0
++          serverButtonsRef.current[next]?.focus()
++          return next
++        })
++        break
++      case "ArrowUp":
++        e.preventDefault()
++        setFocusedIndex((prev) => {
++          const next = prev > 0 ? prev - 1 : serverCount - 1
++          serverButtonsRef.current[next]?.focus()
++          return next
++        })
++        break
++      case "Enter":
++      case " ":
++        if (focusedIndex >= 0 && focusedIndex < serverCount) {
++          const server = sessionInfo.mcpServers[focusedIndex]
++          const hasTools = (toolsByServer.get(server.name) || []).length > 0
++          if (hasTools) {
++            e.preventDefault()
++            toggleServer(server.name)
++          }
++        }
++        break
++      case "Escape":
++        setIsOpen(false)
++        break
++    }
++  }
++
++  return (
++    <Popover open={isOpen} onOpenChange={setIsOpen}>
++      <Tooltip delayDuration={500}>
++        <TooltipTrigger asChild>
++          <PopoverTrigger asChild>
++            <Button
++              variant="ghost"
++              size="sm"
++              className="h-6 px-2 gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors rounded-md"
++              aria-label="MCP Servers"
++              aria-haspopup="dialog"
++              aria-expanded={isOpen}
++            >
++              <OriginalMCPIcon className="h-3.5 w-3.5" aria-hidden="true" />
++              <span>{connectedCount} MCP</span>
++            </Button>
++          </PopoverTrigger>
++        </TooltipTrigger>
++        <TooltipContent>
++          {connectedCount} MCP server{connectedCount !== 1 ? "s" : ""} connected
++        </TooltipContent>
++      </Tooltip>
++
++      <PopoverContent
++        align="start"
++        className="w-72 p-0"
++        onOpenAutoFocus={(e) => e.preventDefault()}
++        onKeyDown={handleKeyDown}
++        role="dialog"
++        aria-label="MCP Servers"
++      >
++        <div className="px-3 py-2 border-b">
++          <h4 className="font-medium text-sm" id="mcp-servers-title">
++            MCP Servers
++          </h4>
++          <p className="text-xs text-muted-foreground mt-0.5">
++            Model Context Protocol servers
++          </p>
++        </div>
++
++        <div
++          className="max-h-64 overflow-y-auto py-1"
++          role="list"
++          aria-labelledby="mcp-servers-title"
++        >
++          {sessionInfo.mcpServers.map((server, index) => {
++            const tools = toolsByServer.get(server.name) || []
++            const isExpanded = expandedServers.has(server.name)
++            const hasTools = tools.length > 0
++
++            return (
++              <div key={server.name} role="listitem">
++                {/* Server row */}
++                <button
++                  ref={(el) => {
++                    serverButtonsRef.current[index] = el
++                  }}
++                  onClick={() => hasTools && toggleServer(server.name)}
++                  onFocus={() => setFocusedIndex(index)}
++                  className={cn(
++                    "w-full flex items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors",
++                    hasTools
++                      ? "hover:bg-muted/50 cursor-pointer"
++                      : "cursor-default",
++                    focusedIndex === index && "bg-muted/50",
++                  )}
++                  aria-expanded={hasTools ? isExpanded : undefined}
++                  aria-controls={hasTools ? `tools-${server.name}` : undefined}
++                  tabIndex={0}
++                  title={server.error || getStatusText(server.status)}
++                >
++                  {/* Expand/collapse chevron */}
++                  <ChevronRight
++                    className={cn(
++                      "h-3 w-3 text-muted-foreground transition-transform shrink-0",
++                      isExpanded && "rotate-90",
++                      !hasTools && "opacity-0",
++                    )}
++                    aria-hidden="true"
++                  />
++
++                  {/* Status indicator */}
++                  {getStatusIcon(server.status)}
++
++                  {/* Server name and version */}
++                  <div className="flex-1 min-w-0">
++                    <span className="truncate block">{server.name}</span>
++                    {server.serverInfo?.version && (
++                      <span className="text-[10px] text-muted-foreground/70 truncate block">
++                        v{server.serverInfo.version}
++                      </span>
++                    )}
++                  </div>
++
++                  {/* Tool count badge */}
++                  {hasTools && (
++                    <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded shrink-0">
++                      {tools.length} tool{tools.length !== 1 ? "s" : ""}
++                    </span>
++                  )}
++                </button>
++
++                {/* Error message */}
++                {server.error && (
++                  <div className="pl-10 pr-3 pb-1 text-[10px] text-red-500/80 truncate" title={server.error}>
++                    {server.error}
++                  </div>
++                )}
++
++                {/* Tools list (expanded) */}
++                {isExpanded && hasTools && (
++                  <div
++                    id={`tools-${server.name}`}
++                    className="pl-8 pr-3 py-1 space-y-0.5"
++                    role="list"
++                    aria-label={`Tools for ${server.name}`}
++                  >
++                    {tools.map((tool: string) => (
++                      <div
++                        key={tool}
++                        className="text-xs text-muted-foreground py-0.5 truncate"
++                        title={tool}
++                        role="listitem"
++                      >
++                        {tool}
++                      </div>
++                    ))}
++                  </div>
++                )}
++              </div>
++            )
++          })}
++        </div>
++
++        {/* Plugins section */}
++        {sessionInfo.plugins && sessionInfo.plugins.length > 0 && (
++          <>
++            <div className="border-t px-3 py-2">
++              <h4 className="font-medium text-sm" id="plugins-title">
++                Plugins
++              </h4>
++            </div>
++            <div className="pb-1" role="list" aria-labelledby="plugins-title">
++              {sessionInfo.plugins.map((plugin) => (
++                <div
++                  key={plugin.path}
++                  className="px-3 py-1.5 text-sm flex items-center gap-2"
++                  role="listitem"
++                >
++                  <span
++                    className="w-2 h-2 rounded-full bg-green-500"
++                    aria-label="Active"
++                  />
++                  <span className="truncate">{plugin.name}</span>
++                </div>
++              ))}
++            </div>
++          </>
++        )}
++
++        {/* Footer with config hint */}
++        <div className="border-t px-3 py-2 text-xs text-muted-foreground">
++          Configure in{" "}
++          <code className="bg-muted px-1 py-0.5 rounded">~/.claude.json</code>{" "}
++          or <code className="bg-muted px-1 py-0.5 rounded">.mcp.json</code>
++        </div>
++      </PopoverContent>
++    </Popover>
++  )
++})
+diff --git a/src/renderer/features/agents/ui/sub-chat-status-card.tsx b/src/renderer/features/agents/ui/sub-chat-status-card.tsx
+index c8a2f42..a404115 100644
+--- a/src/renderer/features/agents/ui/sub-chat-status-card.tsx
++++ b/src/renderer/features/agents/ui/sub-chat-status-card.tsx
+@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "motion/react"
+ import { Button } from "../../../components/ui/button"
+ import { cn } from "../../../lib/utils"
+ import { trpc } from "../../../lib/trpc"
++import { useFileChangeListener } from "../../../lib/hooks/use-file-change-listener"
+ import { getFileIconByExtension } from "../mentions/agents-file-mention"
+ import {
+   diffSidebarOpenAtomFamily,
+@@ -32,6 +33,7 @@ function AnimatedDots() {
+ interface SubChatStatusCardProps {
+   chatId: string // Parent chat ID for per-chat diff sidebar state
+   isStreaming: boolean
++  isCompacting?: boolean
+   changedFiles: SubChatFileChange[]
+   worktreePath?: string | null // For git status check to hide committed files
+   onStop?: () => void
+@@ -40,6 +42,7 @@ interface SubChatStatusCardProps {
+ export const SubChatStatusCard = memo(function SubChatStatusCard({
+   chatId,
+   isStreaming,
++  isCompacting,
+   changedFiles,
+   worktreePath,
+   onStop,
+@@ -54,13 +57,17 @@ export const SubChatStatusCard = memo(function SubChatStatusCard({
+   const setFilteredDiffFiles = useSetAtom(filteredDiffFilesAtom)
+   const setFocusedDiffFile = useSetAtom(agentsFocusedDiffFileAtom)
+ 
++  // Listen for file changes from Claude Write/Edit tools
++  useFileChangeListener(worktreePath)
++
+   // Fetch git status to filter out committed files
+   const { data: gitStatus } = trpc.changes.getStatus.useQuery(
+     { worktreePath: worktreePath || "", defaultBranch: "main" },
+     {
+       enabled: !!worktreePath && changedFiles.length > 0 && !isStreaming,
+-      refetchInterval: 3000,
+-      staleTime: 1000,
++      // No polling - updates triggered by file-changed events from Claude tools
++      staleTime: 30000,
++      placeholderData: (prev) => prev,
+     },
+   )
+ 
+@@ -219,7 +226,7 @@ export const SubChatStatusCard = memo(function SubChatStatusCard({
+           {/* Streaming indicator */}
+           {isStreaming && uncommittedFiles.length === 0 && (
+             <span className="text-xs text-muted-foreground">
+-              Generating<AnimatedDots />
++              {isCompacting ? "Compacting" : "Generating"}<AnimatedDots />
+             </span>
+           )}
+ 
+diff --git a/src/renderer/features/changes/ChangesView.tsx b/src/renderer/features/changes/ChangesView.tsx
+index 33cc045..da7c9c5 100644
+--- a/src/renderer/features/changes/ChangesView.tsx
++++ b/src/renderer/features/changes/ChangesView.tsx
+@@ -6,6 +6,7 @@ import { HiArrowTopRightOnSquare, HiMiniMinus, HiMiniPlus } from "react-icons/hi
+ import { trpc } from "../../lib/trpc";
+ import { useChangesStore } from "../../lib/stores/changes-store";
+ import { usePRStatus } from "../../hooks/usePRStatus";
++import { useFileChangeListener } from "../../lib/hooks/use-file-change-listener";
+ import type { ChangeCategory, ChangedFile } from "../../../shared/changes-types";
+ 
+ import { CategorySection } from "./components/CategorySection";
+@@ -39,6 +40,9 @@ export function ChangesView({
+ 	// Debug: Log worktreePath on mount and changes
+ 	console.log("[ChangesView] Mounted with worktreePath:", worktreePath);
+ 
++	// Listen for file changes from Claude Write/Edit tools
++	useFileChangeListener(worktreePath);
++
+ 	const { baseBranch } = useChangesStore();
+ 	const { data: branchData, error: branchError } = trpc.changes.getBranches.useQuery(
+ 		{ worktreePath: worktreePath || "" },
+@@ -59,8 +63,10 @@ export function ChangesView({
+ 		{ worktreePath: worktreePath || "", defaultBranch: effectiveBaseBranch },
+ 		{
+ 			enabled: !!worktreePath,
+-			refetchInterval: 2500,
++			// No polling - updates triggered by file-changed events from Claude tools
+ 			refetchOnWindowFocus: true,
++			staleTime: 30000,
++			placeholderData: (prev) => prev,
+ 		},
+ 	);
+ 
+diff --git a/src/renderer/lib/atoms/index.ts b/src/renderer/lib/atoms/index.ts
+index 20d7c3a..86f3091 100644
+--- a/src/renderer/lib/atoms/index.ts
++++ b/src/renderer/lib/atoms/index.ts
+@@ -163,7 +163,7 @@ export const clearSubChatSelectionAtom = atom(null, (_get, set) => {
+ // ============================================
+ 
+ // Settings dialog
+-export type SettingsTab = "profile" | "appearance" | "preferences" | "skills" | "agents" | "debug"
++export type SettingsTab = "profile" | "appearance" | "preferences" | "skills" | "agents" | "mcp" | "debug"
+ export const agentsSettingsDialogActiveTabAtom = atom<SettingsTab>("profile")
+ export const agentsSettingsDialogOpenAtom = atom<boolean>(false)
+ 
+@@ -370,3 +370,37 @@ export const anthropicOnboardingCompletedAtom = atomWithStorage<boolean>(
+   undefined,
+   { getOnInit: true },
+ )
++
++// ============================================
++// SESSION INFO ATOMS (MCP, Plugins, Tools)
++// ============================================
++
++export type MCPServerStatus = "connected" | "failed" | "pending" | "needs-auth"
++
++export type MCPServer = {
++  name: string
++  status: MCPServerStatus
++  serverInfo?: {
++    name: string
++    version: string
++  }
++  error?: string
++}
++
++export type SessionInfo = {
++  tools: string[]
++  mcpServers: MCPServer[]
++  plugins: { name: string; path: string }[]
++  skills: string[]
++}
++
++// Session info from SDK init message
++// Contains MCP servers, plugins, available tools, and skills
++// Persisted to localStorage so MCP tools are visible after page refresh
++// Updated when a new chat session starts
++export const sessionInfoAtom = atomWithStorage<SessionInfo | null>(
++  "21st-session-info",
++  null,
++  undefined,
++  { getOnInit: true },
++)
+diff --git a/src/renderer/lib/hooks/use-file-change-listener.ts b/src/renderer/lib/hooks/use-file-change-listener.ts
+new file mode 100644
+index 0000000..17fe29d
+--- /dev/null
++++ b/src/renderer/lib/hooks/use-file-change-listener.ts
+@@ -0,0 +1,28 @@
++import { useEffect } from "react"
++import { useQueryClient } from "@tanstack/react-query"
++
++/**
++ * Hook that listens for file changes from Claude Write/Edit tools
++ * and invalidates the git status query to trigger a refetch
++ */
++export function useFileChangeListener(worktreePath: string | null | undefined) {
++  const queryClient = useQueryClient()
++
++  useEffect(() => {
++    if (!worktreePath) return
++
++    const cleanup = window.desktopApi?.onFileChanged((data) => {
++      // Check if the changed file is within our worktree
++      if (data.filePath.startsWith(worktreePath)) {
++        // Invalidate git status queries to trigger refetch
++        queryClient.invalidateQueries({
++          queryKey: [["changes", "getStatus"]],
++        })
++      }
++    })
++
++    return () => {
++      cleanup?.()
++    }
++  }, [worktreePath, queryClient])
++}

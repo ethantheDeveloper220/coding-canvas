@@ -164,6 +164,8 @@ interface ChatMarkdownRendererProps {
   className?: string
   /** Whether to enable syntax highlighting (default: true) */
   syntaxHighlight?: boolean
+  /** Whether text is currently streaming (adds shimmer effect) */
+  isStreaming?: boolean
 }
 
 // Size-based styles inspired by Notion's spacing
@@ -274,6 +276,7 @@ export const ChatMarkdownRenderer = memo(function ChatMarkdownRenderer({
   size = "md",
   className,
   syntaxHighlight = true,
+  isStreaming = false,
 }: ChatMarkdownRendererProps) {
   const codeTheme = useCodeTheme()
   const styles = sizeStyles[size]
@@ -447,6 +450,8 @@ export const ChatMarkdownRenderer = memo(function ChatMarkdownRenderer({
         "[&_div+p]:mt-2 [&_div+ul]:mt-2 [&_div+ol]:mt-2",
         // Global spacing: elements after tables get extra top margin
         "[&_table+p]:mt-4 [&_table+ul]:mt-4 [&_table+ol]:mt-4",
+        // Streaming animation
+        isStreaming && "animate-text-shimmer",
         className,
       )}
     >

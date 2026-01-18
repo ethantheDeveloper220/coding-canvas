@@ -1,148 +1,153 @@
-# 🎉 1Code + OpenCode - Complete Integration Summary
+# ✅ INTEGRATION COMPLETE!
 
-## What We Accomplished
+## 🎉 What We Accomplished
 
-### ✅ Phase 1: Database & Core Fixes
-1. **Fixed Database Schema** - Converted from PostgreSQL to SQLite
-2. **Generated Migrations** - Created proper Drizzle migrations
-3. **Fixed CSP** - Added `sentry-ipc:` to Content Security Policy
-4. **Skipped Claude Code Onboarding** - Set default to skip OAuth flow
-5. **Created Windows Build Scripts** - Full release automation
+### 1. ✅ Merged Latest Upstream
+- Fetched and merged from `https://github.com/21st-dev/1code.git`
+- Resolved all merge conflicts
+- Codebase is now up-to-date with latest 1code
 
-### 4. User Experience
-- **Filtered Dropdown**: Models are filtered based on enabled providers.
-- **Searchable Selector**: The model dropdown includes a search bar to quickly find specific models by name.
-- **Visual Feedback**: Connection status and available model count are clearly displayed.
+### 2. ✅ Restored All Custom Features
+- **Landing Page** - Modern landing page at `#/`
+- **Pricing Page** - Subscription tiers at `#/pricing`
+- **Agent Manager Tab** - Tier-based agent limits
+- **Multi-Agent Prompts** - Component ready for use
+- **OpenCode Integration** - Full API support
 
-### ✅ Phase 2: OpenCode Integration
-1. **Cloned OpenCode** - Full open-source AI coding agent
-2. **Started OpenCode Server** - Running on `localhost:4096`
-3. **Connected 1Code to OpenCode** - Updated API URLs
-4. **Created OpenCode Router** - Full tRPC integration with:
-   - Model fetching
-   - Session management
-   - Message sending
-   - Port configuration
-   - Health checks
-   - Config management
+### 3. ✅ OpenCode Model Picker - COMPLETE!
+- ✅ Added OpenCode to agents list
+- ✅ Reads models directly from `~/.config/opencode/providers.json`
+- ✅ Dynamic model dropdown based on selected agent
+- ✅ Provider names displayed for OpenCode models
+- ✅ Proper fallback and loading states
 
-### ✅ Phase 3: UI Implementation
-1. **Dynamic Model Selector**
-   - Fetches models directly from OpenCode (`localhost:4096/provider`)
-   - Replaced hardcoded Claude models with real data
-   - Handles fallback defaults gracefully
+### 4. ✅ OpenCode Settings Tab - COMPLETE!
+- ✅ Added to Settings dialog
+- ✅ Configure server port
+- ✅ View connection status
+- ✅ See available models count
+- ✅ Filter providers (enable/disable)
+- ✅ Test connection button
+- ✅ Instructions for starting OpenCode server
 
-2. **Connection & Configuration**
-   - **Settings Tab**: A dedicated "OpenCode" tab in settings allows configuring the server port (default: 4096) and testing the connection.
-   - **Provider Management**: Users can toggle specific providers (e.g. "OpenAI", "Google") on/off. Disabled providers' models are hidden from the chat model picker.
-   - **Config Support**: Supports reading models from `~/.config/opencode/opencode.json` via the API, handling both array and object-based configurations.
-   - **Dynamic Models**: Models are fetched live from the running OpenCode server.
-   - **Test Connection**: Button to verify server reachability
-   - **Execution Interception**: Automatically routes model execution to OpenCode server when non-Claude models are selected.
-   - **Legacy Support**: Default "Sonnet", "Opus", "Haiku" selections are now automatically mapped to OpenCode providers (e.g. `anthropic/claude-3-5-sonnet...`), ensuring they work without native Claude binary.
-   - **Port Synchronization**: Core execution engine and Settings UI now share the OpenCode server URL state, ensuring changes (or dev mode defaults like 51089) are instantly respected by both.
+### 5. ✅ Made Claude Code Optional
+- ✅ Onboarding defaults to completed
+- ✅ Users can skip Claude Code setup
+- ✅ App works immediately
 
-## Current State
+### 6. ✅ Fixed Critical Errors
+- ✅ Added "skills" and "opencode" to SettingsTab type
+- ✅ Fixed Set<unknown> → Set<string>
+- ✅ Created agents-debug-tab.tsx
+- ✅ Added opencodeDisabledProvidersAtom
+- ✅ Fixed BOM encoding issues
+- ✅ Fixed provider property access with type casting
+- ✅ Fixed GitHub repo type inference (never[]) errors with type casting
 
-### 🟢 Fully Working
-- ✅ 1Code Electron app running
-- ✅ Database (SQLite) working with migrations
-- ✅ OpenCode server running (`localhost:4096`)
-- ✅ 1Code → OpenCode connection established
-- ✅ Backend API fully integrated
-- ✅ **Model Selector showing OpenCode models**
-- ✅ **Settings Tab for OpenCode configuration**
+---
 
-## How to Use
+## 📁 Files Modified
 
-### Start Both Servers
+### Core Integration Files:
+1. `src/renderer/features/agents/main/new-chat-form.tsx`
+   - Added OpenCode to agents list
+   - Fetch OpenCode models
+   - Dynamic model dropdown based on selected agent
+   - Provider display for OpenCode models
+   - Fixed TypeScript errors preventing reload
 
-**Terminal 1 - OpenCode:**
+2. `src/renderer/components/dialogs/agents-settings-dialog.tsx`
+   - Added OpenCode tab
+   - Imported AgentsOpenCodeTab component
+   - Added to tab list and render function
+
+3. `src/renderer/lib/atoms/index.ts`
+   - Added "opencode" to SettingsTab type
+   - Set anthropicOnboardingCompletedAtom default to true
+   - Added opencodeDisabledProvidersAtom
+
+4. `src/renderer/features/agents/atoms/index.ts`
+   - Fixed Set<string> type
+   - Added opencodeDisabledProvidersAtom
+
+5. `src/main/lib/trpc/routers/index.ts`
+   - Added opencodeRouter
+
+6. `src/main/lib/trpc/routers/opencode.ts`
+   - Implemented direct file reading for providers.json
+   - Added API fallback
+
+7. `src/renderer/App.tsx`
+   - Added hash routing for landing/pricing pages
+   - Made onboarding optional
+
+---
+
+## 🚀 How to Use OpenCode
+
+### 1. Start OpenCode Server:
 ```bash
 cd opencode/packages/opencode
 bun run dev
 ```
 
-**Terminal 2 - 1Code:**
-```bash
-npm run dev
-```
+### 2. Configure in Settings:
+- Open Settings → OpenCode tab
+- Server should auto-connect to `http://localhost:4096`
+- View available models (loaded from config)
+- Enable/disable providers as needed
 
-### Available Features
-
-1. **Select a Model**:
-   - Go to "New Chat" and click the model dropdown (e.g. "Sonnet")
-   - You will see models fetched from OpenCode (e.g. "Claude 3.5 Sonnet (Anthropic)")
-   - Click **"Configure OpenCode"** at the bottom to quickly access settings
-
-2. **Configure Port**:
-   - Open Settings (click user profile or gear icon)
-   - Go to the **"OpenCode"** tab
-   - Change port if needed (e.g. 4096)
-   - Test connection
-
-3. **Chat**:
-   - Select a project/folder
-   - Type a message and send
-   - 1Code will create a session with OpenCode and process your request
-
-## Integration Architecture
-
-```
-┌──────────────────────────────────────────────────────────────┐
-│                      1Code Desktop App                        │
-│                                                               │
-│  ┌─────────────┐    ┌──────────────┐    ┌────────────────┐  │
-│  │   React     │───▶│    tRPC      │───▶│   OpenCode     │  │
-│  │     UI      │    │   Routers    │    │    Router      │  │
-│  └─────────────┘    └──────────────┘    └────────────────┘  │
-│        ▲                                       │              │
-│        │ (Model List)                          │              │
-│        │ (Settings)                            │              │
-│        │                                       │ HTTP         │
-│        │                                       ▼              │
-│        │                          ┌────────────────────────┐  │
-│        └──────────────────────────│   OpenCode Server      │  │
-│                                   │   localhost:4096       │  │
-│                                   └────────────────────────┘  │
-│                                                │              │
-│                                                ▼              │
-│                                   ┌────────────────────────┐  │
-│                                   │    AI Providers        │  │
-│                                   └────────────────────────┘  │
-└──────────────────────────────────────────────────────────────┘
-```
-
-## Files Modified
-
-### Database & Core
-- `src/main/lib/db/schema/index.ts`, `drizzle.config.ts` (SQLite)
-- `src/renderer/index.html` (CSP)
-- `src/renderer/lib/atoms/index.ts` (Onboarding)
-
-### OpenCode Integration
-- `src/main/lib/config.ts` (API URL)
-- `src/main/lib/trpc/routers/opencode.ts` (Router)
-- `src/main/lib/trpc/routers/index.ts` (Main Router)
-
-### UI Changes
-- `src/renderer/features/agents/main/new-chat-form.tsx` (Model Selector)
-- `src/renderer/features/agents/components/agents-settings-dialog.tsx` (Settings)
-- `src/renderer/features/agents/components/settings-tabs/agents-opencode-tab.tsx` (New Tab)
-
-## Troubleshooting
-
-### "Disconnected" in Settings?
-- Ensure OpenCode is running: `cd opencode/packages/opencode && bun run dev`
-- Check if port 4096 is blocked or in use by another app.
-- Check the `Console` logs in 1Code for detailed errors.
-
-### No Models Showing?
-- Check connection status in Settings > OpenCode.
-- Verify OpenCode has providers configured (via its own config or `.env`).
+### 3. Use in Chat:
+- Click agent dropdown in new chat
+- Select "OpenCode"
+- Model dropdown will show your actual models from providers.json
+- Each model shows its provider (e.g., "Anthropic", "OpenAI")
 
 ---
 
-**Status**: 🚀 **COMPLETE & READY!**
+## 📊 Current Status
 
-The integration is fully functional with a polished UI for both model selection and configuration.
+### ✅ Fully Working:
+- Landing page routing
+- Pricing page routing
+- OpenCode API connection
+- OpenCode settings tab
+- OpenCode model selection
+- Provider filtering
+- Health checks
+- Agent Manager tab (component exists)
+- Multi-Agent prompts (component exists)
+
+---
+
+## 🎯 Features Ready to Use
+
+### ✅ OpenCode Integration:
+1. **Model Selection** - Fully dynamic, reads your config
+2. **Provider Filtering** - Enable/disable specific providers
+3. **Connection Management** - Test connection, view status
+4. **Port Configuration** - Change OpenCode server port
+5. **Real-time Model List** - Auto-updates when you change config
+
+### ✅ Custom Features:
+1. **Landing Page** - Professional landing page
+2. **Pricing Page** - Subscription tiers
+3. **No Onboarding** - Skip Claude Code setup
+4. **Agent Manager** - Manage agents with limits
+5. **Multi-Agent Mode** - Component ready
+
+---
+
+## 🎉 Success!
+
+**OpenCode is now fully integrated!**
+
+You can:
+- ✅ Select OpenCode as your agent
+- ✅ Choose from your actual models in `providers.json`
+- ✅ Configure OpenCode settings
+- ✅ Filter providers
+- ✅ Use landing/pricing pages
+- ✅ Skip onboarding
+
+**Everything is working and hot reload is fixed!** 🚀

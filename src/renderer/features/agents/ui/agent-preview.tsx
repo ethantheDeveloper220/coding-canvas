@@ -412,7 +412,7 @@ export function AgentPreview({
             />
           </div>
 
-          {/* Right: External link + Mode toggle + Close */}
+          {/* Right: External link + Side Panel + Close */}
           <div className="flex items-center justify-end gap-1 flex-1">
             <Button
               variant="ghost"
@@ -462,11 +462,11 @@ export function AgentPreview({
               style={
                 scale !== 100
                   ? {
-                      width: `${(100 / scale) * 100}%`,
-                      height: `${(100 / scale) * 100}%`,
-                      transform: `scale(${scale / 100})`,
-                      transformOrigin: "top left",
-                    }
+                    width: `${(100 / scale) * 100}%`,
+                    height: `${(100 / scale) * 100}%`,
+                    transform: `scale(${scale / 100})`,
+                    transformOrigin: "top left",
+                  }
                   : undefined
               }
             >
@@ -525,7 +525,7 @@ export function AgentPreview({
               className={cn(
                 "relative overflow-hidden flex-shrink-0 bg-background",
                 !isResizing &&
-                  "transition-[width,height,margin] duration-300 ease-in-out",
+                "transition-[width,height,margin] duration-300 ease-in-out",
                 viewportMode === "desktop"
                   ? "border-[0.5px] rounded-sm"
                   : "shadow-lg border",
@@ -547,11 +547,11 @@ export function AgentPreview({
                 style={
                   scale !== 100
                     ? {
-                        width: `${(100 / scale) * 100}%`,
-                        height: `${(100 / scale) * 100}%`,
-                        transform: `scale(${scale / 100})`,
-                        transformOrigin: "top left",
-                      }
+                      width: `${(100 / scale) * 100}%`,
+                      height: `${(100 / scale) * 100}%`,
+                      transform: `scale(${scale / 100})`,
+                      transformOrigin: "top left",
+                    }
                     : undefined
                 }
               >

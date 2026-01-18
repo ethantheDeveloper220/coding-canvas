@@ -17,6 +17,7 @@ import {
 import { useAtom, useAtomValue, useSetAtom } from "jotai"
 import { atomWithStorage } from "jotai/utils"
 import { agentsFocusedDiffFileAtom, filteredDiffFilesAtom } from "../atoms"
+import { DiffSearchBar, type FileSortOption, type FileChangeCategory } from "./diff-search-bar"
 import { DiffModeEnum, DiffView, DiffFile } from "@git-diff-view/react"
 import "@git-diff-view/react/styles/diff-view-pure.css"
 import { useTheme } from "next-themes"
@@ -27,6 +28,7 @@ import {
   ChevronDown,
   Columns2,
   Rows2,
+  GitCommit,
 } from "lucide-react"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { getFileIconByExtension } from "../mentions/agents-file-mention"
@@ -48,13 +50,21 @@ import {
 const useIsHydrated = () => true // Desktop is always hydrated
 import { cn } from "../../../lib/utils"
 import { api } from "../../../lib/mock-api"
-import { trpcClient } from "../../../lib/trpc"
+import { trpcClient, trpc } from "../../../lib/trpc"
 import {
   getDiffHighlighter,
   setDiffViewTheme,
   type DiffHighlighter,
 } from "../../../lib/themes/diff-view-highlighter"
 import { useCodeTheme } from "../../../lib/hooks/use-code-theme"
+import { fileChangesToParsedDiff } from "../lib/file-changes-to-diff"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../../../components/ui/dropdown-menu"
+import { CheckIcon } from "../../../components/ui/icons"
 
 // Error Boundary for DiffView to catch parsing errors
 interface DiffErrorBoundaryProps {
@@ -110,6 +120,7 @@ export type ParsedDiffFile = {
   additions: number
   deletions: number
   isValid?: boolean // Whether the diff format is valid/complete
+  fileIcon?: string // Icon for the file (e.g., emoji from backend)
 }
 
 type DiffViewData = {
@@ -218,51 +229,72 @@ export const splitUnifiedDiffByFile = (diffText: string): ParsedDiffFile[] => {
   }
   pushCurrent()
 
-  return blocks.map((blockText, index) => {
-    const blockLines = blockText.split("\n")
-    let oldPath = ""
-    let newPath = ""
-    let isBinary = false
-    let additions = 0
-    let deletions = 0
+  return blocks
+    .map((blockText, index) => {
+      const blockLines = blockText.split("\n")
+      let oldPath = ""
+      let newPath = ""
+      let isBinary = false
+      let additions = 0
+      let deletions = 0
+      let fileIcon = ""
 
-    for (const line of blockLines) {
-      if (line.startsWith("Binary files ") && line.endsWith(" differ")) {
-        isBinary = true
+      // Process each line to extract information
+      for (let i = 0; i < blockLines.length; i++) {
+        const line = blockLines[i]
+        
+        // Extract icon from comment line (format: // 🎨 src/styles.css)
+        if (line.startsWith("// ")) {
+          const match = line.match(/^\/\/\s*([^\s]+)\s+(.+)$/)
+          if (match) {
+            fileIcon = match[1] // Extract the icon emoji
+            // We don't need to use the path here as it's already in oldPath/newPath
+          }
+          continue
+        }
+
+        if (line.startsWith("Binary files ") && line.endsWith(" differ")) {
+          isBinary = true
+        }
+
+        if (line.startsWith("--- ")) {
+          const raw = line.slice(4).trim()
+          oldPath = raw.startsWith("a/") ? raw.slice(2) : raw
+        }
+
+        if (line.startsWith("+++ ")) {
+          const raw = line.slice(4).trim()
+          newPath = raw.startsWith("b/") ? raw.slice(2) : raw
+        }
+
+        if (line.startsWith("+") && !line.startsWith("+++ ")) {
+          additions += 1
+        } else if (line.startsWith("-") && !line.startsWith("--- ")) {
+          deletions += 1
+        }
       }
 
-      if (line.startsWith("--- ")) {
-        const raw = line.slice(4).trim()
-        oldPath = raw.startsWith("a/") ? raw.slice(2) : raw
+      const key = oldPath || newPath ? `${oldPath}->${newPath}` : `file-${index}`
+      const validation = isBinary ? { valid: true } : validateDiffHunk(blockText)
+      const isValid = validation.valid
+
+      // Filter out icon comment lines from the diff text to avoid display issues
+      const filteredBlockLines = blockLines.filter(line => !line.startsWith("// "))
+      const filteredBlockText = filteredBlockLines.join("\n")
+
+      return {
+        key,
+        oldPath,
+        newPath,
+        diffText: filteredBlockText,
+        isBinary,
+        additions,
+        deletions,
+        isValid,
+        fileIcon, // Add the icon information
       }
-
-      if (line.startsWith("+++ ")) {
-        const raw = line.slice(4).trim()
-        newPath = raw.startsWith("b/") ? raw.slice(2) : raw
-      }
-
-      if (line.startsWith("+") && !line.startsWith("+++ ")) {
-        additions += 1
-      } else if (line.startsWith("-") && !line.startsWith("--- ")) {
-        deletions += 1
-      }
-    }
-
-    const key = oldPath || newPath ? `${oldPath}->${newPath}` : `file-${index}`
-    const validation = isBinary ? { valid: true } : validateDiffHunk(blockText)
-    const isValid = validation.valid
-
-    return {
-      key,
-      oldPath,
-      newPath,
-      diffText: blockText,
-      isBinary,
-      additions,
-      deletions,
-      isValid,
-    }
-  })
+    })
+    .filter((file) => !file.isBinary) // Exclude binary files from diff
 }
 
 interface FileDiffCardProps {
@@ -277,6 +309,8 @@ interface FileDiffCardProps {
   isLoadingContent: boolean
   diffMode: DiffModeEnum
   shikiHighlighter: Omit<DiffHighlighter, "getHighlighterEngine"> | null
+  worktreePath?: string
+  onRefresh?: () => void
 }
 
 // Custom comparator to prevent unnecessary re-renders
@@ -311,6 +345,8 @@ const FileDiffCard = memo(function FileDiffCard({
   isLoadingContent,
   diffMode,
   shikiHighlighter,
+  worktreePath,
+  onRefresh,
 }: FileDiffCardProps) {
   const diffViewRef = useRef<{ getDiffFileInstance: () => DiffFile } | null>(
     null,
@@ -359,11 +395,25 @@ const FileDiffCard = memo(function FileDiffCard({
 
   const isNewFile = file.oldPath === "/dev/null" && file.newPath
   const isDeletedFile = file.newPath === "/dev/null" && file.oldPath
+  
+  // Use fileIcon from backend if available, otherwise use the icon function
+  const FileIconComponent = file.fileIcon ? null : getFileIconByExtension(fileName)
+  const fileIcon = file.fileIcon || ""
 
   return (
     <div
       ref={diffCardRef}
-      className="bg-background rounded-lg border border-border overflow-clip"
+      className={cn(
+        "bg-background rounded-lg border border-border overflow-clip",
+        // Add a subtle left border with color based on file type
+        file.fileIcon === "🐍" && "border-l-4 border-l-lime-500",
+        file.fileIcon === "🎨" && "border-l-4 border-l-purple-500",
+        file.fileIcon === "🌐" && "border-l-4 border-l-orange-500",
+        file.fileIcon === "🟨" && "border-l-4 border-l-yellow-500",
+        file.fileIcon === "🔷" && "border-l-4 border-l-blue-500",
+        file.fileIcon === "📝" && "border-l-4 border-l-slate-500",
+        !file.fileIcon && "border-l-4 border-l-gray-300"
+      )}
       data-diff-file-path={file.newPath || file.oldPath}
     >
       <header
@@ -390,28 +440,35 @@ const FileDiffCard = memo(function FileDiffCard({
           {/* Collapse toggle + file info */}
           <div className="flex-1 flex items-center gap-2 text-left min-w-0 min-h-[22px]">
             {/* Icon container with hover swap */}
-            {(() => {
-              const FileIcon = getFileIconByExtension(fileName)
-              return (
-                <div className="relative w-3.5 h-3.5 shrink-0">
-                  {FileIcon && (
-                    <FileIcon
-                      className={cn(
-                        "absolute inset-0 w-3.5 h-3.5 text-muted-foreground transition-all duration-200",
-                        "group-hover:opacity-0 group-hover:scale-75",
-                      )}
-                    />
+            <div className="relative w-3.5 h-3.5 shrink-0">
+              {/* Show emoji icon from backend or component icon */}
+              {fileIcon ? (
+                <span
+                  className={cn(
+                    "absolute inset-0 flex items-center justify-center text-base",
+                    "group-hover:opacity-0 group-hover:scale-75 transition-all duration-200",
                   )}
-                  <ChevronDown
+                >
+                  {fileIcon}
+                </span>
+              ) : (
+                FileIconComponent && (
+                  <FileIconComponent
                     className={cn(
                       "absolute inset-0 w-3.5 h-3.5 text-muted-foreground transition-all duration-200",
-                      "opacity-0 scale-75 group-hover:opacity-100 group-hover:scale-100",
-                      isCollapsed && "-rotate-90",
+                      "group-hover:opacity-0 group-hover:scale-75",
                     )}
                   />
-                </div>
-              )
-            })()}
+                )
+              )}
+              <ChevronDown
+                className={cn(
+                  "absolute inset-0 w-3.5 h-3.5 text-muted-foreground transition-all duration-200",
+                  "opacity-0 scale-75 group-hover:opacity-100 group-hover:scale-100",
+                  isCollapsed && "-rotate-90",
+                )}
+              />
+            </div>
 
             {/* File name + path + status */}
             <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -449,6 +506,48 @@ const FileDiffCard = memo(function FileDiffCard({
               )}
             </span>
           </div>
+
+          {/* Commit button - only show if worktreePath is available */}
+          {worktreePath && !isDeletedFile && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={async (e) => {
+                    e.stopPropagation()
+                    try {
+                      const filePath = file.newPath || file.oldPath
+                      if (!filePath || filePath === "/dev/null") return
+
+                      // Stage the file
+                      await trpcClient.changes.stageFile.mutate({
+                        worktreePath,
+                        filePath,
+                      })
+
+                      // Commit just this file
+                      await trpcClient.changes.commit.mutate({
+                        worktreePath,
+                        message: `Update ${fileName}`,
+                      })
+
+                      toast.success(`Committed ${fileName}`)
+                      onRefresh?.()
+                    } catch (error) {
+                      toast.error(`Failed to commit ${fileName}`)
+                      console.error(error)
+                    }
+                  }}
+                  className="shrink-0 p-1 rounded-md hover:bg-accent transition-[background-color,transform] duration-150 ease-out active:scale-95"
+                >
+                  <GitCommit className="w-3.5 h-3.5 text-muted-foreground" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="left">
+                Commit this file
+              </TooltipContent>
+            </Tooltip>
+          )}
 
           {/* Expand/Collapse full file button - only show if content is available */}
           {!isCollapsed && !file.isBinary && hasContent && (
@@ -528,7 +627,7 @@ const FileDiffCard = memo(function FileDiffCard({
                   diffViewMode={diffMode}
                   diffViewHighlight={!!shikiHighlighter}
                   diffViewWrap={false}
-                  registerHighlighter={shikiHighlighter ?? undefined}
+                  registerHighlighter={shikiHighlighter as any}
                 />
               </DiffErrorBoundary>
             </div>
@@ -638,13 +737,13 @@ export const AgentDiffView = forwardRef<AgentDiffViewRef, AgentDiffViewProps>(
     }, [])
 
     const [diff, setDiff] = useState<string | null>(initialDiff ?? null)
-    // Loading if initialDiff not provided, or if it's null AND no parsed files (parent still loading)
-    const [isLoadingDiff, setIsLoadingDiff] = useState(
-      initialDiff === undefined ||
-        (initialDiff === null &&
-          (!initialParsedFiles || initialParsedFiles.length === 0)),
-    )
+    // No loading state - show immediately
+    const [isLoadingDiff, setIsLoadingDiff] = useState(false)
     const [diffError, setDiffError] = useState<string | null>(null)
+    
+    // Tracked file changes state
+    const [activeView, setActiveView] = useState<"git-diff" | "current-chat" | "workspace">("git-diff")
+    const [isLoadingTrackedChanges, setIsLoadingTrackedChanges] = useState(false)
     const [collapsedByFileKey, setCollapsedByFileKey] = useState<
       Record<string, boolean>
     >({})
@@ -652,6 +751,12 @@ export const AgentDiffView = forwardRef<AgentDiffViewRef, AgentDiffViewProps>(
       Record<string, boolean>
     >({})
     const [diffMode, setDiffMode] = useAtom(diffViewModeAtom)
+
+    // Search and filter state
+    const [searchQuery, setSearchQuery] = useState("")
+    const [sortOption, setSortOption] = useState<FileSortOption>("name")
+    const [sortAscending, setSortAscending] = useState(true)
+    const [categoryFilter, setCategoryFilter] = useState<FileChangeCategory>("all")
 
     // Pre-fetched file contents for expand functionality
     // Use prefetched data if available, otherwise start empty
@@ -796,7 +901,47 @@ export const AgentDiffView = forwardRef<AgentDiffViewRef, AgentDiffViewProps>(
       }
     }, [setFilteredDiffFiles])
 
-    const allFileDiffs = useMemo(() => {
+    // Listen for refresh-diff events from OpenCode
+    useEffect(() => {
+      const handleRefreshDiff = () => {
+        console.log('[DiffView] Received refresh-diff event, refreshing...')
+        handleRefresh()
+      }
+
+      // Listen for custom event from OpenCode integration
+      window.addEventListener('refresh-diff' as any, handleRefreshDiff)
+
+      return () => {
+        window.removeEventListener('refresh-diff' as any, handleRefreshDiff)
+      }
+    }, [handleRefresh])
+
+    // Fetch tracked file changes
+    const { data: currentChatChangesData, isLoading: isLoadingCurrentChat } = trpc.chats.getCurrentChatFileChanges.useQuery(
+      { chatId },
+      { enabled: !!chatId && (activeView === "current-chat" || activeView === "workspace"), refetchInterval: 2000 }
+    )
+
+    const { data: workspaceChangesData, isLoading: isLoadingWorkspace } = trpc.chats.getWorkspaceFileChangesFromChat.useQuery(
+      { chatId },
+      { enabled: !!chatId && activeView === "workspace", refetchInterval: 2000 }
+    )
+
+    // Convert tracked changes to ParsedDiffFile format
+    const currentChatFileDiffs = useMemo(() => {
+      if (!currentChatChangesData?.changes) return []
+      return fileChangesToParsedDiff(currentChatChangesData.changes)
+    }, [currentChatChangesData])
+
+    const workspaceFileDiffs = useMemo(() => {
+      if (!workspaceChangesData?.changes) return []
+      return fileChangesToParsedDiff(workspaceChangesData.changes)
+    }, [workspaceChangesData])
+
+    const trackedChangesLoading = isLoadingCurrentChat || isLoadingWorkspace
+
+    // Parse git diff
+    const gitFileDiffs = useMemo(() => {
       // Use pre-parsed files if provided (avoids duplicate parsing)
       if (initialParsedFiles && initialParsedFiles.length > 0) {
         return initialParsedFiles
@@ -810,23 +955,137 @@ export const AgentDiffView = forwardRef<AgentDiffViewRef, AgentDiffViewProps>(
       }
     }, [diff, initialParsedFiles])
 
-    // Filter files if filteredDiffFiles is set (for sub-chat Review)
-    const fileDiffs = useMemo(() => {
-      if (!filteredDiffFiles || filteredDiffFiles.length === 0) {
-        return allFileDiffs
+    // Merge git diff with tracked changes intelligently
+    const allFileDiffs = useMemo(() => {
+      // If viewing only tracked changes (no git diff merge)
+      if (activeView === "current-chat") {
+        return currentChatFileDiffs
       }
-      // Filter to only show files matching the filter paths
-      return allFileDiffs.filter((file) => {
-        const filePath = file.newPath || file.oldPath
-        // Match by exact path or by path suffix (to handle sandbox path prefixes)
-        return filteredDiffFiles.some(
-          (filterPath) =>
-            filePath === filterPath ||
-            filePath.endsWith(filterPath) ||
-            filterPath.endsWith(filePath),
-        )
+      if (activeView === "workspace") {
+        return workspaceFileDiffs
+      }
+      
+      // Default view: Merge git diff with database-tracked changes
+      // Git diff takes precedence for files that exist in both
+      const gitDiffsMap = new Map<string, ParsedDiffFile>()
+      for (const gitFile of gitFileDiffs) {
+        const key = gitFile.newPath || gitFile.oldPath
+        if (key) {
+          gitDiffsMap.set(key, gitFile)
+        }
+      }
+
+      // Track which files are in git diff (so we don't duplicate)
+      const gitFilePaths = new Set<string>()
+      for (const gitFile of gitFileDiffs) {
+        const newPath = gitFile.newPath
+        const oldPath = gitFile.oldPath
+        if (newPath && newPath !== "/dev/null") gitFilePaths.add(newPath)
+        if (oldPath && oldPath !== "/dev/null") gitFilePaths.add(oldPath)
+      }
+
+      // Start with git diff files (these are authoritative for existing files)
+      const merged: ParsedDiffFile[] = [...gitFileDiffs]
+
+      // Add database-tracked changes that aren't in git diff
+      // Git diff takes precedence for files that exist in both (git is authoritative)
+      // Database changes fill in gaps (new files not yet tracked by git, etc.)
+      if (activeView === "git-diff") {
+        // Combine all tracked changes but deduplicate by file path
+        const allTracked = [...currentChatFileDiffs, ...workspaceFileDiffs]
+        const trackedMap = new Map<string, ParsedDiffFile>()
+        
+        // Build map of tracked files (workspace changes take precedence for conflicts)
+        for (const trackedFile of allTracked) {
+          const filePath = trackedFile.newPath || trackedFile.oldPath
+          if (filePath) {
+            // Only add if not already in git diff (git takes precedence)
+            if (!gitFilePaths.has(filePath)) {
+              // If file appears multiple times, keep the one with latest timestamp
+              const existing = trackedMap.get(filePath)
+              if (!existing) {
+                trackedMap.set(filePath, trackedFile)
+              }
+            }
+          }
+        }
+        
+        // Add tracked files that aren't in git diff
+        merged.push(...trackedMap.values())
+      }
+
+      return merged
+    }, [gitFileDiffs, activeView, currentChatFileDiffs, workspaceFileDiffs])
+
+    // Filter and sort files
+    const fileDiffs = useMemo(() => {
+      let filtered = allFileDiffs
+
+      // First apply sub-chat filter if set
+      if (filteredDiffFiles && Array.isArray(filteredDiffFiles) && filteredDiffFiles.length > 0) {
+        filtered = filtered.filter((file) => {
+          const filePath = file.newPath || file.oldPath
+          return filteredDiffFiles.some(
+            (filterPath: string) =>
+              filePath === filterPath ||
+              filePath.endsWith(filterPath) ||
+              filterPath.endsWith(filePath),
+          )
+        })
+      }
+
+      // Apply search query filter
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase()
+        filtered = filtered.filter((file) => {
+          const filePath = (file.newPath || file.oldPath || "").toLowerCase()
+          return filePath.includes(query)
+        })
+      }
+
+      // Apply category filter
+      if (categoryFilter !== "all") {
+        filtered = filtered.filter((file) => {
+          const isNew = file.oldPath === "/dev/null"
+          const isDeleted = file.newPath === "/dev/null"
+          if (categoryFilter === "added") return isNew
+          if (categoryFilter === "deleted") return isDeleted
+          if (categoryFilter === "modified") return !isNew && !isDeleted
+          return true
+        })
+      }
+
+      // Apply sorting
+      const sorted = [...filtered].sort((a, b) => {
+        let comparison = 0
+        const aPath = a.newPath || a.oldPath || ""
+        const bPath = b.newPath || b.oldPath || ""
+
+        switch (sortOption) {
+          case "name":
+            comparison = aPath.localeCompare(bPath)
+            break
+          case "type":
+            const aExt = aPath.split(".").pop() || ""
+            const bExt = bPath.split(".").pop() || ""
+            comparison = aExt.localeCompare(bExt) || aPath.localeCompare(bPath)
+            break
+          case "size":
+            const aSize = a.additions + a.deletions
+            const bSize = b.additions + b.deletions
+            comparison = aSize - bSize
+            break
+          case "date":
+            // Use file key as proxy for date (newer files have later keys)
+            comparison = a.key.localeCompare(b.key)
+            break
+        }
+
+        return sortAscending ? comparison : -comparison
       })
-    }, [allFileDiffs, filteredDiffFiles])
+
+      return sorted
+    }, [allFileDiffs, filteredDiffFiles, searchQuery, sortOption, sortAscending, categoryFilter])
 
     // Threshold for auto-collapsing files
     const AUTO_COLLAPSE_THRESHOLD = 10
@@ -1269,6 +1528,97 @@ export const AgentDiffView = forwardRef<AgentDiffViewRef, AgentDiffViewProps>(
                 )}
               </div>
 
+              {/* Git Actions */}
+              {!isLoadingDiff && fileDiffs.length > 0 && (
+                <div className="flex items-center gap-1">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={async () => {
+                          try {
+                            if (!worktreePath) {
+                              toast.error("No worktree path available")
+                              return
+                            }
+                            await trpcClient.changes.commit.mutate({
+                              worktreePath: worktreePath,
+                              message: "Auto-commit from 1Code",
+                            })
+                            toast.success("Changes committed")
+                            // Refresh diff to show updated status
+                            handleRefresh()
+                          } catch (error) {
+                            toast.error("Failed to commit changes")
+                            console.error(error)
+                          }
+                        }}
+                      >
+                        Commit
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Commit all changes</TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={async () => {
+                          try {
+                            if (!worktreePath) {
+                              toast.error("No worktree path available")
+                              return
+                            }
+                            await trpcClient.changes.push.mutate({
+                              worktreePath: worktreePath,
+                            })
+                            toast.success("Changes pushed")
+                          } catch (error) {
+                            toast.error("Failed to push changes")
+                            console.error(error)
+                          }
+                        }}
+                      >
+                        Push
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Push to remote</TooltipContent>
+                  </Tooltip>
+
+                  {/*onCreatePr && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={onCreatePr}
+                          disabled={isCreatingPr}
+                        >
+                          {isCreatingPr ? (
+                            <>
+                              <IconSpinner className="h-3 w-3 mr-1" />
+                              Creating...
+                            </>
+                          ) : (
+                            <>
+                              <PullRequestIcon className="h-3 w-3 mr-1" />
+                              PR
+                            </>
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Create pull request</TooltipContent>
+                    </Tooltip>
+                  )}*/}
+                </div>
+              )}
+
               {/* Split/Unified toggle */}
               <div className="relative bg-muted rounded-md h-7 p-0.5 flex">
                 <div
@@ -1295,6 +1645,80 @@ export const AgentDiffView = forwardRef<AgentDiffViewRef, AgentDiffViewProps>(
               </div>
             </div>
           </div>
+        )}
+
+        {/* View Selector Dropdown */}
+        {!isMobile && chatId && (
+          <div className="flex-shrink-0 border-b bg-background/95 px-2 py-1.5">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-1.5 px-2 py-1 text-sm text-muted-foreground hover:text-foreground transition-[background-color,color] duration-150 ease-out rounded-md hover:bg-muted/50 outline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring/70">
+                  <span>
+                    {activeView === "git-diff" && "Git Diff + Tracked"}
+                    {activeView === "current-chat" && "Current Chat Changes"}
+                    {activeView === "workspace" && "Workspace Changes"}
+                  </span>
+                  <ChevronDown className="h-3 w-3 shrink-0 opacity-50" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-[200px]">
+                <DropdownMenuItem
+                  onClick={() => setActiveView("git-diff")}
+                  className="gap-2 justify-between"
+                >
+                  <span>Git Diff + Tracked</span>
+                  {activeView === "git-diff" && (
+                    <CheckIcon className="h-3.5 w-3.5 shrink-0" />
+                  )}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setActiveView("current-chat")}
+                  className="gap-2 justify-between"
+                >
+                  <span>Current Chat Changes</span>
+                  {activeView === "current-chat" && (
+                    <CheckIcon className="h-3.5 w-3.5 shrink-0" />
+                  )}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setActiveView("workspace")}
+                  className="gap-2 justify-between"
+                >
+                  <span>Workspace Changes</span>
+                  {activeView === "workspace" && (
+                    <CheckIcon className="h-3.5 w-3.5 shrink-0" />
+                  )}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
+
+        {/* Search Bar - Desktop only */}
+        {!isMobile && fileDiffs.length > 0 && (
+          <DiffSearchBar
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            sortOption={sortOption}
+            onSortChange={setSortOption}
+            sortAscending={sortAscending}
+            onSortDirectionToggle={() => setSortAscending(!sortAscending)}
+            categoryFilter={categoryFilter}
+            onCategoryFilterChange={setCategoryFilter}
+            commitScope="workspace"
+            onCommitScopeChange={() => {}}
+            hasActiveFilters={!!searchQuery || categoryFilter !== "all" || sortOption !== "name"}
+            onClearFilters={() => {
+              setSearchQuery("")
+              setCategoryFilter("all")
+              setSortOption("name")
+              setSortAscending(true)
+            }}
+            showCommitScope={false}
+            showCategoryFilter={true}
+            totalFiles={allFileDiffs.length}
+            filteredFiles={fileDiffs.length}
+          />
         )}
 
         {/* Content */}
@@ -1328,10 +1752,13 @@ export const AgentDiffView = forwardRef<AgentDiffViewRef, AgentDiffViewProps>(
             </div>
           )}
 
-          {isLoadingDiff ||
-          (isLoadingFileContents && fileDiffs.length === 0) ? (
-            <div className="flex items-center justify-center h-full">
+          {(isLoadingDiff || trackedChangesLoading ||
+            (isLoadingFileContents && fileDiffs.length === 0)) ? (
+            <div className="flex flex-col items-center justify-center h-full gap-2">
               <IconSpinner className="w-6 h-6" />
+              {trackedChangesLoading && (
+                <p className="text-xs text-muted-foreground">Loading file changes...</p>
+              )}
             </div>
           ) : diffError ? (
             <div className="flex flex-col items-center justify-center h-full text-center px-4">
@@ -1376,6 +1803,8 @@ export const AgentDiffView = forwardRef<AgentDiffViewRef, AgentDiffViewProps>(
                         isLoadingContent={isLoadingFileContents}
                         diffMode={diffMode}
                         shikiHighlighter={shikiHighlighter}
+                        worktreePath={worktreePath}
+                        onRefresh={handleRefresh}
                       />
                     </div>
                   </div>

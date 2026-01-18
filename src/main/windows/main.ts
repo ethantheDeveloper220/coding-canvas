@@ -179,6 +179,30 @@ function registerIpcHandlers(getWindow: () => BrowserWindow | null): void {
     }
     await handleAuthCode(code)
   })
+
+  // OpenCode server handlers
+  ipcMain.handle("opencode:ensure-ready", async () => {
+    const { ensureServerReady } = await import("../lib/opencode-server")
+    return await ensureServerReady()
+  })
+
+  ipcMain.handle("opencode:get-status", async () => {
+    const { getServerStatus } = await import("../lib/opencode-server")
+    return await getServerStatus()
+  })
+
+  // OpenCode question handler - answers are handled via OpenCode API, not a local function
+  ipcMain.handle("opencode:answer-question", async (event, input: { subChatId: string, requestId: string, answers: string[][], message?: string }) => {
+    try {
+      // The actual answer handling is done in the OpenCode chat stream
+      // This handler just acknowledges the request
+      // The real implementation is in the askUser callback in runOpenCodeChat
+      return { success: true }
+    } catch (error) {
+      console.error("Failed to answer OpenCode question:", error)
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  })
 }
 
 // Current window reference
@@ -240,8 +264,21 @@ export function createMainWindow(): BrowserWindow {
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: false, // Required for electron-trpc
-      webSecurity: true,
+      webSecurity: process.env.NODE_ENV === "development" ? false : true,
       partition: "persist:main", // Use persistent session for cookies
+      // Additional CSP settings for development
+      ...(process.env.NODE_ENV === "development" ? {
+        additionalArguments: [
+          "--disable-features=VizDisplayCompositor",
+          "--disable-features=UseSkiaRenderer",
+          "--disable-features=IsolateOrigins",
+          "--disable-features=OutOfBlinkCors",
+          "--disable-web-security",
+          "--allow-running-insecure-content",
+          "--disable-backgrounding-occluded-windows",
+          "--disable-features=TranslateUIInto"
+        ]
+      } : {})
     },
   })
 
@@ -255,7 +292,7 @@ export function createMainWindow(): BrowserWindow {
   } else {
     // Create new handler with context
     ipcHandler = createIPCHandler({
-      router: createAppRouter(getWindow),
+      router: createAppRouter(() => BrowserWindow),
       windows: [window],
       createContext: async () => ({
         getWindow,

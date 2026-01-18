@@ -1,0 +1,518 @@
+From 91fffda4e04edf37354897bb83d22203c4befbd9 Mon Sep 17 00:00:00 2001
+From: serafim <serafimcloud@gmail.com>
+Date: Fri, 16 Jan 2026 14:47:47 -0800
+Subject: [PATCH] Release v0.0.16
+
+## What's New in v0.0.16
+
+### Improvements & Fixes
+
+- Fixed authentication redirect URL for packaged app
+- Fixed sidebar workspace timestamps updating on message send
+- Exclude session/plan files from changed files status bar
+- Reduced stop button icon size in send button
+---
+ package.json                                  |   2 +-
+ scripts/upload-release-wrangler.sh            | 185 ------------------
+ src/main/auth-manager.ts                      |  11 +-
+ src/main/index.ts                             |   6 +-
+ src/main/lib/config.ts                        |   7 +-
+ src/renderer/contexts/TRPCProvider.tsx        |  11 +-
+ .../agents/components/agent-send-button.tsx   |   4 +-
+ .../hooks/use-changed-files-tracking.ts       |  14 +-
+ .../features/agents/main/active-chat.tsx      |  33 ++++
+ .../mentions/agents-mentions-editor.tsx       |  34 +++-
+ 10 files changed, 109 insertions(+), 198 deletions(-)
+ delete mode 100755 scripts/upload-release-wrangler.sh
+
+diff --git a/package.json b/package.json
+index faf6249..ecaad0a 100644
+--- a/package.json
++++ b/package.json
+@@ -1,6 +1,6 @@
+ {
+   "name": "21st-desktop",
+-  "version": "0.0.15",
++  "version": "0.0.16",
+   "private": true,
+   "description": "1Code - UI for parallel work with AI agents",
+   "author": "21st.dev",
+diff --git a/scripts/upload-release-wrangler.sh b/scripts/upload-release-wrangler.sh
+deleted file mode 100755
+index d3f7b09..0000000
+--- a/scripts/upload-release-wrangler.sh
++++ /dev/null
+@@ -1,185 +0,0 @@
+-#!/bin/bash
+-
+-# Build, notarize, and release desktop app
+-# Usage: ./scripts/upload-release-wrangler.sh
+-#
+-# Requires:
+-#   - Keychain profile "21st-notarize" (xcrun notarytool store-credentials)
+-#   - wrangler authenticated (npx wrangler login)
+-#   - gh CLI authenticated (gh auth login)
+-
+-set -e
+-
+-SCRIPT_DIR="$(dirname "$0")"
+-BUCKET="components-code"
+-PREFIX="releases/desktop"
+-RELEASE_DIR="$SCRIPT_DIR/../release"
+-PACKAGE_JSON="$SCRIPT_DIR/../package.json"
+-KEYCHAIN_PROFILE="21st-notarize"
+-
+-# Get version from package.json
+-VERSION=$(node -p "require('$PACKAGE_JSON').version")
+-TAG="v$VERSION"
+-
+-echo "============================================================"
+-echo "📦 Releasing Desktop v$VERSION"
+-echo "============================================================"
+-echo ""
+-
+-if [ ! -d "$RELEASE_DIR" ]; then
+-  echo "❌ Release directory not found: $RELEASE_DIR"
+-  echo "   Run 'bun run build && bun run package:mac && bun run dist:manifest' first"
+-  exit 1
+-fi
+-
+-cd "$RELEASE_DIR"
+-
+-# ============================================================
+-# Part 0: Submit DMGs for notarization (async, no waiting)
+-# ============================================================
+-echo "🔏 Submitting DMGs for notarization..."
+-echo ""
+-
+-for dmg in *.dmg; do
+-  if [ -f "$dmg" ]; then
+-    echo "   Submitting $dmg..."
+-    xcrun notarytool submit "$dmg" --keychain-profile "$KEYCHAIN_PROFILE"
+-    echo ""
+-  fi
+-done
+-
+-echo "✅ Notarization submitted! Check status with:"
+-echo "   xcrun notarytool history --keychain-profile \"$KEYCHAIN_PROFILE\""
+-echo ""
+-echo "   After approved, staple with:"
+-echo "   cd release && xcrun stapler staple *.dmg"
+-echo ""
+-
+-# ============================================================
+-# Part 1: Upload to R2 CDN
+-# ============================================================
+-echo "📤 Uploading to R2 CDN..."
+-echo ""
+-
+-# Upload manifests first
+-echo "   Uploading manifests..."
+-npx wrangler r2 object put "$BUCKET/$PREFIX/latest-mac.yml" --file=latest-mac.yml --content-type="text/yaml"
+-npx wrangler r2 object put "$BUCKET/$PREFIX/latest-mac-x64.yml" --file=latest-mac-x64.yml --content-type="text/yaml"
+-echo "   ✅ Manifests uploaded"
+-
+-# Upload blockmaps (for delta updates)
+-echo ""
+-echo "   Uploading blockmaps..."
+-for f in *.blockmap; do
+-  if [ -f "$f" ]; then
+-    npx wrangler r2 object put "$BUCKET/$PREFIX/$f" --file="$f" --content-type="application/octet-stream"
+-  fi
+-done
+-echo "   ✅ Blockmaps uploaded"
+-
+-# Upload ZIP files (for auto-update)
+-echo ""
+-echo "   Uploading ZIP files..."
+-for f in *-mac.zip; do
+-  if [ -f "$f" ]; then
+-    SIZE=$(ls -lh "$f" | awk '{print $5}')
+-    echo "   Uploading $f ($SIZE)..."
+-    npx wrangler r2 object put "$BUCKET/$PREFIX/$f" --file="$f" --content-type="application/zip"
+-  fi
+-done
+-echo "   ✅ ZIP files uploaded"
+-
+-# Upload DMG files (for manual download)
+-echo ""
+-echo "   Uploading DMG files..."
+-for f in *.dmg; do
+-  if [ -f "$f" ]; then
+-    SIZE=$(ls -lh "$f" | awk '{print $5}')
+-    echo "   Uploading $f ($SIZE)..."
+-    npx wrangler r2 object put "$BUCKET/$PREFIX/$f" --file="$f" --content-type="application/x-apple-diskimage"
+-  fi
+-done
+-echo "   ✅ DMG files uploaded"
+-
+-echo ""
+-echo "✅ R2 CDN upload complete!"
+-echo ""
+-
+-# ============================================================
+-# Part 2: Create/Update GitHub Release
+-# ============================================================
+-echo "============================================================"
+-echo "🐙 Creating GitHub Release $TAG..."
+-echo "============================================================"
+-echo ""
+-
+-# Check if gh is installed
+-if ! command -v gh &> /dev/null; then
+-  echo "❌ GitHub CLI (gh) not found. Install it: brew install gh"
+-  exit 1
+-fi
+-
+-# Check if release exists
+-if gh release view "$TAG" &> /dev/null; then
+-  echo "   Release $TAG exists, updating..."
+-  
+-  # Delete existing assets
+-  echo "   Deleting old assets..."
+-  ASSETS=$(gh release view "$TAG" --json assets -q '.assets[].name')
+-  for asset in $ASSETS; do
+-    echo "   Deleting $asset..."
+-    gh release delete-asset "$TAG" "$asset" --yes 2>/dev/null || true
+-  done
+-  
+-  # Upload new assets
+-  echo ""
+-  echo "   Uploading new assets..."
+-  for f in *.dmg *.zip *.blockmap; do
+-    if [ -f "$f" ]; then
+-      echo "   Uploading $f..."
+-      gh release upload "$TAG" "$f" --clobber
+-    fi
+-  done
+-  
+-  echo ""
+-  echo "   ✅ Release $TAG updated!"
+-else
+-  echo "   Creating new release $TAG..."
+-  
+-  # Collect asset files
+-  ASSETS=""
+-  for f in *.dmg *.zip *.blockmap; do
+-    if [ -f "$f" ]; then
+-      ASSETS="$ASSETS $f"
+-    fi
+-  done
+-  
+-  # Create release with assets (not draft, mark as latest)
+-  gh release create "$TAG" \
+-    --title "1Code $TAG" \
+-    --latest \
+-    --notes "## What's New
+-
+-- Desktop app release $TAG
+-
+-## Downloads
+-
+-- **macOS ARM64 (Apple Silicon)**: Download the \`-arm64.dmg\` file
+-- **macOS Intel**: Download the \`-x64.dmg\` file
+-
+-Auto-updates are enabled. Existing users will be notified automatically." \
+-    $ASSETS
+-  
+-  echo ""
+-  echo "   ✅ Release $TAG created!"
+-fi
+-
+-echo ""
+-echo "============================================================"
+-echo "✅ Release complete!"
+-echo ""
+-echo "🔗 URLs:"
+-echo "   CDN ARM64: https://cdn.21st.dev/$PREFIX/latest-mac.yml"
+-echo "   CDN x64:   https://cdn.21st.dev/$PREFIX/latest-mac-x64.yml"
+-echo "   GitHub:    https://github.com/21st-dev/21st/releases/tag/$TAG"
+-echo "============================================================"
+diff --git a/src/main/auth-manager.ts b/src/main/auth-manager.ts
+index 6d6338d..82533fe 100644
+--- a/src/main/auth-manager.ts
++++ b/src/main/auth-manager.ts
+@@ -1,8 +1,13 @@
+ import { AuthStore, AuthData, AuthUser } from "./auth-store"
+ import { app, BrowserWindow } from "electron"
+ 
+-// Auth API URL - use env variable for local testing, default to production
+-const AUTH_API_URL = import.meta.env.MAIN_VITE_API_URL || "https://21st.dev"
++// Get API URL - in packaged app always use production, in dev allow override
++function getApiBaseUrl(): string {
++  if (app.isPackaged) {
++    return "https://21st.dev"
++  }
++  return import.meta.env.MAIN_VITE_API_URL || "https://21st.dev"
++}
+ 
+ export class AuthManager {
+   private store: AuthStore
+@@ -29,7 +34,7 @@ export class AuthManager {
+   }
+ 
+   private getApiUrl(): string {
+-    return AUTH_API_URL
++    return getApiBaseUrl()
+   }
+ 
+   /**
+diff --git a/src/main/index.ts b/src/main/index.ts
+index e6e4d8d..fa6b3fc 100644
+--- a/src/main/index.ts
++++ b/src/main/index.ts
+@@ -56,8 +56,12 @@ if (app.isPackaged && !IS_DEV) {
+ }
+ 
+ // URL configuration (exported for use in other modules)
+-// Uses MAIN_VITE_API_URL from .env if set, otherwise defaults to production
++// In packaged app, ALWAYS use production URL to prevent localhost leaking into releases
++// In dev mode, allow override via MAIN_VITE_API_URL env variable
+ export function getBaseUrl(): string {
++  if (app.isPackaged) {
++    return "https://21st.dev"
++  }
+   return import.meta.env.MAIN_VITE_API_URL || "https://21st.dev"
+ }
+ 
+diff --git a/src/main/lib/config.ts b/src/main/lib/config.ts
+index cc2464e..26409e6 100644
+--- a/src/main/lib/config.ts
++++ b/src/main/lib/config.ts
+@@ -1,14 +1,19 @@
+ /**
+  * Shared configuration for the desktop app
+  */
++import { app } from "electron"
+ 
+ const IS_DEV = !!process.env.ELECTRON_RENDERER_URL
+ 
+ /**
+  * Get the API base URL
+- * Uses MAIN_VITE_API_URL from .env if set, otherwise defaults to production
++ * In packaged app, ALWAYS use production URL to prevent localhost leaking into releases
++ * In dev mode, allow override via MAIN_VITE_API_URL env variable
+  */
+ export function getApiUrl(): string {
++  if (app.isPackaged) {
++    return "https://21st.dev"
++  }
+   return import.meta.env.MAIN_VITE_API_URL || "https://21st.dev"
+ }
+ 
+diff --git a/src/renderer/contexts/TRPCProvider.tsx b/src/renderer/contexts/TRPCProvider.tsx
+index 9d382c9..f3d11be 100644
+--- a/src/renderer/contexts/TRPCProvider.tsx
++++ b/src/renderer/contexts/TRPCProvider.tsx
+@@ -8,9 +8,16 @@ interface TRPCProviderProps {
+   children: React.ReactNode
+ }
+ 
++// Global query client instance for use outside React components
++let globalQueryClient: QueryClient | null = null
++
++export function getQueryClient(): QueryClient | null {
++  return globalQueryClient
++}
++
+ export function TRPCProvider({ children }: TRPCProviderProps) {
+   const [queryClient] = useState(() => {
+-    return new QueryClient({
++    const client = new QueryClient({
+       defaultOptions: {
+         queries: {
+           staleTime: 5000,
+@@ -24,6 +31,8 @@ export function TRPCProvider({ children }: TRPCProviderProps) {
+         },
+       },
+     })
++    globalQueryClient = client
++    return client
+   })
+ 
+   const [trpcClient] = useState(() => {
+diff --git a/src/renderer/features/agents/components/agent-send-button.tsx b/src/renderer/features/agents/components/agent-send-button.tsx
+index 47742a9..f9bf813 100644
+--- a/src/renderer/features/agents/components/agent-send-button.tsx
++++ b/src/renderer/features/agents/components/agent-send-button.tsx
+@@ -63,7 +63,7 @@ export function AgentSendButton({
+   const getIcon = () => {
+     if (isStreaming) {
+       return (
+-        <div className="w-3 h-3 bg-current rounded-[2px] flex-shrink-0 mx-auto" />
++        <div className="w-2.5 h-2.5 bg-current rounded-[2px] flex-shrink-0 mx-auto" />
+       )
+     }
+     if (isSubmitting) {
+@@ -111,7 +111,7 @@ export function AgentSendButton({
+ 
+   // Mode-specific styling (agent=foreground, plan=orange)
+   const modeClass = isPlanMode
+-    ? "!bg-plan-mode hover:!bg-plan-mode/90 !text-plan-mode-foreground !shadow-none"
++    ? "!bg-plan-mode hover:!bg-plan-mode/90 !text-background !shadow-none"
+     : "!bg-foreground hover:!bg-foreground/90 !text-background !shadow-none"
+ 
+   return (
+diff --git a/src/renderer/features/agents/hooks/use-changed-files-tracking.ts b/src/renderer/features/agents/hooks/use-changed-files-tracking.ts
+index 596106d..d734869 100644
+--- a/src/renderer/features/agents/hooks/use-changed-files-tracking.ts
++++ b/src/renderer/features/agents/hooks/use-changed-files-tracking.ts
+@@ -89,6 +89,15 @@ export function useChangedFilesTracking(
+   const wasStreamingRef = useRef(false)
+   const isInitializedRef = useRef(false)
+ 
++  // Check if a file path is a session/plan file that should be excluded
++  const isSessionFile = useCallback((filePath: string): boolean => {
++    // Exclude files in claude-sessions (plan files stored in app's local storage)
++    if (filePath.includes("claude-sessions")) return true
++    // Exclude files in Application Support directory
++    if (filePath.includes("Application Support")) return true
++    return false
++  }, [])
++
+   // Calculate changed files from messages
+   const calculateChangedFiles = useCallback(() => {
+     // Track file states: originalContent (first old_string) and currentContent (latest new_string)
+@@ -108,6 +117,9 @@ export function useChangedFilesTracking(
+           const filePath = part.input?.file_path
+           if (!filePath) continue
+ 
++          // Skip session/plan files stored in local app storage
++          if (isSessionFile(filePath)) continue
++
+           const oldString = part.input?.old_string || ""
+           const newString = part.input?.new_string || part.input?.content || ""
+ 
+@@ -148,7 +160,7 @@ export function useChangedFilesTracking(
+     }
+ 
+     return result
+-  }, [messages, getDisplayPath, calculateDiffStats])
++  }, [messages, getDisplayPath, calculateDiffStats, isSessionFile])
+ 
+   // Only recalculate when streaming ends (transition from true to false)
+   // Also calculate on initial mount if not streaming
+diff --git a/src/renderer/features/agents/main/active-chat.tsx b/src/renderer/features/agents/main/active-chat.tsx
+index 3140ba9..49ab1bd 100644
+--- a/src/renderer/features/agents/main/active-chat.tsx
++++ b/src/renderer/features/agents/main/active-chat.tsx
+@@ -70,6 +70,7 @@ import { soundNotificationsEnabledAtom } from "../../../lib/atoms"
+ import { appStore } from "../../../lib/jotai-store"
+ import { api } from "../../../lib/mock-api"
+ import { trpc, trpcClient } from "../../../lib/trpc"
++import { getQueryClient } from "../../../contexts/TRPCProvider"
+ import { cn } from "../../../lib/utils"
+ import { getShortcutKey, isDesktopApp } from "../../../lib/utils/platform"
+ import { terminalSidebarOpenAtom } from "../../terminal/atoms"
+@@ -1727,6 +1728,32 @@ function ChatViewInner({
+       })
+     }
+ 
++    // Desktop app: Optimistic update for chats.list to update sidebar immediately
++    const queryClient = getQueryClient()
++    if (queryClient) {
++      const now = new Date()
++      const queries = queryClient.getQueryCache().getAll()
++      const chatsListQuery = queries.find(q =>
++        Array.isArray(q.queryKey) &&
++        Array.isArray(q.queryKey[0]) &&
++        q.queryKey[0][0] === 'chats' &&
++        q.queryKey[0][1] === 'list'
++      )
++      if (chatsListQuery) {
++        queryClient.setQueryData(chatsListQuery.queryKey, (old: any[] | undefined) => {
++          if (!old) return old
++          // Update the timestamp and sort by updatedAt descending
++          const updated = old.map((c: any) =>
++            c.id === parentChatId ? { ...c, updatedAt: now } : c,
++          )
++          return updated.sort(
++            (a: any, b: any) =>
++              new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
++          )
++        })
++      }
++    }
++
+     // Optimistically update sub-chat timestamp to move it to top
+     useAgentSubChatStore.getState().updateSubChatTimestamp(subChatId)
+ 
+@@ -3852,6 +3879,9 @@ export function ChatView({
+ 
+           // Refresh diff stats after agent finishes making changes
+           fetchDiffStatsRef.current()
++
++          // Note: sidebar timestamp update is handled via optimistic update in handleSend
++          // No need to refetch here as it would overwrite the optimistic update with stale data
+         },
+       })
+ 
+@@ -3971,6 +4001,9 @@ export function ChatView({
+ 
+           // Refresh diff stats after agent finishes making changes
+           fetchDiffStatsRef.current()
++
++          // Note: sidebar timestamp update is handled via optimistic update in handleSend
++          // No need to refetch here as it would overwrite the optimistic update with stale data
+         },
+       })
+       agentChatStore.set(newId, newChat, chatId)
+diff --git a/src/renderer/features/agents/mentions/agents-mentions-editor.tsx b/src/renderer/features/agents/mentions/agents-mentions-editor.tsx
+index e9db20a..5e65fe8 100644
+--- a/src/renderer/features/agents/mentions/agents-mentions-editor.tsx
++++ b/src/renderer/features/agents/mentions/agents-mentions-editor.tsx
+@@ -273,6 +273,15 @@ function walkTreeOnce(root: HTMLElement, range: Range | null): TreeWalkResult {
+   let slashPosition: { node: Node; offset: number } | null = null
+   let slashIndex = -1
+ 
++  // Handle case where cursor is in root element (not in a text node)
++  // This happens when the editor is empty or cursor is at element boundary
++  let cursorInRoot = false
++  let cursorRootOffset = 0
++  if (range && range.endContainer === root) {
++    cursorInRoot = true
++    cursorRootOffset = range.endOffset
++  }
++
+   const walker = document.createTreeWalker(
+     root,
+     NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
+@@ -283,9 +292,24 @@ function walkTreeOnce(root: HTMLElement, range: Range | null): TreeWalkResult {
+     if (node.nodeType === Node.TEXT_NODE) {
+       const text = node.textContent || ""
+ 
+-      // Check if cursor is in this node
+-      if (range && !reachedCursor && node === range.endContainer) {
+-        const cursorOffset = range.endOffset
++      // Check if cursor is in this node (direct case)
++      const cursorInThisNode = range && !reachedCursor && node === range.endContainer
++
++      // Handle cursor in root element - cursor is positioned between children
++      // cursorRootOffset indicates the child index where cursor is
++      let cursorAtRootBoundary = false
++      if (cursorInRoot && !reachedCursor && node.parentNode === root) {
++        const children = Array.from(root.childNodes)
++        const nodeIndex = children.indexOf(node as ChildNode)
++        // If cursor is after this node, include full text
++        // If cursor is at this node's position, we've passed the cursor
++        if (nodeIndex >= cursorRootOffset) {
++          cursorAtRootBoundary = true
++        }
++      }
++
++      if (cursorInThisNode) {
++        const cursorOffset = range!.endOffset
+         textBeforeCursor += text.slice(0, cursorOffset)
+         reachedCursor = true
+ 
+@@ -328,6 +352,10 @@ function walkTreeOnce(root: HTMLElement, range: Range | null): TreeWalkResult {
+             }
+           }
+         }
++      } else if (cursorAtRootBoundary) {
++        // Cursor is in root element, at or past this node's position
++        // Mark as reached and don't include this text in textBeforeCursor
++        reachedCursor = true
+       } else if (!reachedCursor) {
+         textBeforeCursor += text
+         // Track @ positions as we go

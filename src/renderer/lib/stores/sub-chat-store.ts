@@ -5,7 +5,7 @@ export interface SubChatMeta {
   name: string
   created_at?: string
   updated_at?: string
-  mode?: "plan" | "agent"
+  mode?: "plan" | "agent" | string // Support custom mode IDs (e.g., "custom-123")
 }
 
 interface AgentSubChatStore {
@@ -28,7 +28,7 @@ interface AgentSubChatStore {
   setAllSubChats: (subChats: SubChatMeta[]) => void
   addToAllSubChats: (subChat: SubChatMeta) => void
   updateSubChatName: (subChatId: string, name: string) => void
-  updateSubChatMode: (subChatId: string, mode: "plan" | "agent") => void
+  updateSubChatMode: (subChatId: string, mode: "plan" | "agent" | string) => void
   updateSubChatTimestamp: (subChatId: string) => void
   reset: () => void
 }

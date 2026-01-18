@@ -1,4 +1,4 @@
-import type { UIMessageChunk, MessageMetadata } from "./types"
+import type { UIMessageChunk, MessageMetadata, MCPServerStatus, MCPServer } from "./types"
 
 export function createTransformer() {
   let textId: string | null = null
@@ -152,7 +152,7 @@ export function createTransformer() {
         yield {
           type: "tool-input-start",
           toolCallId: currentToolCallId,
-          toolName: currentToolName,
+          toolName: currentToolName!,
         }
       }
 
@@ -323,6 +323,41 @@ export function createTransformer() {
 
     // ===== SYSTEM STATUS (compacting, etc.) =====
     if (msg.type === "system") {
+      // Debug: log all message types to understand what SDK sends
+      if (msg.subtype === "init") {
+        console.log("[transform] SYSTEM message:", msg.subtype, msg)
+      }
+
+      // Session init - extract MCP servers, plugins, tools
+      if (msg.subtype === "init") {
+        console.log("[MCP Transform] Received SDK init message:", {
+          tools: msg.tools?.length,
+          mcp_servers: msg.mcp_servers,
+          plugins: msg.plugins,
+          skills: msg.skills?.length,
+        })
+        // Map MCP servers with validated status type and additional info
+        const mcpServers: MCPServer[] = (msg.mcp_servers || []).map(
+          (s: { name: string; status: string; serverInfo?: { name: string; version: string }; error?: string }) => ({
+            name: s.name,
+            status: (["connected", "failed", "pending", "needs-auth"].includes(
+              s.status,
+            )
+              ? s.status
+              : "pending") as MCPServerStatus,
+            ...(s.serverInfo && { serverInfo: s.serverInfo }),
+            ...(s.error && { error: s.error }),
+          }),
+        )
+        yield {
+          type: "session-init",
+          tools: msg.tools || [],
+          mcpServers,
+          plugins: msg.plugins || [],
+          skills: msg.skills || [],
+        }
+      }
+
       // Compacting status - show as a tool
       if (msg.subtype === "status" && msg.status === "compacting") {
         // Create unique ID and save for matching with boundary event

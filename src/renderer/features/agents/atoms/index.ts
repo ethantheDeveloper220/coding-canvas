@@ -1,6 +1,40 @@
 import { atom } from "jotai"
 import { atomFamily, atomWithStorage } from "jotai/utils"
 
+// ============================================
+// SESSION INFO ATOMS (MCP, Plugins, Tools)
+// ============================================
+
+export type MCPServerStatus = "connected" | "failed" | "pending" | "needs-auth"
+
+export type MCPServer = {
+  name: string
+  status: MCPServerStatus
+  serverInfo?: {
+    name: string
+    version: string
+  }
+  error?: string
+}
+
+export type SessionInfo = {
+  tools: string[]
+  mcpServers: MCPServer[]
+  plugins: { name: string; path: string }[]
+  skills: string[]
+}
+
+export const sessionInfoAtom = atomWithStorage<SessionInfo | null>(
+  "21st-session-info",
+  null,
+  undefined,
+  { getOnInit: true },
+)
+
+// ============================================
+// AGENT CHAT ATOMS
+// ============================================
+
 // Selected agent chat ID - null means "new chat" view (persisted to restore on reload)
 export const selectedAgentChatIdAtom = atomWithStorage<string | null>(
   "agents:selectedChatId",
@@ -181,6 +215,13 @@ export const isPlanModeAtom = atomWithStorage<boolean>(
   { getOnInit: true },
 )
 
+export const sandboxEnabledAtom = atomWithStorage<boolean>(
+  "agents:sandboxEnabled",
+  false,
+  undefined,
+  { getOnInit: true },
+)
+
 // Model ID to full Claude model string mapping
 export const MODEL_ID_MAP: Record<string, string> = {
   opus: "opus",
@@ -236,6 +277,15 @@ const diffSidebarOpenStorageAtom = atomWithStorage<Record<string, boolean>>(
 )
 
 // atomFamily to get/set diff sidebar open state per chatId
+export const treeSidebarOpenAtomFamily = atomFamily((chatId: string) =>
+  atomWithStorage<boolean>(`agents-tree-sidebar-open-${chatId}`, false, undefined, { getOnInit: true })
+)
+
+// atomFamily to get/set kanban sidebar open state per chatId
+export const kanbanSidebarOpenAtomFamily = atomFamily((chatId: string) =>
+  atomWithStorage<boolean>(`agents-kanban-sidebar-open-${chatId}`, false, undefined, { getOnInit: true })
+)
+
 export const diffSidebarOpenAtomFamily = atomFamily((chatId: string) =>
   atom(
     (get) => get(diffSidebarOpenStorageAtom)[chatId] ?? false,
@@ -250,7 +300,7 @@ export const diffSidebarOpenAtomFamily = atomFamily((chatId: string) =>
 // TODO: Remove after migration
 export const agentsDiffSidebarOpenAtom = atomWithStorage<boolean>(
   "agents-diff-sidebar-open",
-  false,
+  true,
   undefined,
   { getOnInit: true },
 )
@@ -258,6 +308,7 @@ export const agentsDiffSidebarOpenAtom = atomWithStorage<boolean>(
 // Focused file path in diff sidebar (for scroll-to-file feature)
 // Set by AgentEditTool on click, consumed by AgentDiffView
 export const agentsFocusedDiffFileAtom = atom<string | null>(null)
+
 
 // Sub-chats display mode - tabs (horizontal) or sidebar (vertical list)
 export const agentsSubChatsSidebarModeAtom = atomWithStorage<
@@ -344,12 +395,12 @@ export interface AgentsDebugMode {
   resetOnboarding: boolean // Reset onboarding dialog on next load
   bypassConnections: boolean // Allow going through onboarding steps even if already connected
   forceStep:
-    | "workspace"
-    | "profile"
-    | "claude-code"
-    | "github"
-    | "discord"
-    | null // Force a specific onboarding step
+  | "workspace"
+  | "profile"
+  | "claude-code"
+  | "github"
+  | "discord"
+  | null // Force a specific onboarding step
   simulateCompleted: boolean // Simulate onboarding as completed
 }
 
@@ -431,7 +482,7 @@ export const lastSelectedBranchesAtom = atomWithStorage<Record<string, string>>(
 
 // Track IDs of chats/subchats created in this browser session (NOT persisted - resets on reload)
 // Used to determine whether to show placeholder + typewriter effect
-export const justCreatedIdsAtom = atom<Set<string>>(new Set())
+export const justCreatedIdsAtom = atom<Set<string>>(new Set<string>())
 
 // Pending user questions from AskUserQuestion tool
 // Set when Claude requests user input, cleared when answered or skipped
@@ -449,3 +500,16 @@ export type PendingUserQuestions = {
   }>
 }
 export const pendingUserQuestionsAtom = atom<PendingUserQuestions | null>(null)
+
+// Pending question answer to be sent via prompt input (for follow-up questions)
+// Set when user clicks "Answer in prompt" in question modal
+export const pendingQuestionAnswerInPromptAtom = atom<string | null>(null)
+
+// OpenCode disabled providers - for filtering model list
+export const opencodeDisabledProvidersAtom = atomWithStorage<string[]>(
+  "opencode:disabledProviders",
+  [],
+  undefined,
+  { getOnInit: true },
+)
+export * from "./pending-multi-agent"

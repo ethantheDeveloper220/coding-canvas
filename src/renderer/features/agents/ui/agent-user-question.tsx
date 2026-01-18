@@ -1,15 +1,15 @@
 "use client"
 
-import { memo, useState, useEffect, useCallback, useRef } from "react"
-import { ChevronUp, ChevronDown, CornerDownLeft } from "lucide-react"
+import { memo, useState, useRef, useEffect } from "react"
 import { Button } from "../../../components/ui/button"
 import { cn } from "../../../lib/utils"
 import type { PendingUserQuestions } from "../atoms"
 
 interface AgentUserQuestionProps {
   pendingQuestions: PendingUserQuestions
-  onAnswer: (answers: Record<string, string>) => void
+  onAnswer: (answers: Record<string, string | string[]>) => void
   onSkip: () => void
+  onAnswerInPrompt?: (questionsText: string) => void
 }
 
 export const AgentUserQuestion = memo(function AgentUserQuestion({
@@ -17,364 +17,157 @@ export const AgentUserQuestion = memo(function AgentUserQuestion({
   onAnswer,
   onSkip,
 }: AgentUserQuestionProps) {
-  const { questions, toolUseId } = pendingQuestions
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
-  const [answers, setAnswers] = useState<Record<string, string[]>>({})
-  const [focusedOptionIndex, setFocusedOptionIndex] = useState(0)
-  const [isVisible, setIsVisible] = useState(true)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const prevIndexRef = useRef(currentQuestionIndex)
-  const prevToolUseIdRef = useRef(toolUseId)
-
-  // Reset when toolUseId changes (new question set)
-  useEffect(() => {
-    if (prevToolUseIdRef.current !== toolUseId) {
-      setIsSubmitting(false)
-      setCurrentQuestionIndex(0)
-      setAnswers({})
-      setFocusedOptionIndex(0)
-      prevToolUseIdRef.current = toolUseId
-    }
-  }, [toolUseId])
-
-  // Animate on question change
-  useEffect(() => {
-    if (prevIndexRef.current !== currentQuestionIndex) {
-      setIsVisible(false)
-      const timer = setTimeout(() => {
-        setIsVisible(true)
-      }, 50)
-      prevIndexRef.current = currentQuestionIndex
-      return () => clearTimeout(timer)
-    }
-  }, [currentQuestionIndex])
-
-  if (questions.length === 0) {
+  // Check if pendingQuestions is defined
+  if (!pendingQuestions) {
     return null
   }
+  
+  const { questions } = pendingQuestions
+  // Support both single and multiple answers per question
+  const [answers, setAnswers] = useState<Record<string, string | string[]>>({})
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const currentQuestion = questions[currentQuestionIndex]
-  const currentOptions = currentQuestion?.options || []
+  // Refs for text inputs to update them when clicking options
+  const inputRefs = useRef<Record<string, HTMLInputElement>>({})
 
-  const isOptionSelected = (questionText: string, optionLabel: string) => {
-    return answers[questionText]?.includes(optionLabel) || false
-  }
-
-  // Handle option click - auto-advance for single-select questions
-  const handleOptionClick = useCallback(
-    (questionText: string, optionLabel: string, questionIndex: number) => {
-      const question = questions[questionIndex]
-      const allowMultiple = question?.multiSelect || false
-      const isLastQuestion = questionIndex === questions.length - 1
-
-      setAnswers((prev) => {
-        const currentAnswers = prev[questionText] || []
-
-        if (allowMultiple) {
-          if (currentAnswers.includes(optionLabel)) {
-            return {
-              ...prev,
-              [questionText]: currentAnswers.filter((l) => l !== optionLabel),
-            }
-          } else {
-            return {
-              ...prev,
-              [questionText]: [...currentAnswers, optionLabel],
-            }
-          }
-        } else {
-          return {
-            ...prev,
-            [questionText]: [optionLabel],
-          }
-        }
-      })
-
-      // For single-select questions, auto-advance to next question
-      if (!allowMultiple && !isLastQuestion) {
-        setTimeout(() => {
-          setCurrentQuestionIndex(questionIndex + 1)
-          setFocusedOptionIndex(0)
-        }, 150)
-      }
-    },
-    [questions],
-  )
-
-  const handlePrevious = () => {
-    if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(currentQuestionIndex - 1)
-      setFocusedOptionIndex(0)
-    }
-  }
-
-  const handleNext = () => {
-    if (currentQuestionIndex < questions.length - 1) {
-      setCurrentQuestionIndex(currentQuestionIndex + 1)
-      setFocusedOptionIndex(0)
-    }
-  }
-
-  const handleContinue = useCallback(() => {
-    if (isSubmitting) return
-
-    const currentAnswer = answers[currentQuestion?.question] || []
-    if (currentAnswer.length === 0) return
-
-    if (currentQuestionIndex < questions.length - 1) {
-      setCurrentQuestionIndex(currentQuestionIndex + 1)
-      setFocusedOptionIndex(0)
-    } else {
-      // On the last question, validate ALL questions are answered before submit
-      const allAnswered = questions.every(
-        (q) => (answers[q.question] || []).length > 0,
-      )
-      if (allAnswered) {
-        setIsSubmitting(true)
-        // Convert answers to SDK format: { questionText: label } or { questionText: "label1, label2" } for multiSelect
-        const formattedAnswers: Record<string, string> = {}
-        for (const question of questions) {
-          const selected = answers[question.question] || []
-          formattedAnswers[question.question] = selected.join(", ")
-        }
-        onAnswer(formattedAnswers)
-      }
-    }
-  }, [
-    onAnswer,
-    answers,
-    currentQuestionIndex,
-    questions,
-    currentQuestion?.question,
-    isSubmitting,
-  ])
-
-  const handleSkipWithGuard = useCallback(() => {
-    if (isSubmitting) return
+  const handleSubmit = async () => {
     setIsSubmitting(true)
-    onSkip()
-  }, [isSubmitting, onSkip])
-
-  const getOptionNumber = (index: number) => {
-    return String(index + 1)
+    await onAnswer(answers)
   }
 
-  const currentQuestionHasAnswer =
-    (answers[currentQuestion?.question] || []).length > 0
-  const allQuestionsAnswered = questions.every(
-    (q) => (answers[q.question] || []).length > 0,
-  )
-  const isLastQuestion = currentQuestionIndex === questions.length - 1
+  const handleSkipAll = async () => {
+    setIsSubmitting(true)
+    await onSkip()
+  }
 
-  // Keyboard navigation
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (isSubmitting) return
-
-      const activeEl = document.activeElement
-      if (
-        activeEl instanceof HTMLInputElement ||
-        activeEl instanceof HTMLTextAreaElement ||
-        activeEl?.getAttribute("contenteditable") === "true"
-      ) {
-        return
-      }
-
-      if (e.key === "ArrowDown") {
-        e.preventDefault()
-        if (focusedOptionIndex < currentOptions.length - 1) {
-          setFocusedOptionIndex(focusedOptionIndex + 1)
-        } else if (currentQuestionIndex < questions.length - 1) {
-          setCurrentQuestionIndex(currentQuestionIndex + 1)
-          setFocusedOptionIndex(0)
-        }
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault()
-        if (focusedOptionIndex > 0) {
-          setFocusedOptionIndex(focusedOptionIndex - 1)
-        } else if (currentQuestionIndex > 0) {
-          const prevQuestionOptions =
-            questions[currentQuestionIndex - 1]?.options || []
-          setCurrentQuestionIndex(currentQuestionIndex - 1)
-          setFocusedOptionIndex(prevQuestionOptions.length - 1)
-        }
-      } else if (e.key === "Enter") {
-        e.preventDefault()
-        if (currentQuestionHasAnswer) {
-          handleContinue()
-        } else if (currentOptions[focusedOptionIndex]) {
-          handleOptionClick(
-            currentQuestion.question,
-            currentOptions[focusedOptionIndex].label,
-            currentQuestionIndex,
-          )
-        }
-      } else if (e.key >= "1" && e.key <= "9") {
-        const numberIndex = parseInt(e.key, 10) - 1
-        if (numberIndex >= 0 && numberIndex < currentOptions.length) {
-          e.preventDefault()
-          handleOptionClick(
-            currentQuestion.question,
-            currentOptions[numberIndex].label,
-            currentQuestionIndex,
-          )
-          setFocusedOptionIndex(numberIndex)
-        }
-      }
-    }
-
-    document.addEventListener("keydown", handleKeyDown)
-    return () => document.removeEventListener("keydown", handleKeyDown)
-  }, [
-    currentOptions,
-    currentQuestion,
-    currentQuestionIndex,
-    focusedOptionIndex,
-    handleOptionClick,
-    currentQuestionHasAnswer,
-    handleContinue,
-    questions,
-    isSubmitting,
-  ])
+  const allQuestionsAnswered = questions.every(q => {
+    const answer = answers[q.question]
+    if (Array.isArray(answer)) return answer.length > 0
+    return answer?.trim()
+  })
 
   return (
-    <div className="border rounded-t-xl border-b-0 border-border bg-muted/30 overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-3 py-1.5">
-        <div className="flex items-center gap-1.5">
-          <span className="text-[12px] text-muted-foreground">
-            {currentQuestion?.header || "Question"}
-          </span>
-          <span className="text-muted-foreground/50">•</span>
-          <span className="text-[12px] text-muted-foreground">
-            {currentQuestion?.multiSelect ? "Multi-select" : "Single-select"}
-          </span>
-        </div>
-
-        {/* Navigation */}
-        {questions.length > 1 && (
-          <div className="flex items-center gap-1">
-            <button
-              onClick={handlePrevious}
-              disabled={currentQuestionIndex === 0}
-              className="p-0.5 rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed outline-none"
-            >
-              <ChevronUp className="w-4 h-4 text-muted-foreground" />
-            </button>
-            <span className="text-xs text-muted-foreground px-1">
-              {currentQuestionIndex + 1} / {questions.length}
+    <div className="w-full max-w-2xl mx-auto">
+      <div className="bg-card border border-border rounded-lg shadow-lg overflow-hidden">
+        {/* Header */}
+        <div className="px-4 py-3 border-b border-border bg-muted/30">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-foreground">
+              Questions
+            </h3>
+            <span className="text-xs text-muted-foreground">
+              {questions.length} question{questions.length !== 1 ? 's' : ''}
             </span>
-            <button
-              onClick={handleNext}
-              disabled={currentQuestionIndex === questions.length - 1}
-              className="p-0.5 rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed outline-none"
-            >
-              <ChevronDown className="w-4 h-4 text-muted-foreground" />
-            </button>
           </div>
-        )}
-      </div>
-
-      {/* Current Question */}
-      <div
-        className={cn(
-          "px-1 pb-2 transition-opacity duration-150 ease-out",
-          isVisible ? "opacity-100" : "opacity-0",
-        )}
-      >
-        <div className="text-[14px] font-[450] text-foreground mb-3 pt-1 px-2">
-          <span className="text-muted-foreground">{currentQuestionIndex + 1}.</span> {currentQuestion?.question}
         </div>
 
-        {/* Options */}
-        <div className="space-y-1">
-          {currentOptions.map((option, optIndex) => {
-            const isSelected = isOptionSelected(
-              currentQuestion.question,
-              option.label,
-            )
-            const isFocused = focusedOptionIndex === optIndex
-            const number = getOptionNumber(optIndex)
-
-            return (
-              <button
-                key={option.label}
-                onClick={() => {
-                  if (isSubmitting) return
-                  handleOptionClick(
-                    currentQuestion.question,
-                    option.label,
-                    currentQuestionIndex,
-                  )
-                  setFocusedOptionIndex(optIndex)
+        {/* Questions */}
+        <div className="p-4 space-y-4 max-h-[60vh] overflow-y-auto">
+          {questions.map((q, index) => (
+            <div key={index} className="space-y-2">
+              <label className="text-sm font-medium text-foreground block">
+                {index + 1}. {q.question}
+              </label>
+              <input
+                type="text"
+                value={answers[q.question] || ''}
+                onChange={(e) => {
+                  setAnswers({
+                    ...answers,
+                    [q.question]: e.target.value
+                  })
                 }}
+                placeholder={q.options?.map(o => o.label).join(' / ') || 'Type your answer...'}
                 disabled={isSubmitting}
                 className={cn(
-                  "w-full flex items-start gap-3 p-2 text-[13px] text-foreground rounded-md text-left transition-colors outline-none",
-                  isFocused ? "bg-muted/70" : "hover:bg-muted/50",
-                  isSubmitting && "opacity-50 cursor-not-allowed",
+                  "w-full px-3 py-2 text-sm bg-background border border-border rounded-md",
+                  "focus:outline-none focus:ring-2 focus:ring-ring",
+                  "placeholder:text-muted-foreground",
+                  isSubmitting && "opacity-50 cursor-not-allowed"
                 )}
-              >
-                <div
-                  className={cn(
-                    "flex-shrink-0 w-5 h-5 rounded flex items-center justify-center text-[10px] font-medium transition-colors mt-0.5",
-                    isSelected
-                      ? "bg-foreground text-background"
-                      : "bg-muted text-muted-foreground",
-                  )}
-                >
-                  {number}
-                </div>
-                <div className="flex flex-col gap-0.5">
-                  <span
-                    className={cn(
-                      "text-[13px] transition-colors font-medium",
-                      isSelected ? "text-foreground" : "text-foreground",
-                    )}
-                  >
-                    {option.label}
-                  </span>
-                  {option.description && (
-                    <span className="text-[12px] text-muted-foreground">
-                      {option.description}
-                    </span>
-                  )}
-                </div>
-              </button>
-            )
-          })}
-        </div>
-      </div>
+                autoFocus={index === 0}
+              />
+              {q.options && q.options.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {q.options.map((option, optIndex) => {
+                    const currentAnswer = answers[q.question]
+                    const isSelected = Array.isArray(currentAnswer)
+                      ? currentAnswer.includes(option.label)
+                      : currentAnswer === option.label
 
-      {/* Footer */}
-      <div className="flex items-center justify-end gap-2 px-2 py-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleSkipWithGuard}
-          disabled={isSubmitting}
-          className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
-        >
-          Skip All
-        </Button>
-        <Button
-          size="sm"
-          onClick={handleContinue}
-          disabled={
-            isSubmitting ||
-            (isLastQuestion ? !allQuestionsAnswered : !currentQuestionHasAnswer)
-          }
-          className="h-6 text-xs px-3 rounded-md"
-        >
-          {isSubmitting ? (
-            "Sending..."
-          ) : (
-            <>
-              {isLastQuestion ? "Submit" : "Continue"}
-              <CornerDownLeft className="w-3 h-3 ml-1 opacity-60" />
-            </>
-          )}
-        </Button>
+                    return (
+                      <button
+                        key={optIndex}
+                        onClick={() => {
+                          if (q.multiSelect || q.allowMultiple) {
+                            // Multiple choice - toggle selection
+                            const current = answers[q.question]
+                            const currentArray = Array.isArray(current) ? current : current ? [current] : []
+
+                            if (currentArray.includes(option.label)) {
+                              // Remove from selection
+                              const newSelection = currentArray.filter(v => v !== option.label)
+                              setAnswers({
+                                ...answers,
+                                [q.question]: newSelection
+                              })
+                            } else {
+                              // Add to selection
+                              setAnswers({
+                                ...answers,
+                                [q.question]: [...currentArray, option.label]
+                              })
+                            }
+                          } else {
+                            // Single choice - replace selection
+                            setAnswers({
+                              ...answers,
+                              [q.question]: option.label
+                            })
+                            // Update text input to show selected option
+                            const inputEl = document.querySelector(`input[placeholder*="${q.question}"]`) as HTMLInputElement
+                            if (inputEl) {
+                              inputEl.value = option.label
+                            }
+                          }
+                        }}
+                        disabled={isSubmitting}
+                        className={cn(
+                          "px-2 py-1 text-xs rounded-md border transition-colors",
+                          isSelected
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-muted hover:bg-muted/80 border-border",
+                          isSubmitting && "opacity-50 cursor-not-allowed"
+                        )}
+                      >
+                        {option.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Footer */}
+        <div className="px-4 py-3 border-t border-border bg-muted/30 flex items-center justify-between gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleSkipAll}
+            disabled={isSubmitting}
+          >
+            Skip All
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleSubmit}
+            disabled={!allQuestionsAnswered || isSubmitting}
+          >
+            {isSubmitting ? 'Sending...' : 'Continue'}
+          </Button>
+        </div>
       </div>
     </div>
   )

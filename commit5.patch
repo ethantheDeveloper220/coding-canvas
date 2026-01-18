@@ -1,0 +1,3760 @@
+From a8c54fa9d4697f3b64090019f6d23a54f3ed14d5 Mon Sep 17 00:00:00 2001
+From: serafim <serafimcloud@gmail.com>
+Date: Fri, 16 Jan 2026 19:38:28 -0800
+Subject: [PATCH] Release v0.0.17
+
+---
+ README.md                                     |   2 +
+ package.json                                  |   2 +-
+ src/main/lib/trpc/routers/chats.ts            | 212 ++++++++
+ .../components/chat-markdown-renderer.tsx     |   6 +-
+ .../dialogs/agents-settings-dialog.tsx        |   6 +-
+ .../dialogs/agents-shortcuts-dialog.tsx       |   1 +
+ .../settings-tabs/agents-appearance-tab.tsx   |   3 +-
+ src/renderer/components/ui/canvas-icons.tsx   |  80 +--
+ src/renderer/components/ui/icons.tsx          | 186 ++++---
+ src/renderer/features/agents/atoms/index.ts   |  56 ++-
+ .../settings-tabs/agents-appearance-tab.tsx   |   3 +-
+ .../hooks/use-changed-files-tracking.ts       |  15 +-
+ .../features/agents/main/active-chat.tsx      | 458 +++++++++++++++---
+ .../features/agents/main/new-chat-form.tsx    |  47 +-
+ .../agents/mentions/agents-file-mention.tsx   | 112 +++--
+ .../mentions/agents-mentions-editor.tsx       | 292 +++++------
+ .../agents/mentions/render-file-mentions.tsx  |   4 +-
+ .../features/agents/stores/sub-chat-store.ts  |  14 +
+ .../ui/agent-ask-user-question-tool.tsx       |   4 +-
+ .../features/agents/ui/agent-edit-tool.tsx    |  27 +-
+ .../agents/ui/agent-exit-plan-mode-tool.tsx   |   2 +-
+ .../features/agents/ui/agent-send-button.tsx  |   5 +-
+ .../features/agents/ui/agents-content.tsx     |  85 +---
+ .../features/agents/ui/sub-chat-selector.tsx  |  34 +-
+ .../agents/ui/sub-chat-status-card.tsx        |  19 +-
+ .../ChangesHeader/ChangesHeader.tsx           |   4 +-
+ .../features/sidebar/agents-sidebar.tsx       | 372 +++++++++++---
+ .../sidebar/agents-subchats-sidebar.tsx       | 140 +++++-
+ .../sidebar/hooks/use-archive-chat.ts         |  90 ----
+ .../features/sub-chats/sub-chat-selector.tsx  |   2 +-
+ src/renderer/icons/index.tsx                  |  68 ++-
+ 31 files changed, 1695 insertions(+), 656 deletions(-)
+ delete mode 100644 src/renderer/features/sidebar/hooks/use-archive-chat.ts
+
+diff --git a/README.md b/README.md
+index 08f8c8e..000b9d0 100644
+--- a/README.md
++++ b/README.md
+@@ -6,6 +6,8 @@ Best UI for Claude Code with local and remote agent execution.
+ 
+ By [21st.dev](https://21st.dev) team
+ 
++> **Note:** Currently tested on macOS and Linux. Windows support is experimental and may have issues.
++
+ ## Features
+ 
+ - **Plan & Agent Modes** - Read-only analysis or full code execution permissions
+diff --git a/package.json b/package.json
+index ecaad0a..0ecfc51 100644
+--- a/package.json
++++ b/package.json
+@@ -1,6 +1,6 @@
+ {
+   "name": "21st-desktop",
+-  "version": "0.0.16",
++  "version": "0.0.17",
+   "private": true,
+   "description": "1Code - UI for parallel work with AI agents",
+   "author": "21st.dev",
+diff --git a/src/main/lib/trpc/routers/chats.ts b/src/main/lib/trpc/routers/chats.ts
+index a5f89af..fdf999b 100644
+--- a/src/main/lib/trpc/routers/chats.ts
++++ b/src/main/lib/trpc/routers/chats.ts
+@@ -707,4 +707,216 @@ export const chatsRouter = router({
+         )
+       }
+     }),
++
++  /**
++   * Get file change stats for all workspaces
++   * Parses messages from all sub-chats and aggregates Edit/Write tool calls
++   * If openSubChatIds provided, only count stats from those sub-chats
++   */
++  getFileStats: publicProcedure
++    .input(z.object({ openSubChatIds: z.array(z.string()).optional() }).optional())
++    .query(({ input }) => {
++    const db = getDatabase()
++    const openSubChatIdsSet = input?.openSubChatIds ? new Set(input.openSubChatIds) : null
++
++    // Get all non-archived chats with their sub-chats
++    const allChats = db
++      .select({
++        chatId: chats.id,
++        subChatId: subChats.id,
++        messages: subChats.messages,
++      })
++      .from(chats)
++      .leftJoin(subChats, eq(subChats.chatId, chats.id))
++      .where(isNull(chats.archivedAt))
++      .all()
++      // Filter by open sub-chats if provided
++      .filter(row => !openSubChatIdsSet || !row.subChatId || openSubChatIdsSet.has(row.subChatId))
++
++    // Aggregate stats per workspace (chatId)
++    const statsMap = new Map<
++      string,
++      { additions: number; deletions: number; fileCount: number }
++    >()
++
++    for (const row of allChats) {
++      if (!row.messages || !row.chatId) continue
++
++      try {
++        const messages = JSON.parse(row.messages) as Array<{
++          role: string
++          parts?: Array<{
++            type: string
++            input?: {
++              file_path?: string
++              old_string?: string
++              new_string?: string
++              content?: string
++            }
++          }>
++        }>
++
++        // Track file states for this sub-chat
++        const fileStates = new Map<
++          string,
++          { originalContent: string | null; currentContent: string }
++        >()
++
++        for (const msg of messages) {
++          if (msg.role !== "assistant") continue
++          for (const part of msg.parts || []) {
++            if (part.type === "tool-Edit" || part.type === "tool-Write") {
++              const filePath = part.input?.file_path
++              if (!filePath) continue
++              // Skip session files
++              if (
++                filePath.includes("claude-sessions") ||
++                filePath.includes("Application Support")
++              )
++                continue
++
++              const oldString = part.input?.old_string || ""
++              const newString =
++                part.input?.new_string || part.input?.content || ""
++
++              const existing = fileStates.get(filePath)
++              if (existing) {
++                existing.currentContent = newString
++              } else {
++                fileStates.set(filePath, {
++                  originalContent: part.type === "tool-Write" ? null : oldString,
++                  currentContent: newString,
++                })
++              }
++            }
++          }
++        }
++
++        // Calculate stats for this sub-chat and add to workspace total
++        let subChatAdditions = 0
++        let subChatDeletions = 0
++        let subChatFileCount = 0
++
++        for (const [, state] of fileStates) {
++          const original = state.originalContent || ""
++          if (original === state.currentContent) continue
++
++          const oldLines = original ? original.split("\n").length : 0
++          const newLines = state.currentContent
++            ? state.currentContent.split("\n").length
++            : 0
++
++          if (!original) {
++            // New file
++            subChatAdditions += newLines
++          } else {
++            subChatAdditions += newLines
++            subChatDeletions += oldLines
++          }
++          subChatFileCount += 1
++        }
++
++        // Add to workspace total
++        const existing = statsMap.get(row.chatId) || {
++          additions: 0,
++          deletions: 0,
++          fileCount: 0,
++        }
++        existing.additions += subChatAdditions
++        existing.deletions += subChatDeletions
++        existing.fileCount += subChatFileCount
++        statsMap.set(row.chatId, existing)
++      } catch {
++        // Skip invalid JSON
++      }
++    }
++
++    // Convert to array for easier consumption
++    return Array.from(statsMap.entries()).map(([chatId, stats]) => ({
++      chatId,
++      ...stats,
++    }))
++  }),
++
++  /**
++   * Get sub-chats with pending plan approvals
++   * Parses messages to find ExitPlanMode tool calls without subsequent "Implement plan" user message
++   * Logic must match active-chat.tsx hasUnapprovedPlan
++   * If openSubChatIds provided, only check those sub-chats
++   */
++  getPendingPlanApprovals: publicProcedure
++    .input(z.object({ openSubChatIds: z.array(z.string()).optional() }).optional())
++    .query(({ input }) => {
++    const db = getDatabase()
++    const openSubChatIdsSet = input?.openSubChatIds ? new Set(input.openSubChatIds) : null
++
++    // Get all non-archived chats with their sub-chats
++    const allSubChats = db
++      .select({
++        chatId: chats.id,
++        subChatId: subChats.id,
++        messages: subChats.messages,
++      })
++      .from(chats)
++      .leftJoin(subChats, eq(subChats.chatId, chats.id))
++      .where(isNull(chats.archivedAt))
++      .all()
++      // Filter by open sub-chats if provided
++      .filter(row => !openSubChatIdsSet || !row.subChatId || openSubChatIdsSet.has(row.subChatId))
++
++    const pendingApprovals: Array<{ subChatId: string; chatId: string }> = []
++
++    for (const row of allSubChats) {
++      if (!row.messages || !row.subChatId || !row.chatId) continue
++
++      try {
++        const messages = JSON.parse(row.messages) as Array<{
++          role: string
++          content?: string
++          parts?: Array<{
++            type: string
++            text?: string
++          }>
++        }>
++
++        // Traverse messages from end to find unapproved ExitPlanMode
++        // Logic matches active-chat.tsx hasUnapprovedPlan
++        let hasUnapprovedPlan = false
++
++        for (let i = messages.length - 1; i >= 0; i--) {
++          const msg = messages[i]
++          if (!msg) continue
++
++          // If user message says "Implement plan" (exact match), plan is already approved
++          if (msg.role === "user") {
++            const textPart = msg.parts?.find((p) => p.type === "text")
++            const text = textPart?.text || ""
++            if (text.trim().toLowerCase() === "implement plan") {
++              break // Plan was approved, stop searching
++            }
++          }
++
++          // If assistant message with ExitPlanMode, we found an unapproved plan
++          if (msg.role === "assistant" && msg.parts) {
++            const exitPlanPart = msg.parts.find((p) => p.type === "tool-ExitPlanMode")
++            if (exitPlanPart) {
++              hasUnapprovedPlan = true
++              break
++            }
++          }
++        }
++
++        if (hasUnapprovedPlan) {
++          pendingApprovals.push({
++            subChatId: row.subChatId,
++            chatId: row.chatId,
++          })
++        }
++      } catch {
++        // Skip invalid JSON
++      }
++    }
++
++    return pendingApprovals
++  }),
+ })
+diff --git a/src/renderer/components/chat-markdown-renderer.tsx b/src/renderer/components/chat-markdown-renderer.tsx
+index bc2331c..2d92b95 100644
+--- a/src/renderer/components/chat-markdown-renderer.tsx
++++ b/src/renderer/components/chat-markdown-renderer.tsx
+@@ -212,7 +212,7 @@ const sizeStyles: Record<
+       "bg-foreground/[0.06] dark:bg-foreground/[0.1] font-mono text-[85%] rounded px-[0.4em] py-[0.2em] break-all",
+     blockquote:
+       "border-l-2 border-foreground/20 pl-3 text-foreground/70 mb-px text-sm",
+-    hr: "mt-6 mb-4 border-t border-border",
++    hr: "mt-8 mb-4 border-t border-border",
+     table: "w-full text-sm",
+     thead: "border-b border-border",
+     tbody: "",
+@@ -236,7 +236,7 @@ const sizeStyles: Record<
+       "bg-foreground/[0.06] dark:bg-foreground/[0.1] font-mono text-[85%] rounded px-[0.4em] py-[0.2em] break-all",
+     blockquote:
+       "border-l-2 border-foreground/20 pl-4 text-foreground/70 mb-px",
+-    hr: "mt-6 mb-4 border-t border-border",
++    hr: "mt-8 mb-4 border-t border-border",
+     table: "w-full text-sm",
+     thead: "border-b border-border",
+     tbody: "",
+@@ -260,7 +260,7 @@ const sizeStyles: Record<
+       "bg-foreground/[0.06] dark:bg-foreground/[0.1] font-mono text-[85%] rounded px-[0.4em] py-[0.2em] break-all",
+     blockquote:
+       "border-l-2 border-foreground/20 pl-4 text-foreground/70 mb-px",
+-    hr: "mt-6 mb-4 border-t border-border",
++    hr: "mt-8 mb-4 border-t border-border",
+     table: "w-full text-sm",
+     thead: "border-b border-border",
+     tbody: "",
+diff --git a/src/renderer/components/dialogs/agents-settings-dialog.tsx b/src/renderer/components/dialogs/agents-settings-dialog.tsx
+index 7fae7a8..0f86087 100644
+--- a/src/renderer/components/dialogs/agents-settings-dialog.tsx
++++ b/src/renderer/components/dialogs/agents-settings-dialog.tsx
+@@ -10,7 +10,7 @@ import {
+   EyeOpenFilledIcon,
+   SlidersFilledIcon,
+ } from "../../icons"
+-import { SkillIcon, AgentIcon } from "../ui/icons"
++import { SkillIconFilled, CustomAgentIconFilled } from "../ui/icons"
+ import { AgentsAppearanceTab } from "./settings-tabs/agents-appearance-tab"
+ import { AgentsProfileTab } from "./settings-tabs/agents-profile-tab"
+ import { AgentsPreferencesTab } from "./settings-tabs/agents-preferences-tab"
+@@ -65,14 +65,14 @@ const ALL_TABS = [
+   {
+     id: "skills" as SettingsTab,
+     label: "Skills",
+-    icon: SkillIcon,
++    icon: SkillIconFilled,
+     description: "Custom Claude skills",
+     beta: true,
+   },
+   {
+     id: "agents" as SettingsTab,
+     label: "Custom Agents",
+-    icon: AgentIcon,
++    icon: CustomAgentIconFilled,
+     description: "Manage custom Claude agents",
+     beta: true,
+   },
+diff --git a/src/renderer/components/dialogs/agents-shortcuts-dialog.tsx b/src/renderer/components/dialogs/agents-shortcuts-dialog.tsx
+index 6cfd4f6..4e88b9a 100644
+--- a/src/renderer/components/dialogs/agents-shortcuts-dialog.tsx
++++ b/src/renderer/components/dialogs/agents-shortcuts-dialog.tsx
+@@ -66,6 +66,7 @@ const GENERAL_SHORTCUTS: Shortcut[] = [
+   { label: "Show shortcuts", keys: ["?"] },
+   { label: "Settings", keys: ["cmd", ","] },
+   { label: "Toggle sidebar", keys: ["cmd", "\\"] },
++  { label: "Undo archive", keys: ["cmd", "Z"] },
+ ]
+ 
+ // Dynamic shortcuts based on ctrlTabTarget preference
+diff --git a/src/renderer/components/dialogs/settings-tabs/agents-appearance-tab.tsx b/src/renderer/components/dialogs/settings-tabs/agents-appearance-tab.tsx
+index af6d604..ac9c216 100644
+--- a/src/renderer/components/dialogs/settings-tabs/agents-appearance-tab.tsx
++++ b/src/renderer/components/dialogs/settings-tabs/agents-appearance-tab.tsx
+@@ -1,5 +1,6 @@
+ import { useTheme } from "next-themes"
+ import { useState, useEffect, useCallback, useMemo } from "react"
++import { IconSpinner } from "../../../icons"
+ import { useAtom, useSetAtom } from "jotai"
+ import { motion, AnimatePresence } from "motion/react"
+ import { cn } from "../../../lib/utils"
+@@ -291,7 +292,7 @@ export function AgentsAppearanceTab() {
+     return (
+       <div className="p-6 space-y-6">
+         <div className="h-48 flex items-center justify-center">
+-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground" />
++          <IconSpinner className="h-8 w-8 text-foreground" />
+         </div>
+       </div>
+     )
+diff --git a/src/renderer/components/ui/canvas-icons.tsx b/src/renderer/components/ui/canvas-icons.tsx
+index a4e01b2..defc265 100644
+--- a/src/renderer/components/ui/canvas-icons.tsx
++++ b/src/renderer/components/ui/canvas-icons.tsx
+@@ -1238,8 +1238,9 @@ export function IconChevronUp(props: IconProps) {
+   )
+ }
+ 
+-export function IconSpinner(props: IconProps & { color?: string }) {
+-  const { className, style, color, ...rest } = props
++export function IconSpinner(props: IconProps & { color?: string; size?: "default" | "nano" }) {
++  const { className, style, color, size = "default", ...rest } = props
++  const strokeWidth = size === "nano" ? 4 : 3
+   return (
+     <>
+       <style>{`
+@@ -1255,76 +1256,27 @@ export function IconSpinner(props: IconProps & { color?: string }) {
+         fill="none"
+         className={className}
+         style={{
+-          animation: "spin 0.6s linear infinite",
+-          transformOrigin: "center",
+-          color: color || "currentColor",
++          animation: "spin 1s linear infinite",
+           ...style,
+         }}
+         {...rest}
+       >
+-        {/* Top - brightest */}
+-        <path
+-          d="M12 3V6"
+-          stroke="currentColor"
+-          strokeOpacity="1"
+-          strokeWidth="2"
+-          strokeLinecap="round"
+-        />
+-        {/* Top-left */}
+-        <path
+-          d="M5.63634 5.63604L7.75766 7.75736"
+-          stroke="currentColor"
+-          strokeOpacity="0.875"
+-          strokeWidth="2"
+-          strokeLinecap="round"
+-        />
+-        {/* Left */}
+-        <path
+-          d="M3 12H6"
+-          stroke="currentColor"
+-          strokeOpacity="0.75"
+-          strokeWidth="2"
+-          strokeLinecap="round"
+-        />
+-        {/* Bottom-left */}
+-        <path
+-          d="M5.63634 18.364L7.75766 16.2426"
+-          stroke="currentColor"
+-          strokeOpacity="0.625"
+-          strokeWidth="2"
+-          strokeLinecap="round"
+-        />
+-        {/* Bottom */}
+-        <path
+-          d="M12 18V21"
+-          stroke="currentColor"
+-          strokeOpacity="0.5"
+-          strokeWidth="2"
+-          strokeLinecap="round"
+-        />
+-        {/* Bottom-right */}
+-        <path
+-          d="M16.2429 16.2426L18.3643 18.364"
+-          stroke="currentColor"
+-          strokeOpacity="0.375"
+-          strokeWidth="2"
+-          strokeLinecap="round"
+-        />
+-        {/* Right */}
+-        <path
+-          d="M18 12H21"
+-          stroke="currentColor"
+-          strokeOpacity="0.25"
+-          strokeWidth="2"
++        <circle
++          cx="12"
++          cy="12"
++          r="10"
++          stroke={color || "currentColor"}
++          strokeWidth={strokeWidth}
+           strokeLinecap="round"
++          fill="none"
++          opacity={0.2}
+         />
+-        {/* Top-right - dimmest */}
+         <path
+-          d="M16.2429 7.75736L18.3643 5.63604"
+-          stroke="currentColor"
+-          strokeOpacity="0.125"
+-          strokeWidth="2"
++          d="M12 2C6.48 2 2 6.48 2 12"
++          stroke={color || "currentColor"}
++          strokeWidth={strokeWidth}
+           strokeLinecap="round"
++          fill="none"
+         />
+       </svg>
+     </>
+diff --git a/src/renderer/components/ui/icons.tsx b/src/renderer/components/ui/icons.tsx
+index a6e7573..6dbfa15 100644
+--- a/src/renderer/components/ui/icons.tsx
++++ b/src/renderer/components/ui/icons.tsx
+@@ -1265,8 +1265,9 @@ export function IconChevronUp(props: IconProps) {
+   )
+ }
+ 
+-export function IconSpinner(props: IconProps & { color?: string }) {
+-  const { className, style, color, ...rest } = props
++export function IconSpinner(props: IconProps & { color?: string; size?: "default" | "nano" }) {
++  const { className, style, color, size = "default", ...rest } = props
++  const strokeWidth = size === "nano" ? 4 : 3
+   return (
+     <>
+       <style>{`
+@@ -1282,79 +1283,88 @@ export function IconSpinner(props: IconProps & { color?: string }) {
+         fill="none"
+         className={className}
+         style={{
+-          animation: "spin 0.6s linear infinite",
+-          transformOrigin: "center",
+-          color: color || "currentColor",
++          animation: "spin 1s linear infinite",
+           ...style,
+         }}
+         {...rest}
+       >
+-        {/* Top - brightest */}
+-        <path
+-          d="M12 3V6"
+-          stroke="currentColor"
+-          strokeOpacity="1"
+-          strokeWidth="2"
+-          strokeLinecap="round"
+-        />
+-        {/* Top-left */}
+-        <path
+-          d="M5.63634 5.63604L7.75766 7.75736"
+-          stroke="currentColor"
+-          strokeOpacity="0.875"
+-          strokeWidth="2"
+-          strokeLinecap="round"
+-        />
+-        {/* Left */}
+-        <path
+-          d="M3 12H6"
+-          stroke="currentColor"
+-          strokeOpacity="0.75"
+-          strokeWidth="2"
+-          strokeLinecap="round"
+-        />
+-        {/* Bottom-left */}
+-        <path
+-          d="M5.63634 18.364L7.75766 16.2426"
+-          stroke="currentColor"
+-          strokeOpacity="0.625"
+-          strokeWidth="2"
+-          strokeLinecap="round"
+-        />
+-        {/* Bottom */}
+-        <path
+-          d="M12 18V21"
+-          stroke="currentColor"
+-          strokeOpacity="0.5"
+-          strokeWidth="2"
++        <circle
++          cx="12"
++          cy="12"
++          r="10"
++          stroke={color || "currentColor"}
++          strokeWidth={strokeWidth}
+           strokeLinecap="round"
++          fill="none"
++          opacity={0.2}
+         />
+-        {/* Bottom-right */}
+         <path
+-          d="M16.2429 16.2426L18.3643 18.364"
+-          stroke="currentColor"
+-          strokeOpacity="0.375"
+-          strokeWidth="2"
++          d="M12 2C6.48 2 2 6.48 2 12"
++          stroke={color || "currentColor"}
++          strokeWidth={strokeWidth}
+           strokeLinecap="round"
++          fill="none"
+         />
+-        {/* Right */}
+-        <path
+-          d="M18 12H21"
++      </svg>
++    </>
++  )
++}
++
++// Loading indicator that transitions from spinner to dot
++// Shows spinner when loading, animates to blue dot when done
++export function LoadingDot({
++  isLoading,
++  className,
++  dotClassName = "bg-[#307BD0]"
++}: {
++  isLoading: boolean
++  className?: string
++  dotClassName?: string
++}) {
++  return (
++    <div className={`relative ${className || ""}`}>
++      <style>{`
++        @keyframes spin {
++          from { transform: rotate(0deg); }
++          to { transform: rotate(360deg); }
++        }
++      `}</style>
++      {/* Spinner - visible when loading */}
++      <svg
++        viewBox="0 0 24 24"
++        fill="none"
++        className={`absolute inset-0 w-full h-full transition-[opacity,transform] duration-200 ease-out ${
++          isLoading ? "opacity-100 scale-100" : "opacity-0 scale-50"
++        }`}
++        style={{
++          animation: isLoading ? 'spin 1s linear infinite' : undefined,
++        }}
++      >
++        <circle
++          cx="12"
++          cy="12"
++          r="10"
+           stroke="currentColor"
+-          strokeOpacity="0.25"
+-          strokeWidth="2"
++          strokeWidth={4}
+           strokeLinecap="round"
++          fill="none"
++          opacity={0.2}
+         />
+-        {/* Top-right - dimmest */}
+         <path
+-          d="M16.2429 7.75736L18.3643 5.63604"
++          d="M12 2C6.48 2 2 6.48 2 12"
+           stroke="currentColor"
+-          strokeOpacity="0.125"
+-          strokeWidth="2"
++          strokeWidth={4}
+           strokeLinecap="round"
++          fill="none"
+         />
+       </svg>
+-    </>
++      {/* Dot - appears when not loading */}
++      <div
++        className={`absolute inset-0 m-auto w-[80%] h-[80%] rounded-full transition-[opacity,transform] duration-200 ease-out ${dotClassName} ${
++          isLoading ? "opacity-0 scale-50" : "opacity-100 scale-100"
++        }`}
++      />
++    </div>
+   )
+ }
+ 
+@@ -5141,6 +5151,45 @@ export function AgentIcon(props: IconProps) {
+   )
+ }
+ 
++// Custom agent icon - robot outline
++export function CustomAgentIcon(props: IconProps) {
++  return (
++    <svg
++      xmlns="http://www.w3.org/2000/svg"
++      viewBox="0 0 24 24"
++      fill="none"
++      {...props}
++    >
++      <path
++        d="M12 4H7C5.89543 4 5 4.89543 5 6V11C5 12.1046 5.89543 13 7 13H17C18.1046 13 19 12.1046 19 11V6C19 4.89543 18.1046 4 17 4H12ZM12 4V2M6 15L4 17M6 15C6 18.3137 8.68629 21 12 21C15.3137 21 18 18.3137 18 15M6 15V13M18 15L20 17M18 15V13M9 8V9M15 8V9"
++        stroke="currentColor"
++        strokeWidth="2"
++        strokeLinecap="round"
++        strokeLinejoin="round"
++      />
++    </svg>
++  )
++}
++
++// Custom agent icon filled - robot filled
++export function CustomAgentIconFilled(props: IconProps) {
++  return (
++    <svg
++      xmlns="http://www.w3.org/2000/svg"
++      viewBox="0 0 24 24"
++      fill="none"
++      {...props}
++    >
++      <path
++        fillRule="evenodd"
++        clipRule="evenodd"
++        d="M12 1C12.5523 1 13 1.44772 13 2V3H17C18.6569 3 20 4.34315 20 6V11C20 11.8885 19.6138 12.6868 19 13.2361V14.5858L20.7071 16.2929C21.0976 16.6834 21.0976 17.3166 20.7071 17.7071C20.3166 18.0976 19.6834 18.0976 19.2929 17.7071L18.681 17.0952C17.7905 19.9377 15.1361 22 12 22C8.8639 22 6.20948 19.9377 5.31897 17.0952L4.70711 17.7071C4.31658 18.0976 3.68342 18.0976 3.29289 17.7071C2.90237 17.3166 2.90237 16.6834 3.29289 16.2929L5 14.5858V13.2361C4.38625 12.6868 4 11.8885 4 11V6C4 4.34315 5.34315 3 7 3H11V2C11 1.44772 11.4477 1 12 1ZM7 5C6.44772 5 6 5.44772 6 6V11C6 11.5523 6.44772 12 7 12H17C17.5523 12 18 11.5523 18 11V6C18 5.44772 17.5523 5 17 5H7ZM9 7C9.55228 7 10 7.44772 10 8V9C10 9.55228 9.55228 10 9 10C8.44772 10 8 9.55228 8 9V8C8 7.44772 8.44772 7 9 7ZM15 7C15.5523 7 16 7.44772 16 8V9C16 9.55228 15.5523 10 15 10C14.4477 10 14 9.55228 14 9V8C14 7.44772 14.4477 7 15 7Z"
++        fill="currentColor"
++      />
++    </svg>
++  )
++}
++
+ // Expand icon (arrows pointing outward) - used for expandable tool outputs
+ export function ExpandIcon(props: IconProps) {
+   return (
+@@ -5299,3 +5348,24 @@ export function SkillIcon(props: IconProps) {
+     </svg>
+   )
+ }
++
++// Skill icon filled - toolbox with tools (filled version)
++export function SkillIconFilled(props: IconProps) {
++  return (
++    <svg
++      xmlns="http://www.w3.org/2000/svg"
++      viewBox="0 0 24 24"
++      fill="none"
++      width="24"
++      height="24"
++      {...props}
++    >
++      <path
++        fillRule="evenodd"
++        clipRule="evenodd"
++        d="M11.0039 10V6.20156C11.0039 5.52035 10.7721 4.85942 10.3465 4.32748L9.09712 2.76574C8.70993 2.28175 8.12372 2 7.50391 2C6.88409 2 6.29788 2.28175 5.91069 2.76574L4.6613 4.32748C4.23575 4.85942 4.00391 5.52035 4.00391 6.20156V10H3C2.44772 10 2 10.4477 2 11V18C2 19.6569 3.34315 21 5 21H19C20.6569 21 22 19.6569 22 18V11C22 10.4477 21.5523 10 21 10H20V4C20 2.89543 19.1046 2 18 2H14C12.8954 2 12 2.89543 12 4V10H11.0039ZM7.50391 4C7.49166 4 7.48008 4.00557 7.47243 4.01513L6.22304 5.57687C6.08119 5.75418 6.00391 5.97449 6.00391 6.20156V10H9.00391V6.20156C9.00391 5.97449 8.92663 5.75418 8.78477 5.57687L7.53539 4.01513C7.52773 4.00557 7.51615 4 7.50391 4ZM14 10H18V4H14V6H15.0039C15.5562 6 16.0039 6.44772 16.0039 7C16.0039 7.55228 15.5562 8 15.0039 8H14V10Z"
++        fill="currentColor"
++      />
++    </svg>
++  )
++}
+diff --git a/src/renderer/features/agents/atoms/index.ts b/src/renderer/features/agents/atoms/index.ts
+index 9a27ee1..19ce1cd 100644
+--- a/src/renderer/features/agents/atoms/index.ts
++++ b/src/renderer/features/agents/atoms/index.ts
+@@ -9,6 +9,10 @@ export const selectedAgentChatIdAtom = atomWithStorage<string | null>(
+   { getOnInit: true },
+ )
+ 
++// Previous agent chat ID - used to navigate back after archiving current chat
++// Not persisted - only tracks within current session
++export const previousAgentChatIdAtom = atom<string | null>(null)
++
+ // Selected draft ID - when user clicks on a draft in sidebar, this is set
+ // NewChatForm uses this to restore the draft text
+ // Reset to null when "New Workspace" is clicked or chat is created
+@@ -329,10 +333,40 @@ export type AgentsMobileViewMode = "chats" | "chat" | "preview" | "diff" | "term
+ export const agentsMobileViewModeAtom = atom<AgentsMobileViewMode>("chat")
+ 
+ // Scroll position persistence per sub-chat
+-// Maps subChatId to scroll position (in pixels)
++// Maps subChatId to scroll data with validation metadata
++export interface ScrollPositionData {
++  scrollTop: number // Saved scroll position in pixels
++  scrollHeight: number // Total scrollable height at save time (for validation)
++  messageCount: number // Number of messages at save time (for validation)
++  wasStreaming: boolean // Was chat streaming when we left?
++  lastAssistantMsgId?: string // ID of last assistant message when we left
++}
++
+ export const agentsScrollPositionsAtom = atomWithStorage<
+-  Record<string, number>
+->("agents-scroll-positions", {}, undefined, { getOnInit: true })
++  Record<string, ScrollPositionData>
++>("agents-scroll-positions-v2", {}, undefined, { getOnInit: true })
++
++// Module-level cache for SYNCHRONOUS scroll position access during tab switches.
++// The Jotai atom is async (state updates are batched), so we need this cache
++// to ensure we always read the latest saved position immediately.
++const scrollPositionsCache = new Map<string, ScrollPositionData>()
++
++export const scrollPositionsCacheStore = {
++  get: (subChatId: string): ScrollPositionData | undefined =>
++    scrollPositionsCache.get(subChatId),
++
++  set: (subChatId: string, data: ScrollPositionData) => {
++    scrollPositionsCache.set(subChatId, data)
++  },
++
++  delete: (subChatId: string) => {
++    scrollPositionsCache.delete(subChatId)
++  },
++
++  clear: () => {
++    scrollPositionsCache.clear()
++  },
++}
+ 
+ // Debug mode for testing first-time user experience
+ // Only works in development mode
+@@ -382,6 +416,10 @@ export const subChatFilesAtom = atom<Map<string, SubChatFileChange[]>>(
+   new Map(),
+ )
+ 
++// Mapping from subChatId to chatId (workspace ID) for aggregating stats
++// Map<subChatId, chatId>
++export const subChatToChatMapAtom = atom<Map<string, string>>(new Map())
++
+ // Filter files for diff sidebar (null = show all files)
+ // When set, AgentDiffView will only show files matching these paths
+ export const filteredDiffFilesAtom = atom<string[] | null>(null)
+@@ -450,6 +488,18 @@ export type PendingUserQuestions = {
+ }
+ export const pendingUserQuestionsAtom = atom<PendingUserQuestions | null>(null)
+ 
++// Track sub-chats with pending plan approval (plan ready but not yet implemented)
++// Set<subChatId>
++export const pendingPlanApprovalsAtom = atom<Set<string>>(new Set())
++
+ // Store AskUserQuestion results by toolUseId for real-time updates
+ // Map<toolUseId, result>
+ export const askUserQuestionResultsAtom = atom<Map<string, unknown>>(new Map())
++
++// Unified undo stack for workspace and sub-chat archivation
++// Supports Cmd+Z to restore the last archived item (workspace or sub-chat)
++export type UndoItem =
++  | { type: "workspace"; chatId: string; timeoutId: ReturnType<typeof setTimeout> }
++  | { type: "subchat"; subChatId: string; chatId: string; timeoutId: ReturnType<typeof setTimeout> }
++
++export const undoStackAtom = atom<UndoItem[]>([])
+diff --git a/src/renderer/features/agents/components/settings-tabs/agents-appearance-tab.tsx b/src/renderer/features/agents/components/settings-tabs/agents-appearance-tab.tsx
+index 3776a1d..ce099c7 100644
+--- a/src/renderer/features/agents/components/settings-tabs/agents-appearance-tab.tsx
++++ b/src/renderer/features/agents/components/settings-tabs/agents-appearance-tab.tsx
+@@ -2,6 +2,7 @@
+ 
+ import { useTheme } from "next-themes"
+ import { useState, useEffect, useCallback, useMemo } from "react"
++import { IconSpinner } from "../../../../icons"
+ import { useAtom, useSetAtom } from "jotai"
+ import { motion, AnimatePresence } from "motion/react"
+ import { cn } from "../../../../lib/utils"
+@@ -197,7 +198,7 @@ export function AgentsAppearanceTab() {
+           <h3 className="text-sm font-semibold text-foreground">Appearance</h3>
+         </div>
+         <div className="h-48 flex items-center justify-center">
+-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground" />
++          <IconSpinner className="h-8 w-8 text-foreground" />
+         </div>
+       </div>
+     )
+diff --git a/src/renderer/features/agents/hooks/use-changed-files-tracking.ts b/src/renderer/features/agents/hooks/use-changed-files-tracking.ts
+index d734869..29dc3b5 100644
+--- a/src/renderer/features/agents/hooks/use-changed-files-tracking.ts
++++ b/src/renderer/features/agents/hooks/use-changed-files-tracking.ts
+@@ -1,6 +1,6 @@
+ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+ import { useSetAtom } from "jotai"
+-import { subChatFilesAtom, type SubChatFileChange } from "../atoms"
++import { subChatFilesAtom, subChatToChatMapAtom, type SubChatFileChange } from "../atoms"
+ // import { REPO_ROOT_PATH } from "@/lib/codesandbox-constants"
+ const REPO_ROOT_PATH = "/workspace" // Desktop mock
+ 
+@@ -28,8 +28,10 @@ export function useChangedFilesTracking(
+   messages: Message[],
+   subChatId: string,
+   isStreaming: boolean = false,
++  chatId?: string,
+ ) {
+   const setSubChatFiles = useSetAtom(subChatFilesAtom)
++  const setSubChatToChatMap = useSetAtom(subChatToChatMapAtom)
+ 
+   // Helper to get display path (removes sandbox prefixes)
+   const getDisplayPath = useCallback((filePath: string): string => {
+@@ -190,5 +192,16 @@ export function useChangedFilesTracking(
+     })
+   }, [subChatId, changedFiles, setSubChatFiles])
+ 
++  // Update subChatId -> chatId mapping for aggregation in workspace sidebar
++  useEffect(() => {
++    if (chatId) {
++      setSubChatToChatMap((prev) => {
++        const next = new Map(prev)
++        next.set(subChatId, chatId)
++        return next
++      })
++    }
++  }, [subChatId, chatId, setSubChatToChatMap])
++
+   return { changedFiles }
+ }
+diff --git a/src/renderer/features/agents/main/active-chat.tsx b/src/renderer/features/agents/main/active-chat.tsx
+index 49ab1bd..030cc01 100644
+--- a/src/renderer/features/agents/main/active-chat.tsx
++++ b/src/renderer/features/agents/main/active-chat.tsx
+@@ -61,7 +61,14 @@ import {
+   TerminalSquare,
+ } from "lucide-react"
+ import { motion } from "motion/react"
+-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
++import {
++  useCallback,
++  useEffect,
++  useLayoutEffect,
++  useMemo,
++  useRef,
++  useState,
++} from "react"
+ import { createPortal } from "react-dom"
+ import { toast } from "sonner"
+ import { trackMessageSent } from "../../../lib/analytics"
+@@ -93,10 +100,15 @@ import {
+   pendingPrMessageAtom,
+   pendingReviewMessageAtom,
+   pendingUserQuestionsAtom,
++  pendingPlanApprovalsAtom,
+   QUESTIONS_SKIPPED_MESSAGE,
++  scrollPositionsCacheStore,
+   selectedAgentChatIdAtom,
+   setLoading,
+   subChatFilesAtom,
++  undoStackAtom,
++  type ScrollPositionData,
++  type UndoItem,
+ } from "../atoms"
+ import {
+   AgentsSlashCommand,
+@@ -229,6 +241,34 @@ function getFirstSubChatId(
+   return sorted[0]?.id ?? null
+ }
+ 
++// Find the first NEW assistant message after the last known one
++// Used for smart scroll: when returning to a chat where streaming finished,
++// scroll to the start of the new response instead of bottom
++function findFirstNewAssistantMessage(
++  messages: Array<{ id: string; role: string }>,
++  lastKnownAssistantMsgId?: string,
++): string | undefined {
++  if (!lastKnownAssistantMsgId) {
++    // No previous assistant message - find first one
++    return messages.find((m) => m.role === "assistant")?.id
++  }
++
++  // Find index of last known message
++  const lastKnownIndex = messages.findIndex(
++    (m) => m.id === lastKnownAssistantMsgId,
++  )
++  if (lastKnownIndex === -1) return undefined
++
++  // Find first assistant message after that
++  for (let i = lastKnownIndex + 1; i < messages.length; i++) {
++    if (messages[i]?.role === "assistant") {
++      return messages[i]?.id
++    }
++  }
++
++  return undefined
++}
++
+ // Layout constants for chat header and sticky messages
+ const CHAT_LAYOUT = {
+   // Padding top for chat content
+@@ -674,7 +714,7 @@ function CollapsibleSteps({
+   if (stepsCount === 0) return null
+ 
+   return (
+-    <div className="mb-2">
++    <div className="mb-2" data-collapsible-steps="true">
+       {/* Header row - styled like AgentToolCall with expand icon on right */}
+       <div
+         className="flex items-center justify-between rounded-md py-0.5 px-2 cursor-pointer hover:bg-muted/50 transition-colors"
+@@ -732,6 +772,8 @@ function ChatViewInner({
+   isSubChatsSidebarOpen = false,
+   sandboxId,
+   projectPath,
++  isArchived = false,
++  onRestoreWorkspace,
+ }: {
+   chat: Chat<any>
+   subChatId: string
+@@ -749,6 +791,8 @@ function ChatViewInner({
+   isSubChatsSidebarOpen?: boolean
+   sandboxId?: string
+   projectPath?: string
++  isArchived?: boolean
++  onRestoreWorkspace?: () => void
+ }) {
+   // UNCONTROLLED: just track if editor has content for send button
+   const [hasContent, setHasContent] = useState(false)
+@@ -796,6 +840,8 @@ function ChatViewInner({
+   }, [])
+ 
+   // Scroll position persistence (like canvas)
++  // Atom is used for localStorage persistence, but we also need a module-level cache
++  // for synchronous access during tab switches (atom updates are async)
+   const [scrollPositions, setScrollPositions] = useAtom(
+     agentsScrollPositionsAtom,
+   )
+@@ -805,6 +851,12 @@ function ChatViewInner({
+ 
+   // Track current scroll position in ref (for saving on cleanup - container ref may point to new container)
+   const currentScrollTopRef = useRef(0)
++  // Track current scrollHeight for validation
++  const currentScrollHeightRef = useRef(0)
++  // Track current status for save cleanup (to know if we were streaming when leaving)
++  const currentStatusRef = useRef<string>("ready")
++  // Track last assistant message ID for smart scroll restoration
++  const lastAssistantMsgIdRef = useRef<string | undefined>(undefined)
+ 
+   // Handle scroll events to detect user scrolling (throttled)
+   // Updates shouldAutoScroll and tracks position in ref for cleanup
+@@ -814,6 +866,7 @@ function ChatViewInner({
+ 
+     // Always track current position (for cleanup to use)
+     currentScrollTopRef.current = container.scrollTop
++    currentScrollHeightRef.current = container.scrollHeight
+ 
+     // Throttle state updates to reduce re-renders
+     const now = Date.now()
+@@ -1052,14 +1105,27 @@ function ChatViewInner({
+     }
+   }, [])
+ 
+-  // Save draft on unmount (when switching workspaces) - uses ref since editor may be gone
++  // Sync draft ref on every content change so unmount cleanup has fresh value
++  // (editorRef is null during unmount, so we need to keep ref in sync)
++  const handleContentChange = useCallback((hasContent: boolean) => {
++    setHasContent(hasContent)
++    // Sync the draft text ref for unmount save
++    const draft = editorRef.current?.getValue() || ""
++    currentDraftTextRef.current = draft
++  }, [])
++
++  // Save draft on unmount (when switching workspaces)
++  // Read directly from editor first (handles hotkey switch where blur didn't fire),
++  // fall back to ref if editor is already gone
+   useEffect(() => {
+     return () => {
+-      const draft = currentDraftTextRef.current
++      const editorValue = editorRef.current?.getValue()
++      const refValue = currentDraftTextRef.current
++      const draft = editorValue || refValue
+       const chatId = currentChatIdRef.current
+       const subChatIdValue = currentSubChatIdRef.current
+ 
+-      if (!chatId || !draft.trim()) return
++      if (!chatId || !draft?.trim()) return
+ 
+       saveSubChatDraft(chatId, subChatIdValue, draft)
+     }
+@@ -1102,18 +1168,59 @@ function ChatViewInner({
+     // experimental_throttle: 200,
+   })
+ 
+-  // Stream debug: log status changes
++  // Stream debug: log status changes and scroll to plan/response start when streaming finishes
+   const prevStatusRef = useRef(status)
+   useEffect(() => {
++    const wasStreaming = prevStatusRef.current === "streaming" || prevStatusRef.current === "submitted"
++    const nowFinished = status !== "streaming" && status !== "submitted"
++    const streamingJustFinished = wasStreaming && nowFinished
++
+     if (prevStatusRef.current !== status) {
+       const subId = subChatId.slice(-8)
+       console.log(`[SD] C:STATUS sub=${subId} ${prevStatusRef.current} → ${status} msgs=${messages.length}`)
+       prevStatusRef.current = status
+     }
++
++    // When streaming finishes and user was following along (auto-scroll enabled),
++    // scroll to the start of the response/plan instead of staying at bottom
++    if (streamingJustFinished && shouldAutoScrollRef.current) {
++      requestAnimationFrame(() => {
++        const container = chatContainerRef.current
++        if (!container) return
++
++        // Find the last assistant message element
++        const allAssistantEls = container.querySelectorAll("[data-assistant-message-id]")
++        const lastAssistantElement = allAssistantEls[allAssistantEls.length - 1]
++        if (!lastAssistantElement) return
++
++        // Check if it has a collapsed steps section OR a plan section
++        const hasCollapsedSection = lastAssistantElement.querySelector("[data-collapsible-steps]")
++        const hasPlanSection = lastAssistantElement.querySelector("[data-plan-section]")
++
++        if (hasCollapsedSection || hasPlanSection) {
++          // Scroll to the start of this response
++          const rect = lastAssistantElement.getBoundingClientRect()
++          const containerRect = container.getBoundingClientRect()
++          const scrollPos = container.scrollTop + (rect.top - containerRect.top) - 120 // 120px padding
++          container.scrollTop = Math.max(0, scrollPos)
++          currentScrollTopRef.current = container.scrollTop
++          shouldAutoScrollRef.current = false
++          setShouldAutoScroll(false)
++        }
++      })
++    }
+   }, [status, subChatId, messages.length])
+ 
+   const isStreaming = status === "streaming" || status === "submitted"
+ 
++  // Keep refs updated for scroll save cleanup to use
++  useEffect(() => {
++    currentStatusRef.current = status
++    // Find last assistant message ID
++    const lastAssistantMsg = [...messages].reverse().find((m) => m.role === "assistant")
++    lastAssistantMsgIdRef.current = lastAssistantMsg?.id
++  }, [status, messages])
++
+   // Sync loading status to atom for UI indicators
+   // When streaming starts, set loading. When it stops, clear loading.
+   // Unseen changes, sound notification, and sidebar refresh are handled in onFinish callback
+@@ -1449,6 +1556,7 @@ function ChatViewInner({
+     messages,
+     subChatId,
+     isStreaming,
++    parentChatId,
+   )
+ 
+   // ESC, Ctrl+C and Cmd+Shift+Backspace handler for stopping stream
+@@ -1558,40 +1666,185 @@ function ChatViewInner({
+     subChatId,
+   ])
+ 
+-  // Save and restore scroll position on tab switch
+-  useEffect(() => {
++  // Ref to track if scroll has been restored for this sub-chat
++  const scrollRestoredRef = useRef(false)
++
++  // Save scroll position when LEAVING this tab (useLayoutEffect for synchronous save before unmount)
++  useLayoutEffect(() => {
++    const currentSubChatId = subChatId
++    const currentMessageCount = messages.length
++
++    return () => {
++      // Save position synchronously before unmount
++      const container = chatContainerRef.current
++      if (container) {
++        const wasStreaming =
++          currentStatusRef.current === "streaming" ||
++          currentStatusRef.current === "submitted"
++        const scrollData: ScrollPositionData = {
++          scrollTop: currentScrollTopRef.current,
++          scrollHeight: currentScrollHeightRef.current || container.scrollHeight,
++          messageCount: currentMessageCount,
++          wasStreaming,
++          lastAssistantMsgId: lastAssistantMsgIdRef.current,
++        }
++        // Save to SYNCHRONOUS cache first (for immediate reads on next tab switch)
++        scrollPositionsCacheStore.set(currentSubChatId, scrollData)
++        // Also save to atom for localStorage persistence
++        setScrollPositions((prev) => ({
++          ...prev,
++          [currentSubChatId]: scrollData,
++        }))
++      }
++    }
++  }, [subChatId, messages.length, setScrollPositions])
++
++  // Restore scroll position on mount with content-ready detection
++  useLayoutEffect(() => {
+     const container = chatContainerRef.current
+     if (!container) return
+ 
+-    // Read current saved position (intentionally not in deps - we only restore on tab switch)
+-    const savedPosition = scrollPositions[subChatId]
+-    if (savedPosition !== undefined) {
+-      container.scrollTop = savedPosition
+-      currentScrollTopRef.current = savedPosition
+-      justRestoredRef.current = true
+-      const atBottom = isAtBottom()
+-      setShouldAutoScroll(atBottom)
+-      shouldAutoScrollRef.current = atBottom
+-    } else {
+-      // First time opening this sub-chat - scroll to bottom
+-      requestAnimationFrame(() => {
+-        container.scrollTop = container.scrollHeight
+-        currentScrollTopRef.current = container.scrollHeight
++    // Reset tracking refs on sub-chat change
++    scrollRestoredRef.current = false
++
++    // Read saved position data - FIRST from synchronous cache, then fallback to atom
++    // The cache is updated synchronously in cleanup, while atom updates are async
++    const cachedData = scrollPositionsCacheStore.get(subChatId)
++    const atomData = scrollPositions[subChatId]
++    const savedData = cachedData ?? atomData
++
++    // Function to attempt scroll restoration
++    const restoreScroll = (source: string): boolean => {
++      if (scrollRestoredRef.current) return true
++
++      const currentContainer = chatContainerRef.current
++      if (!currentContainer) return false
++
++      if (savedData !== undefined) {
++        // Validate: only restore if we have similar content
++        // If message count matches and scrollHeight is sufficient, restore position
++        const canRestore =
++          currentContainer.scrollHeight >= savedData.scrollTop &&
++          (messages.length === savedData.messageCount ||
++            currentContainer.scrollHeight >= savedData.scrollHeight * 0.8) // Allow 20% variance
++
++        if (canRestore) {
++          currentContainer.scrollTop = savedData.scrollTop
++          currentScrollTopRef.current = savedData.scrollTop
++          currentScrollHeightRef.current = currentContainer.scrollHeight
++          scrollRestoredRef.current = true
++          justRestoredRef.current = true
++
++          // Calculate if user WAS at bottom when they LEFT (using saved data, not current DOM)
++          // This is critical because content may have grown while away
++          const clientHeight = currentContainer.clientHeight
++          const wasAtBottomWhenLeft =
++            savedData.scrollTop + clientHeight >= savedData.scrollHeight - 50 // 50px threshold
++
++          const atBottomNow = isAtBottom()
++          setShouldAutoScroll(atBottomNow)
++          shouldAutoScrollRef.current = atBottomNow
++
++          const contentGrew = currentContainer.scrollHeight > savedData.scrollHeight
++          const newMessagesAdded = messages.length > savedData.messageCount
++          const streamingFinished = savedData.wasStreaming && status !== "streaming" && status !== "submitted"
++
++          // SMART SCROLL: If was at bottom, streaming finished, and new content arrived
++          if (wasAtBottomWhenLeft && streamingFinished && (contentGrew || newMessagesAdded)) {
++            requestAnimationFrame(() => {
++              // Find the last assistant message element
++              const allAssistantEls = currentContainer.querySelectorAll("[data-assistant-message-id]")
++              const lastAssistantElement = allAssistantEls[allAssistantEls.length - 1]
++
++              // Check if it has a collapsed steps section OR a plan section
++              // These indicate there's substantial content worth scrolling to the start
++              const hasCollapsedSection = lastAssistantElement?.querySelector("[data-collapsible-steps]")
++              const hasPlanSection = lastAssistantElement?.querySelector("[data-plan-section]")
++
++              if (hasCollapsedSection || hasPlanSection) {
++                // Has collapsed section or plan - scroll to start of this response
++                const rect = lastAssistantElement.getBoundingClientRect()
++                const containerRect = currentContainer.getBoundingClientRect()
++                const scrollPos =
++                  currentContainer.scrollTop + (rect.top - containerRect.top) - 120 // 120px padding to clear user message shadow
++                currentContainer.scrollTop = Math.max(0, scrollPos)
++                currentScrollTopRef.current = currentContainer.scrollTop
++                shouldAutoScrollRef.current = false
++                setShouldAutoScroll(false)
++              } else {
++                // No collapsed section and no plan - just scroll to bottom
++                currentContainer.scrollTop = currentContainer.scrollHeight
++                currentScrollTopRef.current = currentContainer.scrollHeight
++                shouldAutoScrollRef.current = false
++                setShouldAutoScroll(false)
++              }
++            })
++            return true
++          }
++
++          // If still streaming and was at bottom, scroll to actual bottom (follow the stream)
++          if (wasAtBottomWhenLeft && contentGrew && (status === "streaming" || status === "submitted")) {
++            requestAnimationFrame(() => {
++              currentContainer.scrollTop = currentContainer.scrollHeight
++              currentScrollTopRef.current = currentContainer.scrollHeight
++              shouldAutoScrollRef.current = true
++              setShouldAutoScroll(true)
++            })
++          }
++          return true
++        }
++      } else if (currentContainer.scrollHeight > currentContainer.clientHeight) {
++        // First time opening this sub-chat with content - scroll to bottom
++        currentContainer.scrollTop = currentContainer.scrollHeight
++        currentScrollTopRef.current = currentContainer.scrollHeight
++        scrollRestoredRef.current = true
+         setShouldAutoScroll(true)
+         shouldAutoScrollRef.current = true
++        return true
++      } else if (messages.length === 0) {
++        // Empty chat - mark as restored (nothing to scroll)
++        scrollRestoredRef.current = true
++        setShouldAutoScroll(true)
++        shouldAutoScrollRef.current = true
++        return true
++      }
++
++      return false
++    }
++
++    // Try immediate restoration
++    if (restoreScroll("immediate")) return
++
++    // If not restored, use ResizeObserver to wait for content to render
++    let attempts = 0
++    const maxAttempts = 15 // More attempts for slow renders
++
++    const resizeObserver = new ResizeObserver(() => {
++      attempts++
++      if (restoreScroll(`ResizeObserver(${attempts})`) || attempts >= maxAttempts) {
++        resizeObserver.disconnect()
++      }
++    })
++
++    resizeObserver.observe(container)
++
++    // Also try with rAF chain as fallback
++    const tryWithRAF = (count: number) => {
++      if (scrollRestoredRef.current || count >= 5) return
++
++      requestAnimationFrame(() => {
++        if (restoreScroll(`rAF(${count})`)) return
++        tryWithRAF(count + 1)
+       })
+     }
+ 
+-    // Save position when LEAVING this tab (use ref because container may already point to new tab)
+-    const currentSubChatId = subChatId
++    requestAnimationFrame(() => tryWithRAF(0))
++
+     return () => {
+-      setScrollPositions((prev) => ({
+-        ...prev,
+-        [currentSubChatId]: currentScrollTopRef.current,
+-      }))
++      resizeObserver.disconnect()
+     }
+     // eslint-disable-next-line react-hooks/exhaustive-deps
+-  }, [subChatId])
++  }, [subChatId]) // Only trigger on sub-chat change, not on messages change
+ 
+   // Attach scroll listener (separate effect)
+   useEffect(() => {
+@@ -1617,13 +1870,17 @@ function ChatViewInner({
+ 
+     if (isTabSwitch) return
+ 
+-    // Skip if we just restored (state update is async, ref is sync)
++    // Skip if we just restored scroll position (prevents interference with restoration)
+     if (justRestoredRef.current) {
+       justRestoredRef.current = false
+       return
+     }
+ 
+-    if (shouldAutoScrollRef.current) {
++    // Skip if scroll restoration is still in progress (ResizeObserver may still be working)
++    if (!scrollRestoredRef.current) return
++
++    // Only auto-scroll during active streaming when user is at bottom
++    if (shouldAutoScrollRef.current && status === "streaming") {
+       const container = chatContainerRef.current
+       if (container) {
+         requestAnimationFrame(() => {
+@@ -1650,6 +1907,11 @@ function ChatViewInner({
+       return
+     }
+ 
++    // Auto-restore archived workspace when sending a message
++    if (isArchived && onRestoreWorkspace) {
++      onRestoreWorkspace()
++    }
++
+     // Get value from uncontrolled editor
+     const inputValue = editorRef.current?.getValue() || ""
+     const hasText = inputValue.trim().length > 0
+@@ -1940,6 +2202,38 @@ function ChatViewInner({
+     return false
+   }, [messages])
+ 
++  // Update pending plan approvals atom for sidebar indicators
++  const setPendingPlanApprovals = useSetAtom(pendingPlanApprovalsAtom)
++  useEffect(() => {
++    setPendingPlanApprovals((prev: Set<string>) => {
++      const newSet = new Set(prev)
++      if (hasUnapprovedPlan) {
++        newSet.add(subChatId)
++      } else {
++        newSet.delete(subChatId)
++      }
++      // Only return new set if it changed
++      if (newSet.size !== prev.size || ![...newSet].every((id) => prev.has(id))) {
++        return newSet
++      }
++      return prev
++    })
++  }, [hasUnapprovedPlan, subChatId, setPendingPlanApprovals])
++
++  // Clean up pending plan approval when unmounting
++  useEffect(() => {
++    return () => {
++      setPendingPlanApprovals((prev: Set<string>) => {
++        if (prev.has(subChatId)) {
++          const newSet = new Set(prev)
++          newSet.delete(subChatId)
++          return newSet
++        }
++        return prev
++      })
++    }
++  }, [subChatId, setPendingPlanApprovals])
++
+   // Group messages into pairs: [userMsg, ...assistantMsgs]
+   // Each group is a "conversation turn" where user message is sticky within the group
+   const messageGroups = useMemo(() => {
+@@ -2200,12 +2494,27 @@ function ChatViewInner({
+                     // For non-last messages, show final text even while streaming (they're already complete)
+                     const hasFinalText =
+                       finalTextIndex !== -1 && (!isStreaming || !isLastMessage)
++
++                    // Check if message has a plan (ExitPlanMode tool)
++                    const exitPlanPart = allParts.find(
++                      (p: any) => p.type === "tool-ExitPlanMode",
++                    )
++                    const planText = typeof exitPlanPart?.output?.plan === "string"
++                      ? exitPlanPart.output.plan
++                      : ""
++                    const hasPlan = !!planText
++
++                    // If has plan, treat everything before plan as steps to collapse
+                     const stepParts = hasFinalText
+                       ? (assistantMsg.parts || []).slice(0, finalTextIndex)
+-                      : []
++                      : hasPlan
++                        ? allParts.filter((p: any) => p.type !== "tool-ExitPlanMode") // All parts except plan are steps
++                        : []
+                     const finalParts = hasFinalText
+                       ? (assistantMsg.parts || []).slice(finalTextIndex)
+-                      : assistantMsg.parts || []
++                      : hasPlan
++                        ? [] // Plan is rendered separately, no final parts
++                        : assistantMsg.parts || []
+ 
+                     // Count visible step items (for the toggle label)
+                     const visibleStepsCount = stepParts.filter((p: any) => {
+@@ -2495,14 +2804,15 @@ function ChatViewInner({
+                     return (
+                       <motion.div
+                         key={assistantMsg.id}
++                        data-assistant-message-id={assistantMsg.id}
+                         className="group/message w-full mb-4"
+                         initial={{ opacity: 0 }}
+                         animate={{ opacity: 1 }}
+                         transition={{ duration: 0.1, ease: "easeOut" }}
+                       >
+                         <div className="flex flex-col gap-1.5">
+-                          {/* Collapsible steps section - only show when we have a final text */}
+-                          {hasFinalText && visibleStepsCount > 0 && (
++                          {/* Collapsible steps section - show when we have final text OR a plan */}
++                          {(hasFinalText || hasPlan) && visibleStepsCount > 0 && (
+                             <CollapsibleSteps stepsCount={visibleStepsCount}>
+                               {(() => {
+                                 const grouped = groupExploringTools(
+@@ -2560,20 +2870,12 @@ function ChatViewInner({
+                           })()}
+ 
+                           {/* Plan card at end of message - if ExitPlanMode tool has plan content */}
+-                          {(() => {
+-                            const exitPlanPart = allParts.find(
+-                              (p: any) => p.type === "tool-ExitPlanMode",
+-                            )
+-                            if (exitPlanPart) {
+-                              return (
+-                                <AgentExitPlanModeTool
+-                                  part={exitPlanPart}
+-                                  chatStatus={status}
+-                                />
+-                              )
+-                            }
+-                            return null
+-                          })()}
++                          {hasPlan && exitPlanPart && (
++                            <AgentExitPlanModeTool
++                              part={exitPlanPart}
++                              chatStatus={status}
++                            />
++                          )}
+ 
+                           {/* Planning indicator - like Canvas */}
+                           {shouldShowPlanning && (
+@@ -2589,19 +2891,28 @@ function ChatViewInner({
+                         </div>
+ 
+                         {/* Copy, Play, and Usage buttons bar - shows on hover (always visible on mobile) */}
+-                        {hasTextContent && (!isStreaming || !isLastMessage) && (
++                        {(hasTextContent || hasPlan) && (!isStreaming || !isLastMessage) && (
+                           <div className="flex justify-between items-center h-6 px-2 mt-1">
+                             <div className="flex items-center gap-0.5">
+                               <CopyButton
+-                                onCopy={() => copyMessageContent(assistantMsg)}
++                                onCopy={() => {
++                                  // If has plan, copy plan text; otherwise copy message content
++                                  if (hasPlan) {
++                                    navigator.clipboard.writeText(planText)
++                                  } else {
++                                    copyMessageContent(assistantMsg)
++                                  }
++                                }}
+                                 isMobile={isMobile}
+                               />
+-                              {/* Play button for all assistant messages - plays only final text (Summary) */}
++                              {/* Play button - plays plan if exists, otherwise final text or full message */}
+                               <PlayButton
+                                 text={
+-                                  hasFinalText
+-                                    ? allParts[finalTextIndex]?.text || ""
+-                                    : getMessageTextContent(assistantMsg)
++                                  hasPlan
++                                    ? planText
++                                    : hasFinalText
++                                      ? allParts[finalTextIndex]?.text || ""
++                                      : getMessageTextContent(assistantMsg)
+                                 }
+                                 isMobile={isMobile}
+                                 playbackRate={ttsPlaybackRate}
+@@ -2688,7 +2999,7 @@ function ChatViewInner({
+       {/* Input */}
+       <div
+         className={cn(
+-          "px-2 pb-2 shadow-sm shadow-background relative z-10",
++          "px-2 pb-6 shadow-sm shadow-background relative z-10",
+           (isStreaming || changedFilesForSubChat.length > 0) &&
+             !(pendingQuestions?.subChatId === subChatId) &&
+             "-mt-3 pt-3",
+@@ -2775,7 +3086,7 @@ function ChatViewInner({
+                     }}
+                     onSlashTrigger={handleSlashTrigger}
+                     onCloseSlashTrigger={handleCloseSlashTrigger}
+-                    onContentChange={setHasContent}
++                    onContentChange={handleContentChange}
+                     onSubmit={handleSend}
+                     onShiftTab={() => setIsPlanMode((prev) => !prev)}
+                     placeholder="Plan, @ for context, / for commands"
+@@ -3162,6 +3473,7 @@ export function ChatView({
+   const setSubChatUnseenChanges = useSetAtom(agentsSubChatUnseenChangesAtom)
+   const setJustCreatedIds = useSetAtom(justCreatedIdsAtom)
+   const selectedChatId = useAtomValue(selectedAgentChatIdAtom)
++  const setUndoStack = useSetAtom(undoStackAtom)
+   const { notifyAgentComplete } = useDesktopNotifications()
+ 
+   // Check if any chat has unseen changes
+@@ -3347,10 +3659,9 @@ export function ChatView({
+     mergePrMutation.mutate({ chatId, method: "squash" })
+   }, [chatId, mergePrMutation])
+ 
+-  // Restore archived workspace mutation
++  // Restore archived workspace mutation (silent - no toast)
+   const restoreWorkspaceMutation = trpc.chats.restore.useMutation({
+     onSuccess: (restoredChat) => {
+-      toast.success("Workspace restored!", { position: "top-center" })
+       if (restoredChat) {
+         // Update the main chat list cache
+         trpcUtils.chats.list.setData({}, (oldData) => {
+@@ -3365,9 +3676,6 @@ export function ChatView({
+       // Invalidate this chat's data to update isArchived state
+       utils.agents.getAgentChat.invalidate({ chatId })
+     },
+-    onError: (error) => {
+-      toast.error(error.message || "Failed to restore workspace", { position: "top-center" })
+-    },
+   })
+ 
+   const handleRestoreWorkspace = useCallback(() => {
+@@ -4051,6 +4359,22 @@ export function ChatView({
+   const isSubChatMultiSelectMode = useAtomValue(isSubChatMultiSelectModeAtom)
+   const clearSubChatSelection = useSetAtom(clearSubChatSelectionAtom)
+ 
++  // Helper to add sub-chat to undo stack
++  const addSubChatToUndoStack = useCallback((subChatId: string) => {
++    const timeoutId = setTimeout(() => {
++      setUndoStack((prev) => prev.filter(
++        (item) => !(item.type === "subchat" && item.subChatId === subChatId)
++      ))
++    }, 10000)
++
++    setUndoStack((prev) => [...prev, {
++      type: "subchat",
++      subChatId,
++      chatId,
++      timeoutId,
++    }])
++  }, [chatId, setUndoStack])
++
+   // Keyboard shortcut: Close active sub-chat (or bulk close if multi-select mode)
+   // Web: Opt+Cmd+W (browser uses Cmd+W to close tab)
+   // Desktop: Cmd+W
+@@ -4083,7 +4407,10 @@ export function ChatView({
+ 
+           // Don't close all tabs via hotkey - user should use sidebar dialog for last tab
+           if (remainingOpenIds.length > 0) {
+-            idsToClose.forEach((id) => store.removeFromOpenSubChats(id))
++            idsToClose.forEach((id) => {
++              store.removeFromOpenSubChats(id)
++              addSubChatToUndoStack(id)
++            })
+           }
+           clearSubChatSelection()
+           return
+@@ -4097,13 +4424,14 @@ export function ChatView({
+         // removeFromOpenSubChats automatically switches to the last remaining tab
+         if (activeId && openIds.length > 1) {
+           store.removeFromOpenSubChats(activeId)
++          addSubChatToUndoStack(activeId)
+         }
+       }
+     }
+ 
+     window.addEventListener("keydown", handleKeyDown)
+     return () => window.removeEventListener("keydown", handleKeyDown)
+-  }, [isSubChatMultiSelectMode, selectedSubChatIds, clearSubChatSelection])
++  }, [isSubChatMultiSelectMode, selectedSubChatIds, clearSubChatSelection, addSubChatToUndoStack])
+ 
+   // Keyboard shortcut: Navigate between sub-chats
+   // Web: Opt+Cmd+[ and Opt+Cmd+] (browser uses Cmd+[ for back)
+@@ -4572,6 +4900,8 @@ export function ChatView({
+               isSubChatsSidebarOpen={subChatsSidebarMode === "sidebar"}
+               sandboxId={sandboxId || undefined}
+               projectPath={worktreePath || undefined}
++              isArchived={isArchived}
++              onRestoreWorkspace={handleRestoreWorkspace}
+             />
+           ) : (
+             <>
+diff --git a/src/renderer/features/agents/main/new-chat-form.tsx b/src/renderer/features/agents/main/new-chat-form.tsx
+index 976ed21..75079ac 100644
+--- a/src/renderer/features/agents/main/new-chat-form.tsx
++++ b/src/renderer/features/agents/main/new-chat-form.tsx
+@@ -226,6 +226,11 @@ export function NewChatForm({
+   const [mentionSearchText, setMentionSearchText] = useState("")
+   const [mentionPosition, setMentionPosition] = useState({ top: 0, left: 0 })
+ 
++  // Mention subpage navigation state
++  const [showingFilesList, setShowingFilesList] = useState(false)
++  const [showingSkillsList, setShowingSkillsList] = useState(false)
++  const [showingAgentsList, setShowingAgentsList] = useState(false)
++
+   // Slash command dropdown state
+   const [showSlashDropdown, setShowSlashDropdown] = useState(false)
+   const [slashSearchText, setSlashSearchText] = useState("")
+@@ -666,8 +671,29 @@ export function NewChatForm({
+   ])
+ 
+   const handleMentionSelect = useCallback((mention: FileMentionOption) => {
++    // Category navigation - enter subpage instead of inserting mention
++    if (mention.type === "category") {
++      if (mention.id === "files") {
++        setShowingFilesList(true)
++        return
++      }
++      if (mention.id === "skills") {
++        setShowingSkillsList(true)
++        return
++      }
++      if (mention.id === "agents") {
++        setShowingAgentsList(true)
++        return
++      }
++    }
++
++    // Otherwise: insert mention as normal
+     editorRef.current?.insertMention(mention)
+     setShowMentionDropdown(false)
++    // Reset subpage state
++    setShowingFilesList(false)
++    setShowingSkillsList(false)
++    setShowingAgentsList(false)
+   }, [])
+ 
+   // Save draft to localStorage when content changes
+@@ -728,6 +754,10 @@ export function NewChatForm({
+       if (validatedProject) {
+         setMentionSearchText(searchText)
+         setMentionPosition({ top: rect.top, left: rect.left })
++        // Reset subpage state when opening dropdown
++        setShowingFilesList(false)
++        setShowingSkillsList(false)
++        setShowingAgentsList(false)
+         setShowMentionDropdown(true)
+       }
+     },
+@@ -736,6 +766,10 @@ export function NewChatForm({
+ 
+   const handleCloseTrigger = useCallback(() => {
+     setShowMentionDropdown(false)
++    // Reset subpage state when closing
++    setShowingFilesList(false)
++    setShowingSkillsList(false)
++    setShowingAgentsList(false)
+   }, [])
+ 
+   // Slash command handlers
+@@ -908,7 +942,7 @@ export function NewChatForm({
+         </div>
+       </div>
+ 
+-      <div className="flex flex-1 items-center justify-center overflow-y-auto relative">
++      <div className="flex flex-1 items-center justify-center overflow-y-auto relative pb-16">
+         <div className="w-full max-w-2xl space-y-4 md:space-y-6 relative z-10 px-4">
+           {/* Title - only show when project is selected */}
+           {validatedProject && (
+@@ -1397,11 +1431,20 @@ export function NewChatForm({
+                 {/* Desktop: use projectPath for local file search */}
+                 <AgentsFileMention
+                   isOpen={showMentionDropdown && !!validatedProject}
+-                  onClose={() => setShowMentionDropdown(false)}
++                  onClose={() => {
++                    setShowMentionDropdown(false)
++                    // Reset subpage state when dropdown closes
++                    setShowingFilesList(false)
++                    setShowingSkillsList(false)
++                    setShowingAgentsList(false)
++                  }}
+                   onSelect={handleMentionSelect}
+                   searchText={mentionSearchText}
+                   position={mentionPosition}
+                   projectPath={validatedProject?.path}
++                  showingFilesList={showingFilesList}
++                  showingSkillsList={showingSkillsList}
++                  showingAgentsList={showingAgentsList}
+                 />
+ 
+                 {/* Slash command dropdown */}
+diff --git a/src/renderer/features/agents/mentions/agents-file-mention.tsx b/src/renderer/features/agents/mentions/agents-file-mention.tsx
+index bef1a29..bbfed00 100644
+--- a/src/renderer/features/agents/mentions/agents-file-mention.tsx
++++ b/src/renderer/features/agents/mentions/agents-file-mention.tsx
+@@ -22,7 +22,7 @@ import {
+   FilesIcon,
+   IconSpinner,
+   SkillIcon,
+-  AgentIcon,
++  CustomAgentIcon,
+ } from "../../../components/ui/icons"
+ import { ChevronRight } from "lucide-react"
+ import {
+@@ -313,7 +313,7 @@ export function createFileIconElement(filename: string, type?: "file" | "folder"
+   const IconComponent = type === "skill"
+     ? SkillIcon
+     : type === "agent"
+-      ? AgentIcon
++      ? CustomAgentIcon
+     : type === "folder"
+       ? FolderOpenIcon
+       : (getFileIconByExtension(filename) ?? FilesIcon)
+@@ -399,8 +399,8 @@ function SkillIconWrapper({ className }: { className?: string }) {
+   return <SkillIcon className={className} />
+ }
+ 
+-function AgentIconWrapper({ className }: { className?: string }) {
+-  return <AgentIcon className={className} />
++function CustomAgentIconWrapper({ className }: { className?: string }) {
++  return <CustomAgentIcon className={className} />
+ }
+ 
+ // Category icon component
+@@ -412,7 +412,7 @@ function CategoryIcon({ className, categoryId }: { className?: string; categoryI
+     return <SkillIcon className={className} />
+   }
+   if (categoryId === "agents") {
+-    return <AgentIcon className={className} />
++    return <CustomAgentIcon className={className} />
+   }
+   return <FilesIcon className={className} />
+ }
+@@ -431,7 +431,7 @@ export function getOptionIcon(option: { id?: string; label: string; type?: "file
+     return SkillIconWrapper
+   }
+   if (option.type === "agent") {
+-    return AgentIconWrapper
++    return CustomAgentIconWrapper
+   }
+   if (option.type === "folder") {
+     return FolderIcon
+@@ -474,9 +474,23 @@ function renderFolderTree(path: string) {
+   )
+ }
+ 
++/**
++ * Check if a string matches all search words (multi-word search)
++ * Splits search by whitespace, all words must be present in target
++ */
++function matchesMultiWordSearch(target: string, searchLower: string): boolean {
++  if (!searchLower) return true
++  const searchWords = searchLower.split(/\s+/).filter(Boolean)
++  if (searchWords.length === 0) return true
++  const targetLower = target.toLowerCase()
++  return searchWords.every(word => targetLower.includes(word))
++}
++
+ /**
+  * Sort files by relevance to search query
+  * Priority: exact match > starts with > shorter match > contains in filename > alphabetical
++ * Supports multi-word search - splits by whitespace, all words must match
++ * When search ends with space, prioritize files with hyphen/underscore (e.g. "agents " -> "agents-sidebar")
+  */
+ function sortFilesByRelevance<T extends { label: string; path?: string }>(
+   files: T[],
+@@ -485,6 +499,10 @@ function sortFilesByRelevance<T extends { label: string; path?: string }>(
+   if (!searchText) return files
+ 
+   const searchLower = searchText.toLowerCase()
++  const searchWords = searchLower.split(/\s+/).filter(Boolean)
++  const isSingleWord = searchWords.length <= 1
++  // Check if search ends with space - user wants to continue with hyphenated names
++  const endsWithSpace = searchText.endsWith(" ")
+ 
+   return [...files].sort((a, b) => {
+     const aLabelLower = a.label.toLowerCase()
+@@ -494,28 +512,54 @@ function sortFilesByRelevance<T extends { label: string; path?: string }>(
+     const aNameNoExt = aLabelLower.replace(/\.[^.]+$/, "")
+     const bNameNoExt = bLabelLower.replace(/\.[^.]+$/, "")
+ 
+-    // Priority 1: EXACT match (chat.tsx when searching "chat")
+-    const aExact = aNameNoExt === searchLower
+-    const bExact = bNameNoExt === searchLower
+-    if (aExact && !bExact) return -1
+-    if (!aExact && bExact) return 1
++    // For multi-word search, prioritize files where all words match in filename
++    if (!isSingleWord) {
++      const aAllInFilename = searchWords.every(w => aLabelLower.includes(w))
++      const bAllInFilename = searchWords.every(w => bLabelLower.includes(w))
++      if (aAllInFilename && !bAllInFilename) return -1
++      if (!aAllInFilename && bAllInFilename) return 1
++    }
++
++    // When search ends with space, prioritize files with hyphen/underscore after first word
++    // e.g. "agents " should show "agents-sidebar" before "agents" folder
++    if (endsWithSpace && searchWords.length >= 1) {
++      const lastWord = searchWords[searchWords.length - 1]
++      // Check if filename has hyphen/underscore continuation after matching word
++      const aHasContinuation = aNameNoExt.includes(`${lastWord}-`) || aNameNoExt.includes(`${lastWord}_`)
++      const bHasContinuation = bNameNoExt.includes(`${lastWord}-`) || bNameNoExt.includes(`${lastWord}_`)
++      if (aHasContinuation && !bHasContinuation) return -1
++      if (!aHasContinuation && bHasContinuation) return 1
++    }
+ 
+-    // Priority 2: filename STARTS with query
+-    const aStartsWith = aNameNoExt.startsWith(searchLower)
+-    const bStartsWith = bNameNoExt.startsWith(searchLower)
++    // Priority 1: EXACT match (chat.tsx when searching "chat") - single word only, not when ending with space
++    if (isSingleWord && !endsWithSpace) {
++      const aExact = aNameNoExt === searchLower
++      const bExact = bNameNoExt === searchLower
++      if (aExact && !bExact) return -1
++      if (!aExact && bExact) return 1
++    }
++
++    // Priority 2: filename STARTS with first search word
++    const firstWord = searchWords[0] || searchLower
++    const aStartsWith = aNameNoExt.startsWith(firstWord)
++    const bStartsWith = bNameNoExt.startsWith(firstWord)
+     if (aStartsWith && !bStartsWith) return -1
+     if (!aStartsWith && bStartsWith) return 1
+ 
+     // Priority 3: If both start with query, shorter name = higher match %
++    // But when ending with space, prefer longer (hyphenated) names
+     if (aStartsWith && bStartsWith) {
+       if (aNameNoExt.length !== bNameNoExt.length) {
+-        return aNameNoExt.length - bNameNoExt.length // shorter first
++        if (endsWithSpace) {
++          return bNameNoExt.length - aNameNoExt.length // longer first when space at end
++        }
++        return aNameNoExt.length - bNameNoExt.length // shorter first normally
+       }
+     }
+ 
+-    // Priority 4: filename CONTAINS query (but doesn't start with it)
+-    const aFilenameMatch = aLabelLower.includes(searchLower)
+-    const bFilenameMatch = bLabelLower.includes(searchLower)
++    // Priority 4: filename CONTAINS first word (but doesn't start with it)
++    const aFilenameMatch = aLabelLower.includes(firstWord)
++    const bFilenameMatch = bLabelLower.includes(firstWord)
+     if (aFilenameMatch && !bFilenameMatch) return -1
+     if (!aFilenameMatch && bFilenameMatch) return 1
+ 
+@@ -611,6 +655,14 @@ export const AgentsFileMention = memo(function AgentsFileMention({
+     return () => clearTimeout(timer)
+   }, [searchText])
+ 
++  // For multi-word search, send only first word to API (server filters by that),
++  // then filter results on client by all words
++  const apiSearchQuery = useMemo(() => {
++    if (!debouncedSearchText) return ""
++    const words = debouncedSearchText.split(/\s+/).filter(Boolean)
++    return words[0] || ""
++  }, [debouncedSearchText])
++
+   // Fetch files from API
+   // Priority: sandboxId (includes uncommitted) > branch (GitHub API) > cached file_tree
+   const {
+@@ -622,7 +674,7 @@ export const AgentsFileMention = memo(function AgentsFileMention({
+     {
+       teamId: teamId!,
+       repository: repository!,
+-      query: debouncedSearchText || "",
++      query: apiSearchQuery,
+       limit: 50,
+       sandboxId: sandboxId,
+       branch: branch, // Pass branch for GitHub API fetch
+@@ -644,9 +696,9 @@ export const AgentsFileMention = memo(function AgentsFileMention({
+     const searchLower = debouncedSearchText.toLowerCase()
+ 
+     const mapped = changedFiles
+-      .filter(
+-        (file) =>
+-          !searchLower || file.filePath.toLowerCase().includes(searchLower),
++      .filter((file) =>
++        // Multi-word search: all words must match in file path
++        matchesMultiWordSearch(file.filePath, searchLower),
+       )
+       .map((file) => {
+         const pathParts = file.filePath.split("/")
+@@ -676,8 +728,12 @@ export const AgentsFileMention = memo(function AgentsFileMention({
+   )
+ 
+   const repoFileOptions: FileMentionOption[] = useMemo(() => {
++    const searchLower = debouncedSearchText.toLowerCase()
++
+     const mapped = fileResults
+       .filter((file) => !changedFilePaths.has(file.path))
++      // Client-side multi-word filtering (API only filtered by first word)
++      .filter((file) => matchesMultiWordSearch(file.path, searchLower))
+       .map((file) => {
+         // Get directory path (without filename/foldername) for inline display
+         const pathParts = file.path.split("/")
+@@ -703,9 +759,9 @@ export const AgentsFileMention = memo(function AgentsFileMention({
+ 
+     return skills
+       .filter(skill =>
+-        !searchLower ||
+-        skill.name.toLowerCase().includes(searchLower) ||
+-        skill.description.toLowerCase().includes(searchLower)
++        // Multi-word search: all words must match in name OR description
++        matchesMultiWordSearch(skill.name, searchLower) ||
++        matchesMultiWordSearch(skill.description, searchLower)
+       )
+       .map(skill => ({
+         id: `${MENTION_PREFIXES.SKILL}${skill.name}`,
+@@ -726,9 +782,9 @@ export const AgentsFileMention = memo(function AgentsFileMention({
+ 
+     return customAgents
+       .filter(agent =>
+-        !searchLower ||
+-        agent.name.toLowerCase().includes(searchLower) ||
+-        agent.description.toLowerCase().includes(searchLower)
++        // Multi-word search: all words must match in name OR description
++        matchesMultiWordSearch(agent.name, searchLower) ||
++        matchesMultiWordSearch(agent.description, searchLower)
+       )
+       .map(agent => ({
+         id: `${MENTION_PREFIXES.AGENT}${agent.name}`,
+diff --git a/src/renderer/features/agents/mentions/agents-mentions-editor.tsx b/src/renderer/features/agents/mentions/agents-mentions-editor.tsx
+index 5e65fe8..ce34fa6 100644
+--- a/src/renderer/features/agents/mentions/agents-mentions-editor.tsx
++++ b/src/renderer/features/agents/mentions/agents-mentions-editor.tsx
+@@ -9,26 +9,9 @@ import {
+   useRef,
+   useState,
+   memo,
+-  useMemo,
+ } from "react"
+ import { createFileIconElement } from "./agents-file-mention"
+ 
+-// Debounce utility for performance optimization
+-function debounce<T extends (...args: Parameters<T>) => void>(
+-  fn: T,
+-  delay: number,
+-): { (...args: Parameters<T>): void; cancel: () => void } {
+-  let timeoutId: ReturnType<typeof setTimeout> | null = null
+-  const debouncedFn = (...args: Parameters<T>) => {
+-    if (timeoutId) clearTimeout(timeoutId)
+-    timeoutId = setTimeout(() => fn(...args), delay)
+-  }
+-  debouncedFn.cancel = () => {
+-    if (timeoutId) clearTimeout(timeoutId)
+-  }
+-  return debouncedFn
+-}
+-
+ // Threshold for skipping expensive trigger detection (characters)
+ const LARGE_TEXT_THRESHOLD = 50000
+ 
+@@ -318,12 +301,21 @@ function walkTreeOnce(root: HTMLElement, range: Range | null): TreeWalkResult {
+         const localAtIdx = textBeforeInNode.lastIndexOf("@")
+         if (localAtIdx !== -1) {
+           const globalAtIdx = serialized.length + localAtIdx
+-          // Check if this @ is the most recent one
+-          if (globalAtIdx > atIndex) {
++
++          // Check character before @ - must be start of text, whitespace, or newline (not part of email/word)
++          const textUpToAt = serialized + textBeforeInNode.slice(0, localAtIdx)
++          const charBefore = globalAtIdx > 0 ? textUpToAt.charAt(globalAtIdx - 1) : null
++          const isStandaloneAt = charBefore === null || /\s/.test(charBefore)
++
++          // Check if this @ is the most recent one AND is standalone
++          if (isStandaloneAt && globalAtIdx > atIndex) {
+             const afterAt = textBeforeCursor.slice(
+               textBeforeCursor.lastIndexOf("@") + 1,
+             )
+-            if (!afterAt.includes(" ") && !afterAt.includes("\n")) {
++            // Close on newline or double-space (not single space - allow multi-word search)
++            const hasNewline = afterAt.includes("\n")
++            const hasDoubleSpace = afterAt.includes("  ")
++            if (!hasNewline && !hasDoubleSpace) {
+               atIndex = globalAtIdx
+               atPosition = { node, offset: localAtIdx }
+             }
+@@ -358,11 +350,19 @@ function walkTreeOnce(root: HTMLElement, range: Range | null): TreeWalkResult {
+         reachedCursor = true
+       } else if (!reachedCursor) {
+         textBeforeCursor += text
+-        // Track @ positions as we go
++        // Track @ positions as we go (only if standalone - not part of email/word)
+         const localAtIdx = text.lastIndexOf("@")
+         if (localAtIdx !== -1) {
+-          atIndex = serialized.length + localAtIdx
+-          atPosition = { node, offset: localAtIdx }
++          const globalAtIdx = serialized.length + localAtIdx
++          // Check character before @ - must be start of text, whitespace, or newline
++          const textUpToAt = serialized + text.slice(0, localAtIdx)
++          const charBefore = globalAtIdx > 0 ? textUpToAt.charAt(globalAtIdx - 1) : null
++          const isStandaloneAt = charBefore === null || /\s/.test(charBefore)
++
++          if (isStandaloneAt) {
++            atIndex = globalAtIdx
++            atPosition = { node, offset: localAtIdx }
++          }
+         }
+       }
+ 
+@@ -431,10 +431,12 @@ function walkTreeOnce(root: HTMLElement, range: Range | null): TreeWalkResult {
+     node = walker.nextNode()
+   }
+ 
+-  // Validate @ trigger - check if space/newline after it
++  // Validate @ trigger - close on newline or double-space (allow single spaces for multi-word search)
+   if (atIndex !== -1) {
+     const afterAt = textBeforeCursor.slice(atIndex + 1)
+-    if (afterAt.includes(" ") || afterAt.includes("\n")) {
++    const hasNewline = afterAt.includes("\n")
++    const hasDoubleSpace = afterAt.includes("  ")
++    if (hasNewline || hasDoubleSpace) {
+       atIndex = -1
+       atPosition = null
+     }
+@@ -575,140 +577,149 @@ export const AgentsMentionsEditor = memo(
+         }
+       }, [])
+ 
+-      // Debounced trigger detection for performance (expensive tree walk)
+-      const debouncedTriggerDetection = useMemo(
+-        () =>
+-          debounce(() => {
+-            if (!editorRef.current) return
++      // Trigger detection timeout ref for cleanup
++      const triggerDetectionTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+ 
+-            const content = editorRef.current.textContent || ""
++      // Handle input - UNCONTROLLED: no onChange, just @ and / trigger detection
++      const handleInput = useCallback(() => {
++        if (!editorRef.current) return
+ 
+-            // Skip expensive trigger detection for very large text
+-            // This prevents UI freeze when pasting large content
+-            if (content.length > LARGE_TEXT_THRESHOLD) {
+-              // Close any open triggers since we can't detect them
+-              if (triggerActive.current) {
+-                triggerActive.current = false
+-                triggerStartIndex.current = null
+-                onCloseTrigger()
+-              }
+-              if (slashTriggerActive.current) {
+-                slashTriggerActive.current = false
+-                slashTriggerStartIndex.current = null
+-                onCloseSlashTrigger?.()
+-              }
+-              return
+-            }
++        // Update placeholder visibility and notify parent IMMEDIATELY (cheap operation)
++        // Use textContent without trim() so placeholder hides even with just spaces
++        const content = editorRef.current.textContent || ""
++        const newHasContent = !!content
++        setHasContent(newHasContent)
++        onContentChange?.(newHasContent)
+ 
+-            // Get selection for cursor position
+-            const sel = window.getSelection()
+-            const range = sel && sel.rangeCount > 0 ? sel.getRangeAt(0) : null
+-
+-            // Handle non-collapsed selection (close triggers)
+-            if (range && !range.collapsed) {
+-              if (triggerActive.current) {
+-                triggerActive.current = false
+-                triggerStartIndex.current = null
+-                onCloseTrigger()
+-              }
+-              if (slashTriggerActive.current) {
+-                slashTriggerActive.current = false
+-                slashTriggerStartIndex.current = null
+-                onCloseSlashTrigger?.()
+-              }
+-              return
+-            }
++        // Skip expensive trigger detection for very large text
++        // This prevents UI freeze when pasting large content
++        if (content.length > LARGE_TEXT_THRESHOLD) {
++          // Close any open triggers since we can't detect them
++          if (triggerActive.current) {
++            triggerActive.current = false
++            triggerStartIndex.current = null
++            onCloseTrigger()
++          }
++          if (slashTriggerActive.current) {
++            slashTriggerActive.current = false
++            slashTriggerStartIndex.current = null
++            onCloseSlashTrigger?.()
++          }
++          return
++        }
+ 
+-            // Single tree walk for @ and / trigger detection
+-            const {
+-              textBeforeCursor,
+-              atPosition,
+-              atIndex,
+-              slashPosition,
+-              slashIndex,
+-            } = walkTreeOnce(editorRef.current, range)
+-
+-            // Handle @ trigger (takes priority over /)
+-            if (atIndex !== -1 && atPosition) {
+-              triggerActive.current = true
+-              triggerStartIndex.current = atIndex
+-
+-              // Close slash trigger if active
+-              if (slashTriggerActive.current) {
+-                slashTriggerActive.current = false
+-                slashTriggerStartIndex.current = null
+-                onCloseSlashTrigger?.()
+-              }
++        // Clear previous timeout
++        if (triggerDetectionTimeout.current) {
++          clearTimeout(triggerDetectionTimeout.current)
++        }
+ 
+-              const afterAt = textBeforeCursor.slice(atIndex + 1)
++        // For short content, run trigger detection immediately
++        // For longer content, debounce to avoid performance issues
++        const runTriggerDetection = () => {
++          if (!editorRef.current) return
+ 
+-              // Get position for dropdown
+-              if (atPosition.node.nodeType === Node.TEXT_NODE) {
+-                const tempRange = document.createRange()
+-                tempRange.setStart(atPosition.node, atPosition.offset)
+-                tempRange.setEnd(atPosition.node, atPosition.offset + 1)
+-                const rect = tempRange.getBoundingClientRect()
+-                onTrigger({ searchText: afterAt, rect })
+-                return
+-              }
+-            }
++          // Get selection for cursor position
++          const sel = window.getSelection()
++          const range = sel && sel.rangeCount > 0 ? sel.getRangeAt(0) : null
+ 
+-            // Close @ trigger if no @ found
++          // Handle non-collapsed selection (close triggers)
++          if (range && !range.collapsed) {
+             if (triggerActive.current) {
+               triggerActive.current = false
+               triggerStartIndex.current = null
+               onCloseTrigger()
+             }
+-
+-            // Handle / trigger (only if @ trigger is not active)
+-            if (slashIndex !== -1 && slashPosition && onSlashTrigger) {
+-              slashTriggerActive.current = true
+-              slashTriggerStartIndex.current = slashIndex
+-
+-              const afterSlash = textBeforeCursor.slice(slashIndex + 1)
+-
+-              // Get position for dropdown
+-              if (slashPosition.node.nodeType === Node.TEXT_NODE) {
+-                const tempRange = document.createRange()
+-                tempRange.setStart(slashPosition.node, slashPosition.offset)
+-                tempRange.setEnd(slashPosition.node, slashPosition.offset + 1)
+-                const rect = tempRange.getBoundingClientRect()
+-                onSlashTrigger({ searchText: afterSlash, rect })
+-                return
+-              }
++            if (slashTriggerActive.current) {
++              slashTriggerActive.current = false
++              slashTriggerStartIndex.current = null
++              onCloseSlashTrigger?.()
+             }
++            return
++          }
+ 
+-            // Close / trigger if no / found
++          // Single tree walk for @ and / trigger detection
++          const {
++            textBeforeCursor,
++            atPosition,
++            atIndex,
++            slashPosition,
++            slashIndex,
++          } = walkTreeOnce(editorRef.current, range)
++
++          // Handle @ trigger (takes priority over /)
++          if (atIndex !== -1 && atPosition) {
++            triggerActive.current = true
++            triggerStartIndex.current = atIndex
++
++            // Close slash trigger if active
+             if (slashTriggerActive.current) {
+               slashTriggerActive.current = false
+               slashTriggerStartIndex.current = null
+               onCloseSlashTrigger?.()
+             }
+-          }, 16), // ~1 frame delay for debounce
+-        [onTrigger, onCloseTrigger, onSlashTrigger, onCloseSlashTrigger],
+-      )
+ 
+-      // Cleanup debounce on unmount
+-      useEffect(() => {
+-        return () => {
+-          debouncedTriggerDetection.cancel()
+-        }
+-      }, [debouncedTriggerDetection])
++            const afterAt = textBeforeCursor.slice(atIndex + 1)
+ 
+-      // Handle input - UNCONTROLLED: no onChange, just @ and / trigger detection
+-      const handleInput = useCallback(() => {
+-        if (!editorRef.current) return
++            // Get position for dropdown
++            if (atPosition.node.nodeType === Node.TEXT_NODE) {
++              const tempRange = document.createRange()
++              tempRange.setStart(atPosition.node, atPosition.offset)
++              tempRange.setEnd(atPosition.node, atPosition.offset + 1)
++              const rect = tempRange.getBoundingClientRect()
++              onTrigger({ searchText: afterAt, rect })
++              return
++            }
++          }
+ 
+-        // Update placeholder visibility and notify parent IMMEDIATELY (cheap operation)
+-        // Use textContent without trim() so placeholder hides even with just spaces
+-        const content = editorRef.current.textContent
+-        const newHasContent = !!content
+-        setHasContent(newHasContent)
+-        onContentChange?.(newHasContent)
++          // Close @ trigger if no @ found
++          if (triggerActive.current) {
++            triggerActive.current = false
++            triggerStartIndex.current = null
++            onCloseTrigger()
++          }
++
++          // Handle / trigger (only if @ trigger is not active)
++          if (slashIndex !== -1 && slashPosition && onSlashTrigger) {
++            slashTriggerActive.current = true
++            slashTriggerStartIndex.current = slashIndex
+ 
+-        // Debounce the expensive trigger detection
+-        debouncedTriggerDetection()
+-      }, [onContentChange, debouncedTriggerDetection])
++            const afterSlash = textBeforeCursor.slice(slashIndex + 1)
++
++            // Get position for dropdown
++            if (slashPosition.node.nodeType === Node.TEXT_NODE) {
++              const tempRange = document.createRange()
++              tempRange.setStart(slashPosition.node, slashPosition.offset)
++              tempRange.setEnd(slashPosition.node, slashPosition.offset + 1)
++              const rect = tempRange.getBoundingClientRect()
++              onSlashTrigger({ searchText: afterSlash, rect })
++              return
++            }
++          }
++
++          // Close / trigger if no / found
++          if (slashTriggerActive.current) {
++            slashTriggerActive.current = false
++            slashTriggerStartIndex.current = null
++            onCloseSlashTrigger?.()
++          }
++        }
++
++        // Run immediately for short content, debounce for longer
++        if (content.length < 1000) {
++          runTriggerDetection()
++        } else {
++          triggerDetectionTimeout.current = setTimeout(runTriggerDetection, 16)
++        }
++      }, [onContentChange, onTrigger, onCloseTrigger, onSlashTrigger, onCloseSlashTrigger])
++
++      // Cleanup timeout on unmount
++      useEffect(() => {
++        return () => {
++          if (triggerDetectionTimeout.current) {
++            clearTimeout(triggerDetectionTimeout.current)
++          }
++        }
++      }, [])
+ 
+       // Handle keydown
+       const handleKeyDown = useCallback(
+@@ -787,6 +798,15 @@ export const AgentsMentionsEditor = memo(
+             const newHasContent = !!value
+             setHasContent(newHasContent)
+             onContentChange?.(newHasContent)
++
++            // Position cursor at the end of content
++            if (newHasContent) {
++              const sel = window.getSelection()
++              if (sel) {
++                sel.selectAllChildren(editorRef.current)
++                sel.collapseToEnd()
++              }
++            }
+           },
+ 
+           // Clear editor content
+diff --git a/src/renderer/features/agents/mentions/render-file-mentions.tsx b/src/renderer/features/agents/mentions/render-file-mentions.tsx
+index 264a2a2..17de327 100644
+--- a/src/renderer/features/agents/mentions/render-file-mentions.tsx
++++ b/src/renderer/features/agents/mentions/render-file-mentions.tsx
+@@ -2,7 +2,7 @@
+ 
+ import { useMemo } from "react"
+ import { getFileIconByExtension } from "./agents-file-mention"
+-import { FilesIcon, SkillIcon, AgentIcon } from "../../../components/ui/icons"
++import { FilesIcon, SkillIcon, CustomAgentIcon } from "../../../components/ui/icons"
+ import { MENTION_PREFIXES } from "./agents-mentions-editor"
+ 
+ // Custom folder icon matching design
+@@ -92,7 +92,7 @@ function MentionChip({ mention }: { mention: ParsedMention }) {
+   const Icon = mention.type === "skill"
+     ? SkillIcon
+     : mention.type === "agent"
+-      ? AgentIcon
++      ? CustomAgentIcon
+       : mention.type === "folder"
+         ? FolderOpenIcon
+         : (getFileIconByExtension(mention.label) ?? FilesIcon)
+diff --git a/src/renderer/features/agents/stores/sub-chat-store.ts b/src/renderer/features/agents/stores/sub-chat-store.ts
+index 86be6be..89cc9e9 100644
+--- a/src/renderer/features/agents/stores/sub-chat-store.ts
++++ b/src/renderer/features/agents/stores/sub-chat-store.ts
+@@ -37,9 +37,23 @@ interface AgentSubChatStore {
+ const getStorageKey = (chatId: string, type: "open" | "active" | "pinned") =>
+   `agent-${type}-sub-chats-${chatId}`
+ 
++// Custom event for notifying other components when open sub-chats change
++export const OPEN_SUB_CHATS_CHANGE_EVENT = "open-sub-chats-change"
++
++// Debounce timer to avoid rapid-fire events
++let openSubChatsChangeTimer: ReturnType<typeof setTimeout> | null = null
++
+ const saveToLS = (chatId: string, type: "open" | "active" | "pinned", value: unknown) => {
+   if (typeof window === "undefined") return
+   localStorage.setItem(getStorageKey(chatId, type), JSON.stringify(value))
++  // Dispatch debounced event when open sub-chats change so sidebar can update
++  if (type === "open") {
++    if (openSubChatsChangeTimer) clearTimeout(openSubChatsChangeTimer)
++    openSubChatsChangeTimer = setTimeout(() => {
++      window.dispatchEvent(new CustomEvent(OPEN_SUB_CHATS_CHANGE_EVENT))
++      openSubChatsChangeTimer = null
++    }, 50)
++  }
+ }
+ 
+ const loadFromLS = <T>(chatId: string, type: "open" | "active" | "pinned", fallback: T): T => {
+diff --git a/src/renderer/features/agents/ui/agent-ask-user-question-tool.tsx b/src/renderer/features/agents/ui/agent-ask-user-question-tool.tsx
+index c849693..c80b4a8 100644
+--- a/src/renderer/features/agents/ui/agent-ask-user-question-tool.tsx
++++ b/src/renderer/features/agents/ui/agent-ask-user-question-tool.tsx
+@@ -119,7 +119,9 @@ export const AgentAskUserQuestionTool = memo(function AgentAskUserQuestionTool({
+         {/* Header */}
+         <div className="flex items-center gap-1.5 pl-2.5 pr-2 h-7 border-b border-border">
+           <QuestionIcon className="w-3.5 h-3.5 text-muted-foreground" />
+-          <span className="text-xs text-muted-foreground">Answers</span>
++          <span className="text-xs text-muted-foreground">
++            {entries.length === 1 ? "Answer" : "Answers"}
++          </span>
+         </div>
+         {/* Content */}
+         <div className="flex flex-col gap-2 p-2.5 text-xs">
+diff --git a/src/renderer/features/agents/ui/agent-edit-tool.tsx b/src/renderer/features/agents/ui/agent-edit-tool.tsx
+index 643074a..b9b74ea 100644
+--- a/src/renderer/features/agents/ui/agent-edit-tool.tsx
++++ b/src/renderer/features/agents/ui/agent-edit-tool.tsx
+@@ -350,22 +350,25 @@ export const AgentEditTool = memo(function AgentEditTool({
+   const activeLines =
+     isInputStreaming && streamingLines.length > 0 ? streamingLines : diffLines
+ 
+-  // Find index of first added line (to focus on when collapsed)
+-  const firstAddedIndex = useMemo(
+-    () => activeLines.findIndex((line: DiffLine) => line.type === "added"),
+-    [activeLines],
+-  )
+-
+-  // Reorder lines for collapsed view: show from first added line (memoized)
++  // Find index of first change line (added or removed) to focus on when collapsed
++  // Prioritize added lines, but fall back to removed lines if no additions exist
++  const firstChangeIndex = useMemo(() => {
++    const firstAdded = activeLines.findIndex((line: DiffLine) => line.type === "added")
++    if (firstAdded !== -1) return firstAdded
++    // No additions - look for first removal instead
++    return activeLines.findIndex((line: DiffLine) => line.type === "removed")
++  }, [activeLines])
++
++  // Reorder lines for collapsed view: show from first change line (memoized)
+   const displayLines = useMemo(
+     () =>
+-      !isOutputExpanded && firstAddedIndex > 0
++      !isOutputExpanded && firstChangeIndex > 0
+         ? [
+-            ...activeLines.slice(firstAddedIndex),
+-            ...activeLines.slice(0, firstAddedIndex),
++            ...activeLines.slice(firstChangeIndex),
++            ...activeLines.slice(0, firstChangeIndex),
+           ]
+         : activeLines,
+-    [activeLines, isOutputExpanded, firstAddedIndex],
++    [activeLines, isOutputExpanded, firstChangeIndex],
+   )
+ 
+   // Batch highlight all lines at once (instead of N×useEffect)
+@@ -465,7 +468,7 @@ export const AgentEditTool = memo(function AgentEditTool({
+         {/* Status and expand button */}
+         <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+           {/* Diff stats or spinner */}
+-          <div className="flex items-center gap-1.5 text-xs">
++          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+             {isPending || isInputStreaming ? (
+               <IconSpinner className="w-3 h-3" />
+             ) : diffStats ? (
+diff --git a/src/renderer/features/agents/ui/agent-exit-plan-mode-tool.tsx b/src/renderer/features/agents/ui/agent-exit-plan-mode-tool.tsx
+index 3bf7a1b..795688d 100644
+--- a/src/renderer/features/agents/ui/agent-exit-plan-mode-tool.tsx
++++ b/src/renderer/features/agents/ui/agent-exit-plan-mode-tool.tsx
+@@ -28,7 +28,7 @@ export const AgentExitPlanModeTool = memo(function AgentExitPlanModeTool({
+   }
+ 
+   return (
+-    <div className="text-foreground px-2 pt-3 border-t border-border/50">
++    <div className="text-foreground px-2 pt-3 border-t border-border/50" data-plan-section="true">
+       <div className="text-[12px] uppercase tracking-wider text-muted-foreground/60 font-medium mb-1">
+         Plan
+       </div>
+diff --git a/src/renderer/features/agents/ui/agent-send-button.tsx b/src/renderer/features/agents/ui/agent-send-button.tsx
+index 63e60e0..b2a1855 100644
+--- a/src/renderer/features/agents/ui/agent-send-button.tsx
++++ b/src/renderer/features/agents/ui/agent-send-button.tsx
+@@ -1,5 +1,6 @@
+ import { cn } from "../../../lib/utils"
+-import { ArrowUp, Loader2, Square } from "lucide-react"
++import { ArrowUp, Square } from "lucide-react"
++import { IconSpinner } from "../../../icons"
+ 
+ interface AgentSendButtonProps {
+   /** Whether the system is currently streaming */
+@@ -45,7 +46,7 @@ export function AgentSendButton({
+       return <Square className="size-3 fill-current" />
+     }
+     if (isSubmitting) {
+-      return <Loader2 className="size-4 animate-spin" />
++      return <IconSpinner className="size-4" />
+     }
+     return <ArrowUp className="size-4" />
+   }
+diff --git a/src/renderer/features/agents/ui/agents-content.tsx b/src/renderer/features/agents/ui/agents-content.tsx
+index 1e907d3..c520b9d 100644
+--- a/src/renderer/features/agents/ui/agents-content.tsx
++++ b/src/renderer/features/agents/ui/agents-content.tsx
+@@ -11,6 +11,7 @@ const useUser = () => ({ user: null })
+ const useClerk = () => ({ signOut: () => {} })
+ import {
+   selectedAgentChatIdAtom,
++  previousAgentChatIdAtom,
+   agentsMobileViewModeAtom,
+   agentsPreviewSidebarOpenAtom,
+   agentsSidebarOpenAtom,
+@@ -23,9 +24,6 @@ import {
+   agentsQuickSwitchSelectedIndexAtom,
+   subChatsQuickSwitchOpenAtom,
+   subChatsQuickSwitchSelectedIndexAtom,
+-  selectedAgentChatIdsAtom,
+-  isAgentMultiSelectModeAtom,
+-  clearAgentChatSelectionAtom,
+   ctrlTabTargetAtom,
+ } from "../../../lib/atoms"
+ import { NewChatForm } from "../main/new-chat-form"
+@@ -52,7 +50,6 @@ import { Button } from "../../../components/ui/button"
+ import { AlignJustify } from "lucide-react"
+ import { AgentsQuickSwitchDialog } from "../components/agents-quick-switch-dialog"
+ import { SubChatsQuickSwitchDialog } from "../components/subchats-quick-switch-dialog"
+-import { useArchiveChat } from "../../sidebar/hooks/use-archive-chat"
+ import { isDesktopApp } from "../../../lib/utils/platform"
+ // Desktop mock
+ const useIsAdmin = () => false
+@@ -157,26 +154,20 @@ export function AgentsContent() {
+     { enabled: !!selectedChatId },
+   )
+ 
+-  // Archive chat mutation with proper navigation logic
+-  const archiveChatMutation = useArchiveChat({
+-    teamId: selectedTeamId,
+-    selectedChatId,
+-  })
++  // Track previous chat ID for navigation after archive
++  const [previousChatId, setPreviousChatId] = useAtom(previousAgentChatIdAtom)
++  const prevSelectedChatIdRef = useRef<string | null>(null)
+ 
+-  // Multi-select state for bulk archive
+-  const selectedChatIds = useAtomValue(selectedAgentChatIdsAtom)
+-  const isMultiSelectMode = useAtomValue(isAgentMultiSelectModeAtom)
+-  const clearChatSelection = useSetAtom(clearAgentChatSelectionAtom)
+-  const utils = api.useUtils()
+-
+-  // Batch archive mutation for multi-select
+-  const archiveChatsBatchMutation = api.agents.archiveChatsBatch.useMutation({
+-    onSuccess: () => {
+-      utils.agents.getAgentChats.invalidate({ teamId: selectedTeamId! })
+-      utils.agents.getArchivedChats.invalidate({ teamId: selectedTeamId! })
+-      clearChatSelection()
+-    },
+-  })
++  // Update previousChatId when selectedChatId changes
++  useEffect(() => {
++    // Only update if we're switching from one chat to another
++    if (prevSelectedChatIdRef.current && prevSelectedChatIdRef.current !== selectedChatId) {
++      setPreviousChatId(prevSelectedChatIdRef.current)
++    }
++    prevSelectedChatIdRef.current = selectedChatId
++  }, [selectedChatId, setPreviousChatId])
++
++  // Note: Archive mutations moved to AgentsSidebar to share undo stack with Cmd+Z
+ 
+   // Track hydration
+   useEffect(() => {
+@@ -697,53 +688,7 @@ export function AgentsContent() {
+     }
+   }, [setSubChatQuickSwitchOpen, setSubChatQuickSwitchSelectedIndex, ctrlTabTarget])
+ 
+-  // Keyboard shortcut: Archive current chat (or bulk archive if multi-select mode)
+-  // Web: Opt+Cmd+E (browser uses Cmd+E for search bar focus)
+-  // Desktop: Cmd+E
+-  useEffect(() => {
+-    const handleKeyDown = (e: KeyboardEvent) => {
+-      const isDesktop = isDesktopApp()
+-
+-      // Desktop: Cmd+E (without Alt)
+-      const isDesktopShortcut =
+-        isDesktop &&
+-        e.metaKey &&
+-        e.code === "KeyE" &&
+-        !e.altKey &&
+-        !e.shiftKey &&
+-        !e.ctrlKey
+-      // Web: Opt+Cmd+E (with Alt)
+-      const isWebShortcut = e.altKey && e.metaKey && e.code === "KeyE"
+-
+-      if (isDesktopShortcut || isWebShortcut) {
+-        e.preventDefault()
+-
+-        // If multi-select mode, bulk archive selected chats
+-        if (isMultiSelectMode && selectedChatIds.size > 0) {
+-          if (!archiveChatsBatchMutation.isPending) {
+-            archiveChatsBatchMutation.mutate({
+-              chatIds: Array.from(selectedChatIds),
+-            })
+-          }
+-          return
+-        }
+-
+-        // Otherwise archive current chat
+-        if (selectedChatId && !archiveChatMutation.isPending) {
+-          archiveChatMutation.mutate({ chatId: selectedChatId })
+-        }
+-      }
+-    }
+-
+-    window.addEventListener("keydown", handleKeyDown)
+-    return () => window.removeEventListener("keydown", handleKeyDown)
+-  }, [
+-    selectedChatId,
+-    archiveChatMutation,
+-    isMultiSelectMode,
+-    selectedChatIds,
+-    archiveChatsBatchMutation,
+-  ])
++  // Note: Cmd+E archive hotkey is handled in AgentsSidebar to share undo stack
+ 
+   const handleSignOut = async () => {
+     // Check if running in Electron desktop app
+diff --git a/src/renderer/features/agents/ui/sub-chat-selector.tsx b/src/renderer/features/agents/ui/sub-chat-selector.tsx
+index a112301..ae48b6c 100644
+--- a/src/renderer/features/agents/ui/sub-chat-selector.tsx
++++ b/src/renderer/features/agents/ui/sub-chat-selector.tsx
+@@ -8,6 +8,7 @@ import {
+   agentsSubChatsSidebarModeAtom,
+   pendingUserQuestionsAtom,
+ } from "../atoms"
++import { trpc } from "../../../lib/trpc"
+ import { X, Plus, AlignJustify, Play } from "lucide-react"
+ import {
+   IconSpinner,
+@@ -93,6 +94,21 @@ export function SubChatSelector({
+   )
+   const pendingQuestions = useAtomValue(pendingUserQuestionsAtom)
+ 
++  // Pending plan approvals from DB - only for open sub-chats
++  const { data: pendingPlanApprovalsData } = trpc.chats.getPendingPlanApprovals.useQuery(
++    { openSubChatIds },
++    { refetchInterval: 5000, enabled: openSubChatIds.length > 0 }
++  )
++  const pendingPlanApprovals = useMemo(() => {
++    const set = new Set<string>()
++    if (pendingPlanApprovalsData) {
++      for (const { subChatId } of pendingPlanApprovalsData) {
++        set.add(subChatId)
++      }
++    }
++    return set
++  }, [pendingPlanApprovalsData])
++
+   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
+   const tabsContainerRef = useRef<HTMLDivElement>(null)
+   const tabRefs = useRef<Map<string, HTMLButtonElement>>(new Map())
+@@ -492,6 +508,8 @@ export function SubChatSelector({
+                 const mode = subChat.mode || "agent"
+                 // Check if this chat is waiting for user answer
+                 const hasPendingQuestion = pendingQuestions?.subChatId === subChat.id
++                // Check if this chat has a pending plan approval
++                const hasPendingPlan = pendingPlanApprovals.has(subChat.id)
+ 
+                 return (
+                   <ContextMenu key={subChat.id}>
+@@ -546,15 +564,17 @@ export function SubChatSelector({
+                                 ) : (
+                                   <AgentIcon className="w-3.5 h-3.5 text-muted-foreground" />
+                                 )}
+-                                {/* Badge in bottom-right corner: unseen dot > pin icon */}
+-                                {(hasUnseen || isPinned) && (
++                                {/* Badge in bottom-right corner: amber dot (plan) > unseen dot > pin icon */}
++                                {(hasPendingPlan || hasUnseen || isPinned) && (
+                                   <div
+                                     className={cn(
+                                       "absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full flex items-center justify-center",
+                                       isActive ? "bg-muted" : "bg-background",
+                                     )}
+                                   >
+-                                    {hasUnseen ? (
++                                    {hasPendingPlan ? (
++                                      <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
++                                    ) : hasUnseen ? (
+                                       <div className="w-1.5 h-1.5 rounded-full bg-[#307BD0]" />
+                                     ) : isPinned ? (
+                                       <PinFilledIcon className="w-2 h-2 text-muted-foreground" />
+@@ -711,6 +731,7 @@ export function SubChatSelector({
+               const hasUnseen = subChatUnseenChanges.has(subChat.id)
+               const mode = subChat.mode || "agent"
+               const hasPendingQuestion = pendingQuestions?.subChatId === subChat.id
++              const hasPendingPlan = pendingPlanApprovals.has(subChat.id)
+ 
+               return (
+                 <div className="flex items-center gap-2 flex-1 min-w-0">
+@@ -725,9 +746,12 @@ export function SubChatSelector({
+                     ) : (
+                       <AgentIcon className="w-4 h-4 text-muted-foreground" />
+                     )}
+-                    {hasUnseen && !isLoading && !hasPendingQuestion && (
++                    {(hasPendingPlan || hasUnseen) && !isLoading && !hasPendingQuestion && (
+                       <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-popover flex items-center justify-center">
+-                        <div className="w-1.5 h-1.5 rounded-full bg-[#307BD0]" />
++                        <div className={cn(
++                          "w-1.5 h-1.5 rounded-full",
++                          hasPendingPlan ? "bg-amber-500" : "bg-[#307BD0]"
++                        )} />
+                       </div>
+                     )}
+                   </div>
+diff --git a/src/renderer/features/agents/ui/sub-chat-status-card.tsx b/src/renderer/features/agents/ui/sub-chat-status-card.tsx
+index 041160c..c8a2f42 100644
+--- a/src/renderer/features/agents/ui/sub-chat-status-card.tsx
++++ b/src/renderer/features/agents/ui/sub-chat-status-card.tsx
+@@ -73,14 +73,21 @@ export const SubChatStatusCard = memo(function SubChatStatusCard({
+ 
+     // Build set of all uncommitted file paths from git status
+     const uncommittedPaths = new Set<string>()
+-    for (const file of gitStatus.staged) {
+-      uncommittedPaths.add(file.path)
++    // Safely iterate - arrays might be undefined in edge cases
++    if (gitStatus.staged) {
++      for (const file of gitStatus.staged) {
++        uncommittedPaths.add(file.path)
++      }
+     }
+-    for (const file of gitStatus.unstaged) {
+-      uncommittedPaths.add(file.path)
++    if (gitStatus.unstaged) {
++      for (const file of gitStatus.unstaged) {
++        uncommittedPaths.add(file.path)
++      }
+     }
+-    for (const file of gitStatus.untracked) {
+-      uncommittedPaths.add(file.path)
++    if (gitStatus.untracked) {
++      for (const file of gitStatus.untracked) {
++        uncommittedPaths.add(file.path)
++      }
+     }
+ 
+     // Filter changedFiles to only include files that are still uncommitted
+diff --git a/src/renderer/features/changes/components/ChangesHeader/ChangesHeader.tsx b/src/renderer/features/changes/components/ChangesHeader/ChangesHeader.tsx
+index dd49db3..96207fc 100644
+--- a/src/renderer/features/changes/components/ChangesHeader/ChangesHeader.tsx
++++ b/src/renderer/features/changes/components/ChangesHeader/ChangesHeader.tsx
+@@ -9,7 +9,7 @@ import {
+ import { Tooltip, TooltipContent, TooltipTrigger } from "../../../../components/ui/tooltip";
+ import { useEffect, useRef, useState } from "react";
+ import { HiArrowPath } from "react-icons/hi2";
+-import { LuLoaderCircle } from "react-icons/lu";
++import { IconSpinner } from "../../../../icons";
+ import { trpc } from "../../../../lib/trpc";
+ import { PRIcon } from "../PRIcon";
+ import { usePRStatus } from "../../../../hooks/usePRStatus";
+@@ -149,7 +149,7 @@ export function ChangesHeader({
+ 
+ 				{/* PR Status Icon */}
+ 				{isPRLoading ? (
+-					<LuLoaderCircle className="w-4 h-4 animate-spin text-muted-foreground shrink-0" />
++					<IconSpinner className="w-4 h-4 text-muted-foreground shrink-0" />
+ 				) : pr ? (
+ 					<Tooltip>
+ 						<TooltipTrigger asChild>
+diff --git a/src/renderer/features/sidebar/agents-sidebar.tsx b/src/renderer/features/sidebar/agents-sidebar.tsx
+index b582da3..97d2359 100644
+--- a/src/renderer/features/sidebar/agents-sidebar.tsx
++++ b/src/renderer/features/sidebar/agents-sidebar.tsx
+@@ -67,7 +67,7 @@ import {
+   PublisherStudioIcon,
+   SearchIcon,
+   GitHubLogo,
+-  IconSpinner,
++  LoadingDot,
+   ArchiveIcon,
+   TrashIcon,
+   QuestionCircleIcon,
+@@ -79,6 +79,7 @@ import { Input } from "../../components/ui/input"
+ import { Button } from "../../components/ui/button"
+ import {
+   selectedAgentChatIdAtom,
++  previousAgentChatIdAtom,
+   selectedDraftIdAtom,
+   loadingSubChatsAtom,
+   agentsUnseenChangesAtom,
+@@ -86,7 +87,10 @@ import {
+   agentsDebugModeAtom,
+   selectedProjectAtom,
+   justCreatedIdsAtom,
++  undoStackAtom,
++  type UndoItem,
+ } from "../agents/atoms"
++import { useAgentSubChatStore, OPEN_SUB_CHATS_CHANGE_EVENT } from "../agents/stores/sub-chat-store"
+ import { AgentsHelpPopover } from "../agents/components/agents-help-popover"
+ import { getShortcutKey, isDesktopApp } from "../../lib/utils/platform"
+ import { pluralize } from "../agents/utils/pluralize"
+@@ -109,6 +113,7 @@ const ChatIcon = React.memo(function ChatIcon({
+   isSelected,
+   isLoading,
+   hasUnseenChanges = false,
++  hasPendingPlan = false,
+   isMultiSelectMode = false,
+   isChecked = false,
+   onCheckboxClick,
+@@ -118,6 +123,7 @@ const ChatIcon = React.memo(function ChatIcon({
+   isSelected: boolean
+   isLoading: boolean
+   hasUnseenChanges?: boolean
++  hasPendingPlan?: boolean
+   isMultiSelectMode?: boolean
+   isChecked?: boolean
+   onCheckboxClick?: (e: React.MouseEvent) => void
+@@ -174,22 +180,23 @@ const ChatIcon = React.memo(function ChatIcon({
+       >
+         {renderMainIcon()}
+       </div>
+-      {/* Badge in bottom-right corner: loader or unseen dot - hidden during multi-select */}
+-      {(isLoading || hasUnseenChanges) && !isMultiSelectMode && (
++      {/* Badge in bottom-right corner: loader → amber dot → blue dot - hidden during multi-select */}
++      {(isLoading || hasUnseenChanges || hasPendingPlan) && !isMultiSelectMode && (
+         <div
+           className={cn(
+             "absolute -bottom-1 -right-1 w-3 h-3 rounded-full flex items-center justify-center",
+-            // Светлая тема: выбран/ховер #E8E8E8
+-            // Темная тема: дефолт #101010, выбран/ховер #1B1B1B
+             isSelected
+               ? "bg-[#E8E8E8] dark:bg-[#1B1B1B]"
+               : "bg-[#F4F4F4] group-hover:bg-[#E8E8E8] dark:bg-[#101010] dark:group-hover:bg-[#1B1B1B]",
+           )}
+         >
++          {/* Priority: loader > amber dot (pending plan) > blue dot (unseen) */}
+           {isLoading ? (
+-            <IconSpinner className="w-2.5 h-2.5 text-muted-foreground" />
++            <LoadingDot isLoading={true} className="w-2.5 h-2.5 text-muted-foreground" />
++          ) : hasPendingPlan ? (
++            <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+           ) : (
+-            <div className="w-2 h-2 rounded-full bg-[#307BD0]" />
++            <LoadingDot isLoading={false} className="w-2.5 h-2.5 text-muted-foreground" />
+           )}
+         </div>
+       )}
+@@ -221,6 +228,7 @@ export function AgentsSidebar({
+   onChatSelect,
+ }: AgentsSidebarProps) {
+   const [selectedChatId, setSelectedChatId] = useAtom(selectedAgentChatIdAtom)
++  const previousChatId = useAtomValue(previousAgentChatIdAtom)
+   const [selectedDraftId, setSelectedDraftId] = useAtom(selectedDraftIdAtom)
+   const [loadingSubChats] = useAtom(loadingSubChatsAtom)
+   const [isSidebarHovered, setIsSidebarHovered] = useState(false)
+@@ -255,6 +263,7 @@ export function AgentsSidebar({
+   const unseenChanges = useAtomValue(agentsUnseenChangesAtom)
+   const archivePopoverOpen = useAtomValue(archivePopoverOpenAtom)
+   const justCreatedIds = useAtomValue(justCreatedIdsAtom)
++
+   const [helpPopoverOpen, setHelpPopoverOpen] = useAtom(
+     agentsHelpPopoverOpenAtom,
+   )
+@@ -310,6 +319,61 @@ export function AgentsSidebar({
+   // Fetch all chats (no project filter)
+   const { data: agentChats } = trpc.chats.list.useQuery({})
+ 
++  // Track open sub-chat changes for reactivity
++  const [openSubChatsVersion, setOpenSubChatsVersion] = useState(0)
++  useEffect(() => {
++    const handleChange = () => setOpenSubChatsVersion((v) => v + 1)
++    window.addEventListener(OPEN_SUB_CHATS_CHANGE_EVENT, handleChange)
++    return () => window.removeEventListener(OPEN_SUB_CHATS_CHANGE_EVENT, handleChange)
++  }, [])
++
++  // Store previous value to avoid unnecessary React Query refetches
++  const prevOpenSubChatIdsRef = useRef<string[]>([])
++
++  // Collect all open sub-chat IDs from localStorage for all workspaces
++  const allOpenSubChatIds = useMemo(() => {
++    // openSubChatsVersion is used to trigger recalculation when sub-chats change
++    void openSubChatsVersion
++    if (!agentChats) return prevOpenSubChatIdsRef.current
++
++    const allIds: string[] = []
++    for (const chat of agentChats) {
++      try {
++        const stored = localStorage.getItem(`agent-open-sub-chats-${chat.id}`)
++        if (stored) {
++          const ids = JSON.parse(stored) as string[]
++          allIds.push(...ids)
++        }
++      } catch {
++        // Skip invalid JSON
++      }
++    }
++
++    // Compare with previous - if content is same, return old reference
++    // This prevents React Query from refetching when array content hasn't changed
++    const prev = prevOpenSubChatIdsRef.current
++    const sorted = [...allIds].sort()
++    const prevSorted = [...prev].sort()
++    if (sorted.length === prevSorted.length && sorted.every((id, i) => id === prevSorted[i])) {
++      return prev
++    }
++
++    prevOpenSubChatIdsRef.current = allIds
++    return allIds
++  }, [agentChats, openSubChatsVersion])
++
++  // File changes stats from DB - only for open sub-chats
++  const { data: fileStatsData } = trpc.chats.getFileStats.useQuery(
++    { openSubChatIds: allOpenSubChatIds },
++    { refetchInterval: 5000, enabled: allOpenSubChatIds.length > 0 }
++  )
++
++  // Pending plan approvals from DB - only for open sub-chats
++  const { data: pendingPlanApprovalsData } = trpc.chats.getPendingPlanApprovals.useQuery(
++    { openSubChatIds: allOpenSubChatIds },
++    { refetchInterval: 5000, enabled: allOpenSubChatIds.length > 0 }
++  )
++
+   // Fetch all projects for git info
+   const { data: projects } = trpc.projects.list.useQuery()
+ 
+@@ -353,75 +417,108 @@ export function AgentsSidebar({
+     prevArchivePopoverOpen.current = archivePopoverOpen
+   }, [archivePopoverOpen])
+ 
+-  // Stack of archived chats for multiple Cmd+Z undos
+-  const archivedStackRef = useRef<Array<{
+-    chatId: string
+-    timeoutId: ReturnType<typeof setTimeout>
+-  }>>([])
++  // Unified undo stack for workspaces and sub-chats (Jotai atom)
++  const [undoStack, setUndoStack] = useAtom(undoStackAtom)
+ 
+   // Restore chat mutation (for undo)
+   const restoreChatMutation = trpc.chats.restore.useMutation({
+-    onSuccess: () => {
++    onSuccess: (_, variables) => {
+       utils.chats.list.invalidate()
+       utils.chats.listArchived.invalidate()
++      // Select the restored chat
++      setSelectedChatId(variables.id)
+     },
+   })
+ 
+-  // Remove item from stack by chatId
+-  const removeFromStack = useCallback((chatId: string) => {
+-    const index = archivedStackRef.current.findIndex((item) => item.chatId === chatId)
+-    if (index !== -1) {
+-      clearTimeout(archivedStackRef.current[index].timeoutId)
+-      archivedStackRef.current.splice(index, 1)
+-    }
+-  }, [])
++  // Remove workspace item from stack by chatId
++  const removeWorkspaceFromStack = useCallback((chatId: string) => {
++    setUndoStack((prev) => {
++      const index = prev.findIndex((item) => item.type === "workspace" && item.chatId === chatId)
++      if (index !== -1) {
++        clearTimeout(prev[index].timeoutId)
++        return [...prev.slice(0, index), ...prev.slice(index + 1)]
++      }
++      return prev
++    })
++  }, [setUndoStack])
+ 
+   // Archive chat mutation
+   const archiveChatMutation = trpc.chats.archive.useMutation({
+     onSuccess: (_, variables) => {
+       utils.chats.list.invalidate()
+       utils.chats.listArchived.invalidate()
+-      // If archiving the currently selected chat, clear selection
+-      if (selectedChatId) {
+-        setSelectedChatId(null)
++
++      // If archiving the currently selected chat, navigate to previous or new workspace
++      if (selectedChatId === variables.id) {
++        // Check if previous chat is available (exists and not being archived)
++        const isPreviousAvailable = previousChatId &&
++          agentChats?.some((c) => c.id === previousChatId && c.id !== variables.id)
++
++        if (isPreviousAvailable) {
++          setSelectedChatId(previousChatId)
++        } else {
++          // Fallback to new workspace view
++          setSelectedChatId(null)
++        }
+       }
+ 
+       // Clear after 10 seconds (Cmd+Z window)
+       const timeoutId = setTimeout(() => {
+-        removeFromStack(variables.id)
++        removeWorkspaceFromStack(variables.id)
+       }, 10000)
+ 
+-      // Add to stack for Cmd+Z
+-      archivedStackRef.current.push({
++      // Add to unified undo stack for Cmd+Z
++      setUndoStack((prev) => [...prev, {
++        type: "workspace",
+         chatId: variables.id,
+         timeoutId,
+-      })
++      }])
+     },
+   })
+ 
+-  // Cmd+Z to undo archive (supports multiple undos)
++  // Cmd+Z to undo archive (supports multiple undos for workspaces AND sub-chats)
+   useEffect(() => {
+     const handleKeyDown = (e: KeyboardEvent) => {
+-      if ((e.metaKey || e.ctrlKey) && e.key === "z" && archivedStackRef.current.length > 0) {
++      if ((e.metaKey || e.ctrlKey) && e.key === "z" && undoStack.length > 0) {
+         e.preventDefault()
+-        // Pop the most recent archived item
+-        const item = archivedStackRef.current.pop()
+-        if (item) {
+-          clearTimeout(item.timeoutId)
+-          restoreChatMutation.mutate({ id: item.chatId })
++        // Get the most recent item
++        const lastItem = undoStack[undoStack.length - 1]
++        if (!lastItem) return
++
++        // Clear timeout and remove from stack
++        clearTimeout(lastItem.timeoutId)
++        setUndoStack((prev) => prev.slice(0, -1))
++
++        if (lastItem.type === "workspace") {
++          // Restore workspace from archive
++          restoreChatMutation.mutate({ id: lastItem.chatId })
++        } else if (lastItem.type === "subchat") {
++          // Restore sub-chat tab (re-add to open tabs)
++          const store = useAgentSubChatStore.getState()
++          store.addToOpenSubChats(lastItem.subChatId)
++          store.setActiveSubChat(lastItem.subChatId)
+         }
+       }
+     }
+ 
+     window.addEventListener("keydown", handleKeyDown)
+     return () => window.removeEventListener("keydown", handleKeyDown)
+-  }, [restoreChatMutation])
++  }, [undoStack, setUndoStack, restoreChatMutation])
+ 
+   // Batch archive mutation
+   const archiveChatsBatchMutation = trpc.chats.archiveBatch.useMutation({
+-    onSuccess: () => {
++    onSuccess: (_, variables) => {
+       utils.chats.list.invalidate()
+       utils.chats.listArchived.invalidate()
++
++      // Add each chat to unified undo stack for Cmd+Z
++      const newItems: UndoItem[] = variables.chatIds.map((chatId) => {
++        const timeoutId = setTimeout(() => {
++          removeWorkspaceFromStack(chatId)
++        }, 10000)
++        return { type: "workspace" as const, chatId, timeoutId }
++      })
++      setUndoStack((prev) => [...prev, ...newItems])
+     },
+   })
+ 
+@@ -558,32 +655,6 @@ export function AgentsSidebar({
+     }
+   }
+ 
+-  // Handle bulk archive of selected chats
+-  const handleBulkArchive = () => {
+-    const chatIdsToArchive = Array.from(selectedChatIds)
+-    if (chatIdsToArchive.length > 0) {
+-      // If active chat is being archived, select the next available chat
+-      const isArchivingActivChat =
+-        selectedChatId && chatIdsToArchive.includes(selectedChatId)
+-
+-      archiveChatsBatchMutation.mutate(
+-        { chatIds: chatIdsToArchive },
+-        {
+-          onSuccess: () => {
+-            if (isArchivingActivChat) {
+-              // Find first chat that's not being archived
+-              const nextChat = filteredChats.find(
+-                (chat) => !chatIdsToArchive.includes(chat.id),
+-              )
+-              setSelectedChatId(nextChat?.id || null)
+-            }
+-            clearChatSelection()
+-          },
+-        },
+-      )
+-    }
+-  }
+-
+   // Check if all selected chats are pinned
+   const areAllSelectedPinned = useMemo(() => {
+     if (selectedChatIds.size === 0) return false
+@@ -649,6 +720,47 @@ export function AgentsSidebar({
+     }
+   }, [searchQuery, agentChats, pinnedChatIds])
+ 
++  // Handle bulk archive of selected chats
++  const handleBulkArchive = useCallback(() => {
++    const chatIdsToArchive = Array.from(selectedChatIds)
++    if (chatIdsToArchive.length === 0) return
++
++    // If active chat is being archived, navigate to previous or new workspace
++    const isArchivingActiveChat =
++      selectedChatId && chatIdsToArchive.includes(selectedChatId)
++
++    archiveChatsBatchMutation.mutate(
++      { chatIds: chatIdsToArchive },
++      {
++        onSuccess: () => {
++          if (isArchivingActiveChat) {
++            // Check if previous chat is available (exists and not being archived)
++            const remainingChats = filteredChats.filter(
++              (c) => !chatIdsToArchive.includes(c.id)
++            )
++            const isPreviousAvailable = previousChatId &&
++              remainingChats.some((c) => c.id === previousChatId)
++
++            if (isPreviousAvailable) {
++              setSelectedChatId(previousChatId)
++            } else {
++              setSelectedChatId(null)
++            }
++          }
++          clearChatSelection()
++        },
++      },
++    )
++  }, [
++    selectedChatIds,
++    selectedChatId,
++    previousChatId,
++    filteredChats,
++    archiveChatsBatchMutation,
++    setSelectedChatId,
++    clearChatSelection,
++  ])
++
+   // Delete a draft from localStorage
+   const handleDeleteDraft = useCallback(
+     (draftId: string) => {
+@@ -687,6 +799,33 @@ export function AgentsSidebar({
+     [loadingSubChats],
+   )
+ 
++  // Convert file stats from DB to a Map for easy lookup
++  const workspaceFileStats = useMemo(() => {
++    const statsMap = new Map<string, { fileCount: number; additions: number; deletions: number }>()
++    if (fileStatsData) {
++      
++      for (const stat of fileStatsData) {
++        statsMap.set(stat.chatId, {
++          fileCount: stat.fileCount,
++          additions: stat.additions,
++          deletions: stat.deletions,
++        })
++      }
++    }
++    return statsMap
++  }, [fileStatsData])
++
++  // Aggregate pending plan approvals by workspace (chatId) from DB
++  const workspacePendingPlans = useMemo(() => {
++    const chatIdsWithPendingPlans = new Set<string>()
++    if (pendingPlanApprovalsData) {
++      for (const { chatId } of pendingPlanApprovalsData) {
++        chatIdsWithPendingPlans.add(chatId)
++      }
++    }
++    return chatIdsWithPendingPlans
++  }, [pendingPlanApprovalsData])
++
+   const handleNewAgent = () => {
+     triggerHaptic("light")
+     setSelectedChatId(null)
+@@ -923,6 +1062,51 @@ export function AgentsSidebar({
+     [isMultiSelectMode, clearChatSelection],
+   )
+ 
++  // Cmd+E to archive current workspace (desktop) or Opt+Cmd+E (web)
++  useEffect(() => {
++    const handleArchiveHotkey = (e: KeyboardEvent) => {
++      const isDesktop = isDesktopApp()
++
++      // Desktop: Cmd+E (without Alt)
++      const isDesktopShortcut =
++        isDesktop &&
++        e.metaKey &&
++        e.code === "KeyE" &&
++        !e.altKey &&
++        !e.shiftKey &&
++        !e.ctrlKey
++      // Web: Opt+Cmd+E (with Alt)
++      const isWebShortcut = e.altKey && e.metaKey && e.code === "KeyE"
++
++      if (isDesktopShortcut || isWebShortcut) {
++        e.preventDefault()
++
++        // If multi-select mode, bulk archive selected chats
++        if (isMultiSelectMode && selectedChatIds.size > 0) {
++          if (!archiveChatsBatchMutation.isPending) {
++            handleBulkArchive()
++          }
++          return
++        }
++
++        // Otherwise archive current chat
++        if (selectedChatId && !archiveChatMutation.isPending) {
++          archiveChatMutation.mutate({ id: selectedChatId })
++        }
++      }
++    }
++
++    window.addEventListener("keydown", handleArchiveHotkey)
++    return () => window.removeEventListener("keydown", handleArchiveHotkey)
++  }, [
++    selectedChatId,
++    archiveChatMutation,
++    isMultiSelectMode,
++    selectedChatIds,
++    archiveChatsBatchMutation,
++    handleBulkArchive,
++  ])
++
+   // Clear selection when project changes
+   useEffect(() => {
+     clearChatSelection()
+@@ -1479,7 +1663,7 @@ export function AgentsSidebar({
+                     )}
+                   >
+                     <h3 className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+-                      Pinned Workspaces
++                      Pinned workspaces
+                     </h3>
+                   </div>
+                   <div className="list-none p-0 m-0 mb-3">
+@@ -1504,6 +1688,8 @@ export function AgentsSidebar({
+                         : repoName || "Local project"
+ 
+                       const isChecked = selectedChatIds.has(chat.id)
++                      const stats = workspaceFileStats.get(chat.id)
++                      const hasPendingPlan = workspacePendingPlans.has(chat.id)
+ 
+                       return (
+                         <ContextMenu key={chat.id}>
+@@ -1582,6 +1768,7 @@ export function AgentsSidebar({
+                                     hasUnseenChanges={unseenChanges.has(
+                                       chat.id,
+                                     )}
++                                    hasPendingPlan={hasPendingPlan}
+                                     isMultiSelectMode={isMultiSelectMode}
+                                     isChecked={isChecked}
+                                     onCheckboxClick={(e) =>
+@@ -1633,16 +1820,28 @@ export function AgentsSidebar({
+                                         </button>
+                                       )}
+                                   </div>
+-                                  <div className="flex items-center justify-between gap-2">
+-                                    <span className="text-[11px] text-muted-foreground/60 truncate">
++                                  <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground/60 min-w-0">
++                                    <span className="truncate flex-1 min-w-0">
+                                       {displayText}
+                                     </span>
+-                                    <span className="text-[11px] text-muted-foreground/60 flex-shrink-0">
+-                                      {formatTime(
+-                                        chat.updatedAt?.toISOString() ??
+-                                          new Date().toISOString(),
++                                    <div className="flex items-center gap-1.5 flex-shrink-0">
++                                      {stats && (stats.additions > 0 || stats.deletions > 0) && (
++                                        <>
++                                          <span className="text-green-600 dark:text-green-400">
++                                            +{stats.additions}
++                                          </span>
++                                          <span className="text-red-600 dark:text-red-400">
++                                            -{stats.deletions}
++                                          </span>
++                                        </>
+                                       )}
+-                                    </span>
++                                      <span>
++                                        {formatTime(
++                                          chat.updatedAt?.toISOString() ??
++                                            new Date().toISOString(),
++                                        )}
++                                      </span>
++                                    </div>
+                                   </div>
+                                 </div>
+                               </div>
+@@ -1784,6 +1983,8 @@ export function AgentsSidebar({
+                         : repoName || "Local project"
+ 
+                       const isChecked = selectedChatIds.has(chat.id)
++                      const stats = workspaceFileStats.get(chat.id)
++                      const hasPendingPlan = workspacePendingPlans.has(chat.id)
+ 
+                       return (
+                         <ContextMenu key={chat.id}>
+@@ -1862,6 +2063,7 @@ export function AgentsSidebar({
+                                     hasUnseenChanges={unseenChanges.has(
+                                       chat.id,
+                                     )}
++                                    hasPendingPlan={hasPendingPlan}
+                                     isMultiSelectMode={isMultiSelectMode}
+                                     isChecked={isChecked}
+                                     onCheckboxClick={(e) =>
+@@ -1915,17 +2117,29 @@ export function AgentsSidebar({
+                                         </button>
+                                       )}
+                                   </div>
+-                                  {/* Bottom line: Branch/Repository (left) and Time (right) */}
+-                                  <div className="flex items-center justify-between gap-2">
+-                                    <span className="text-[11px] text-muted-foreground/60 truncate">
++                                  {/* Bottom line: Branch/Repository (left), Time, and Stats (right) */}
++                                  <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground/60 min-w-0">
++                                    <span className="truncate flex-1 min-w-0">
+                                       {displayText}
+                                     </span>
+-                                    <span className="text-[11px] text-muted-foreground/60 flex-shrink-0">
+-                                      {formatTime(
+-                                        chat.updatedAt?.toISOString() ??
+-                                          new Date().toISOString(),
++                                    <div className="flex items-center gap-1.5 flex-shrink-0">
++                                      {stats && (stats.additions > 0 || stats.deletions > 0) && (
++                                        <>
++                                          <span className="text-green-600 dark:text-green-400">
++                                            +{stats.additions}
++                                          </span>
++                                          <span className="text-red-600 dark:text-red-400">
++                                            -{stats.deletions}
++                                          </span>
++                                        </>
+                                       )}
+-                                    </span>
++                                      <span>
++                                        {formatTime(
++                                          chat.updatedAt?.toISOString() ??
++                                            new Date().toISOString(),
++                                        )}
++                                      </span>
++                                    </div>
+                                   </div>
+                                 </div>
+                               </div>
+diff --git a/src/renderer/features/sidebar/agents-subchats-sidebar.tsx b/src/renderer/features/sidebar/agents-subchats-sidebar.tsx
+index ef19f76..b4412cf 100644
+--- a/src/renderer/features/sidebar/agents-subchats-sidebar.tsx
++++ b/src/renderer/features/sidebar/agents-subchats-sidebar.tsx
+@@ -11,9 +11,12 @@ import {
+   loadingSubChatsAtom,
+   agentsSubChatUnseenChangesAtom,
+   selectedAgentChatIdAtom,
++  previousAgentChatIdAtom,
+   subChatFilesAtom,
+   justCreatedIdsAtom,
+   pendingUserQuestionsAtom,
++  undoStackAtom,
++  type UndoItem,
+ } from "../agents/atoms"
+ import {
+   selectedTeamIdAtom,
+@@ -26,7 +29,7 @@ import {
+   isDesktopAtom,
+   isFullscreenAtom,
+ } from "../../lib/atoms"
+-import { useArchiveChat } from "./hooks/use-archive-chat"
++import { trpc } from "../../lib/trpc"
+ import {
+   useAgentSubChatStore,
+   type SubChatMeta,
+@@ -36,6 +39,7 @@ import {
+   ArchiveIcon,
+   IconDoubleChevronLeft,
+   IconSpinner,
++  LoadingDot,
+   PlanIcon,
+   AgentIcon,
+   IconOpenSidebar,
+@@ -112,17 +116,58 @@ export function AgentsSubChatsSidebar({
+   const [loadingSubChats] = useAtom(loadingSubChatsAtom)
+   const subChatFiles = useAtomValue(subChatFilesAtom)
+   const selectedTeamId = useAtomValue(selectedTeamIdAtom)
+-  const selectedChatId = useAtomValue(selectedAgentChatIdAtom)
++  const [selectedChatId, setSelectedChatId] = useAtom(selectedAgentChatIdAtom)
++  const previousChatId = useAtomValue(previousAgentChatIdAtom)
++
++  // Fetch agent chats for navigation after archive
++  const { data: agentChats } = api.agents.getAgentChats.useQuery(
++    { teamId: selectedTeamId! },
++    { enabled: !!selectedTeamId },
++  )
++
++  const utils = trpc.useUtils()
+ 
+   // Archive parent chat mutation
+-  const archiveChatMutation = useArchiveChat({
+-    teamId: selectedTeamId,
+-    selectedChatId,
++  const archiveChatMutation = trpc.chats.archive.useMutation({
++    onSuccess: (_, variables) => {
++      utils.chats.list.invalidate()
++      utils.chats.listArchived.invalidate()
++
++      // Navigate to previous chat or new workspace
++      if (selectedChatId === variables.id) {
++        const isPreviousAvailable = previousChatId &&
++          agentChats?.some((c) => c.id === previousChatId)
++
++        if (isPreviousAvailable) {
++          setSelectedChatId(previousChatId)
++        } else {
++          setSelectedChatId(null)
++        }
++      }
++    },
+   })
+   const subChatUnseenChanges = useAtomValue(agentsSubChatUnseenChangesAtom)
+   const setSubChatUnseenChanges = useSetAtom(agentsSubChatUnseenChangesAtom)
+   const [justCreatedIds, setJustCreatedIds] = useAtom(justCreatedIdsAtom)
+   const pendingQuestions = useAtomValue(pendingUserQuestionsAtom)
++
++  // Pending plan approvals from DB - only for open sub-chats
++  const { data: pendingPlanApprovalsData } = trpc.chats.getPendingPlanApprovals.useQuery(
++    { openSubChatIds },
++    { refetchInterval: 5000, enabled: openSubChatIds.length > 0 }
++  )
++  const pendingPlanApprovals = useMemo(() => {
++    const set = new Set<string>()
++    if (pendingPlanApprovalsData) {
++      for (const { subChatId } of pendingPlanApprovalsData) {
++        set.add(subChatId)
++      }
++    }
++    return set
++  }, [pendingPlanApprovalsData])
++
++  // Unified undo stack for Cmd+Z support
++  const setUndoStack = useSetAtom(undoStackAtom)
+   const [searchQuery, setSearchQuery] = useState("")
+   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
+   const [focusedChatIndex, setFocusedChatIndex] = useState<number>(-1)
+@@ -329,14 +374,30 @@ export function AgentsSubChatsSidebar({
+       }
+       // Archive = remove from open tabs (but keep in allSubChats for history)
+       useAgentSubChatStore.getState().removeFromOpenSubChats(subChatId)
++
++      // Add to unified undo stack for Cmd+Z
++      if (parentChatId) {
++        const timeoutId = setTimeout(() => {
++          setUndoStack((prev) => prev.filter(
++            (item) => !(item.type === "subchat" && item.subChatId === subChatId)
++          ))
++        }, 10000)
++
++        setUndoStack((prev) => [...prev, {
++          type: "subchat",
++          subChatId,
++          chatId: parentChatId,
++          timeoutId,
++        }])
++      }
+     },
+-    [openSubChats.length, allSubChats],
++    [openSubChats.length, allSubChats, parentChatId, setUndoStack],
+   )
+ 
+   const handleConfirmArchiveAgent = useCallback(() => {
+     if (parentChatId) {
+       // Archive the parent agent chat
+-      archiveChatMutation.mutate({ chatId: parentChatId })
++      archiveChatMutation.mutate({ id: parentChatId })
+     }
+     setArchiveAgentDialogOpen(false)
+     setSubChatToArchive(null)
+@@ -394,8 +455,21 @@ export function AgentsSubChatsSidebar({
+         .map((c) => c.id)
+ 
+       idsToClose.forEach((id) => state.removeFromOpenSubChats(id))
++
++      // Add each to unified undo stack for Cmd+Z
++      if (parentChatId) {
++        const newItems: UndoItem[] = idsToClose.map((id) => {
++          const timeoutId = setTimeout(() => {
++            setUndoStack((prev) => prev.filter(
++              (item) => !(item.type === "subchat" && item.subChatId === id)
++            ))
++          }, 10000)
++          return { type: "subchat" as const, subChatId: id, chatId: parentChatId, timeoutId }
++        })
++        setUndoStack((prev) => [...prev, ...newItems])
++      }
+     },
+-    [filteredSubChats],
++    [filteredSubChats, parentChatId, setUndoStack],
+   )
+ 
+   const onCloseOtherChats = useCallback((subChatId: string) => {
+@@ -403,7 +477,20 @@ export function AgentsSubChatsSidebar({
+     const idsToClose = state.openSubChatIds.filter((id) => id !== subChatId)
+     idsToClose.forEach((id) => state.removeFromOpenSubChats(id))
+     state.setActiveSubChat(subChatId)
+-  }, [])
++
++    // Add each to unified undo stack for Cmd+Z
++    if (parentChatId) {
++      const newItems: UndoItem[] = idsToClose.map((id) => {
++        const timeoutId = setTimeout(() => {
++          setUndoStack((prev) => prev.filter(
++            (item) => !(item.type === "subchat" && item.subChatId === id)
++          ))
++        }, 10000)
++        return { type: "subchat" as const, subChatId: id, chatId: parentChatId, timeoutId }
++      })
++      setUndoStack((prev) => [...prev, ...newItems])
++    }
++  }, [parentChatId, setUndoStack])
+ 
+   const renameMutation = api.agents.renameSubChat.useMutation({
+     // Note: store is updated optimistically in handleRenameSave, no need for onSuccess
+@@ -604,9 +691,22 @@ export function AgentsSubChatsSidebar({
+         const state = useAgentSubChatStore.getState()
+         idsToArchive.forEach((id) => state.removeFromOpenSubChats(id))
+         clearSubChatSelection()
++
++        // Add each to unified undo stack for Cmd+Z
++        if (parentChatId) {
++          const newItems: UndoItem[] = idsToArchive.map((id) => {
++            const timeoutId = setTimeout(() => {
++              setUndoStack((prev) => prev.filter(
++                (item) => !(item.type === "subchat" && item.subChatId === id)
++              ))
++            }, 10000)
++            return { type: "subchat" as const, subChatId: id, chatId: parentChatId, timeoutId }
++          })
++          setUndoStack((prev) => [...prev, ...newItems])
++        }
+       }
+     }
+-  }, [selectedSubChatIds, openSubChatIds, allSubChats, clearSubChatSelection])
++  }, [selectedSubChatIds, openSubChatIds, allSubChats, clearSubChatSelection, parentChatId, setUndoStack])
+ 
+   // Handle checkbox click
+   const handleCheckboxClick = (e: React.MouseEvent, subChatId: string) => {
+@@ -1052,6 +1152,7 @@ export function AgentsSubChatsSidebar({
+                           const isChecked = selectedSubChatIds.has(subChat.id)
+                           const draftText = getDraftText(subChat.id)
+                           const hasPendingQuestion = pendingQuestions?.subChatId === subChat.id
++                          const hasPendingPlan = pendingPlanApprovals.has(subChat.id)
+                           const fileChanges = subChatFiles.get(subChat.id) || []
+                           const stats =
+                             fileChanges.length > 0
+@@ -1153,7 +1254,7 @@ export function AgentsSubChatsSidebar({
+                                         )}
+                                       </div>
+                                       {/* Badge in bottom-right corner - hidden in multi-select mode and when pending question */}
+-                                      {(isSubChatLoading || hasUnseen) &&
++                                      {(isSubChatLoading || hasUnseen || hasPendingPlan) &&
+                                         !isMultiSelectMode && !hasPendingQuestion && (
+                                           <div
+                                             className={cn(
+@@ -1163,10 +1264,13 @@ export function AgentsSubChatsSidebar({
+                                                 : "bg-[#F4F4F4] group-hover:bg-[#E8E8E8] dark:bg-[#101010] dark:group-hover:bg-[#1B1B1B]",
+                                             )}
+                                           >
++                                            {/* Priority: loader > amber dot (pending plan) > blue dot (unseen) */}
+                                             {isSubChatLoading ? (
+-                                              <IconSpinner className="w-2.5 h-2.5 text-muted-foreground" />
++                                              <LoadingDot isLoading={true} className="w-2.5 h-2.5 text-muted-foreground" />
++                                            ) : hasPendingPlan ? (
++                                              <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                             ) : (
+-                                              <div className="w-2 h-2 rounded-full bg-[#307BD0]" />
++                                              <LoadingDot isLoading={false} className="w-2.5 h-2.5 text-muted-foreground" />
+                                             )}
+                                           </div>
+                                         )}
+@@ -1325,6 +1429,7 @@ export function AgentsSubChatsSidebar({
+                           const isChecked = selectedSubChatIds.has(subChat.id)
+                           const draftText = getDraftText(subChat.id)
+                           const hasPendingQuestion = pendingQuestions?.subChatId === subChat.id
++                          const hasPendingPlan = pendingPlanApprovals.has(subChat.id)
+                           const fileChanges = subChatFiles.get(subChat.id) || []
+                           const stats =
+                             fileChanges.length > 0
+@@ -1426,7 +1531,7 @@ export function AgentsSubChatsSidebar({
+                                         )}
+                                       </div>
+                                       {/* Badge - hidden in multi-select mode and when pending question */}
+-                                      {(isSubChatLoading || hasUnseen) &&
++                                      {(isSubChatLoading || hasUnseen || hasPendingPlan) &&
+                                         !isMultiSelectMode && !hasPendingQuestion && (
+                                           <div
+                                             className={cn(
+@@ -1436,10 +1541,13 @@ export function AgentsSubChatsSidebar({
+                                                 : "bg-[#F4F4F4] group-hover:bg-[#E8E8E8] dark:bg-[#101010] dark:group-hover:bg-[#1B1B1B]",
+                                             )}
+                                           >
++                                            {/* Priority: loader > amber dot (pending plan) > blue dot (unseen) */}
+                                             {isSubChatLoading ? (
+-                                              <IconSpinner className="w-2.5 h-2.5 text-muted-foreground" />
++                                              <LoadingDot isLoading={true} className="w-2.5 h-2.5 text-muted-foreground" />
++                                            ) : hasPendingPlan ? (
++                                              <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                             ) : (
+-                                              <div className="w-2 h-2 rounded-full bg-[#307BD0]" />
++                                              <LoadingDot isLoading={false} className="w-2.5 h-2.5 text-muted-foreground" />
+                                             )}
+                                           </div>
+                                         )}
+diff --git a/src/renderer/features/sidebar/hooks/use-archive-chat.ts b/src/renderer/features/sidebar/hooks/use-archive-chat.ts
+deleted file mode 100644
+index 037decd..0000000
+--- a/src/renderer/features/sidebar/hooks/use-archive-chat.ts
++++ /dev/null
+@@ -1,90 +0,0 @@
+-"use client"
+-
+-import { useSetAtom } from "jotai"
+-import { api } from "../../../lib/mock-api"
+-import { selectedAgentChatIdAtom } from "../../../lib/atoms"
+-
+-interface UseArchiveChatOptions {
+-  teamId: string | null
+-  selectedChatId: string | null
+-}
+-
+-/**
+- * Hook for archiving agent chats with proper navigation logic.
+- * When a chat is archived, it selects the next available chat or opens new chat view.
+- */
+-export function useArchiveChat({
+-  teamId,
+-  selectedChatId,
+-}: UseArchiveChatOptions) {
+-  const setSelectedChatId = useSetAtom(selectedAgentChatIdAtom)
+-  const utils = api.useUtils()
+-
+-  const archiveChatMutation = api.agents.archiveChat.useMutation({
+-    onMutate: async (variables) => {
+-      // Cancel any outgoing refetches
+-      await utils.agents.getAgentChats.cancel()
+-      await utils.agents.getArchivedChats.cancel()
+-
+-      // Snapshot the previous values
+-      const previousActiveChats = utils.agents.getAgentChats.getData({
+-        teamId: teamId!,
+-      })
+-      const previousArchivedChats = utils.agents.getArchivedChats.getData({
+-        teamId: teamId!,
+-      })
+-
+-      // Optimistically update: remove chat from active list
+-      if (previousActiveChats) {
+-        const archivedChat = previousActiveChats.find(
+-          (c) => c.id === variables.chatId,
+-        )
+-        if (archivedChat) {
+-          // Remove from active list
+-          utils.agents.getAgentChats.setData(
+-            { teamId: teamId! },
+-            previousActiveChats.filter((c) => c.id !== variables.chatId),
+-          )
+-
+-          // Add to archived list
+-          const updatedChat = { ...archivedChat, archived_at: new Date() }
+-          utils.agents.getArchivedChats.setData({ teamId: teamId! }, [
+-            updatedChat,
+-            ...(previousArchivedChats || []),
+-          ])
+-        }
+-      }
+-
+-      // If archived chat was selected, select the next available chat
+-      if (selectedChatId === variables.chatId) {
+-        const remainingChats = previousActiveChats?.filter(
+-          (c) => c.id !== variables.chatId,
+-        )
+-        const nextChat = remainingChats?.[0] // First chat is the most recent
+-        setSelectedChatId(nextChat?.id || null)
+-      }
+-
+-      return { previousActiveChats, previousArchivedChats }
+-    },
+-    onError: (error, variables, context) => {
+-      // Rollback on error
+-      if (context?.previousActiveChats) {
+-        utils.agents.getAgentChats.setData(
+-          { teamId: teamId! },
+-          context.previousActiveChats,
+-        )
+-      }
+-      if (context?.previousArchivedChats) {
+-        utils.agents.getArchivedChats.setData(
+-          { teamId: teamId! },
+-          context.previousArchivedChats,
+-        )
+-      }
+-    },
+-    onSettled: () => {
+-      // No invalidate - optimistic update handles it
+-    },
+-  })
+-
+-  return archiveChatMutation
+-}
+diff --git a/src/renderer/features/sub-chats/sub-chat-selector.tsx b/src/renderer/features/sub-chats/sub-chat-selector.tsx
+index 42e4b06..a9b3f22 100644
+--- a/src/renderer/features/sub-chats/sub-chat-selector.tsx
++++ b/src/renderer/features/sub-chats/sub-chat-selector.tsx
+@@ -536,7 +536,7 @@ export function SubChatSelector({
+                           <div className="flex-shrink-0 w-3.5 h-3.5 flex items-center justify-center relative">
+                             {isLoading ? (
+                               // Loading: show only spinner (replaces entire icon block)
+-                              <IconSpinner className="w-3.5 h-3.5 text-muted-foreground" />
++                              <IconSpinner className="w-3.5 h-3.5 text-muted-foreground" size="nano" />
+                             ) : (
+                               <>
+                                 {/* Main mode icon */}
+diff --git a/src/renderer/icons/index.tsx b/src/renderer/icons/index.tsx
+index 35da82e..b018e82 100644
+--- a/src/renderer/icons/index.tsx
++++ b/src/renderer/icons/index.tsx
+@@ -4,8 +4,10 @@ import * as React from "react"
+ type IconProps = React.SVGProps<SVGSVGElement> & { className?: string }
+ 
+ // Spinner icon with animation
+-export function IconSpinner(props: IconProps & { color?: string }) {
+-  const { className, style, color, ...rest } = props
++// size: "default" (strokeWidth 3) or "nano" (strokeWidth 4, for small displays)
++export function IconSpinner(props: IconProps & { color?: string; size?: "default" | "nano" }) {
++  const { className, style, color, size = "default", ...rest } = props
++  const strokeWidth = size === "nano" ? 4 : 3
+   return (
+     <>
+       <style>{`
+@@ -31,7 +33,7 @@ export function IconSpinner(props: IconProps & { color?: string }) {
+           cy="12"
+           r="10"
+           stroke={color || "currentColor"}
+-          strokeWidth="3"
++          strokeWidth={strokeWidth}
+           strokeLinecap="round"
+           fill="none"
+           opacity={0.2}
+@@ -39,7 +41,7 @@ export function IconSpinner(props: IconProps & { color?: string }) {
+         <path
+           d="M12 2C6.48 2 2 6.48 2 12"
+           stroke={color || "currentColor"}
+-          strokeWidth="3"
++          strokeWidth={strokeWidth}
+           strokeLinecap="round"
+           fill="none"
+         />
+@@ -48,6 +50,64 @@ export function IconSpinner(props: IconProps & { color?: string }) {
+   )
+ }
+ 
++// Loading indicator that transitions from spinner to dot
++// Shows spinner when loading, animates to blue dot when done
++export function LoadingDot({
++  isLoading,
++  className,
++  dotClassName = "bg-[#307BD0]"
++}: {
++  isLoading: boolean
++  className?: string
++  dotClassName?: string
++}) {
++  return (
++    <div className={`relative ${className || ""}`}>
++      <style>{`
++        @keyframes spin {
++          from { transform: rotate(0deg); }
++          to { transform: rotate(360deg); }
++        }
++      `}</style>
++      {/* Spinner - visible when loading */}
++      <svg
++        viewBox="0 0 24 24"
++        fill="none"
++        className={`absolute inset-0 w-full h-full transition-[opacity,transform] duration-200 ease-out ${
++          isLoading ? "opacity-100 scale-100" : "opacity-0 scale-50"
++        }`}
++        style={{
++          animation: isLoading ? 'spin 1s linear infinite' : undefined,
++        }}
++      >
++        <circle
++          cx="12"
++          cy="12"
++          r="10"
++          stroke="currentColor"
++          strokeWidth={4}
++          strokeLinecap="round"
++          fill="none"
++          opacity={0.2}
++        />
++        <path
++          d="M12 2C6.48 2 2 6.48 2 12"
++          stroke="currentColor"
++          strokeWidth={4}
++          strokeLinecap="round"
++          fill="none"
++        />
++      </svg>
++      {/* Dot - appears when not loading */}
++      <div
++        className={`absolute inset-0 m-auto w-[80%] h-[80%] rounded-full transition-[opacity,transform] duration-200 ease-out ${dotClassName} ${
++          isLoading ? "opacity-0 scale-50" : "opacity-100 scale-100"
++        }`}
++      />
++    </div>
++  )
++}
++
+ // Edit file icon
+ export function IconEditFile(props: IconProps) {
+   return (

@@ -56,3 +56,52 @@
 - **Issue**: "OpenCode message failed: 400 Bad Request" errors occurred because the request payload was missing the required `parts` array structure, and potentially due to invalid model IDs being requested.
 - **Fix**: Updated `src/main/lib/trpc/routers/claude.ts` to send the correct payload format (`{ parts: [{ type: "text", text: "..." }] }`) and parse the response `parts` array. Additionally implemented fallback logic to retry with the default model if the requested model triggers a 400 error.
 - **Result**: OpenCode integration works correctly, allowing local models to be used and handling invalid model selections gracefully.
+
+## 12. Enhanced OpenCode Model Management
+- **Issue**: Models were either hardcoded or missing if `providers.json` didn't exist. Users couldn't easily add custom models or import configurations.
+- **Fix**:
+    - **Smart Merging**: Updated `opencode.ts` to intelligently merge models from three sources:
+        1. Custom `providers.json` (manual/imported models).
+        2. Auto-generated models from `auth.json` (based on your API keys).
+        3. Fallback to OpenCode API if local config is empty.
+    - **Import Feature**: Added a new "Import Models JSON" feature in the settings tab to allow bulk import of model configurations.
+    - **Manual Add**: Added UI to manually add single custom models.
+    - **Direct Update**: Automatically populated `providers.json` with requested models (`big-pickle`, `glm-4.7-free`, `gpt-5-nano`, etc.).
+- **Result**: You now have full control over your model list, with automatic support for your authenticated providers and easy ways to add custom ones.
+
+## 13. OpenCode Integration Status & Remaining Work
+
+### ✅ Completed:
+1. **Model Management**: Full support for loading models from `providers.json`, `opencode.json`, and `auth.json`
+2. **Agent Selector**: Added UI dropdown to switch between Claude Code and OpenCode agents
+3. **Port Configuration**: Set to port 52313 for OpenCode server
+4. **Settings UI**: Import/Export JSON, manual model addition, provider management
+
+### 🚧 Remaining Work:
+The following features still need implementation:
+
+#### A. Replace Claude SDK with OpenCode API
+**Current Issue**: The app tries to use Claude Code binary (`claude.exe`) which doesn't exist.  
+**Solution Needed**: Modify `src/main/lib/trpc/routers/claude.ts` to:
+- Detect when OpenCode agent is selected
+- Route to OpenCode API (`http://localhost:52313`) instead of Claude SDK
+- Use OpenCode's `/chat/completions` or `/messages` endpoint
+- Support tool calling via OpenCode's API format
+- Add API key support (CSB key: `csb_v1_WxklWdEqoHS_6ba92VUclLZrbibLvEWa8ssF0zvdtc0`)
+
+#### B. Canvas Chat Side Panel
+**Requested**: Add a toggle for Canvas chat in the side panel  
+**Implementation**: Create a new panel component that:
+- Shows Canvas-specific chat interface
+- Integrates with OpenCode for visual/design tasks
+- Has a toggle button in the sidebar
+
+#### C. Tool Calling Support
+- Implement OpenCode tool calling format
+- Map Claude SDK tool format to OpenCode format
+- Handle tool responses and streaming
+
+**Files to Modify**:
+- `src/main/lib/trpc/routers/claude.ts` - Main execution router
+- `src/main/lib/opencode-state.ts` - Add API key storage
+- `src/renderer/features/agents/components/` - Add Canvas panel component

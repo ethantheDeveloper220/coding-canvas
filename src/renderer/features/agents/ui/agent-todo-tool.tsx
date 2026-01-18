@@ -35,6 +35,10 @@ interface AgentTodoToolProps {
     output?: {
       oldTodos?: TodoItem[]
       newTodos?: TodoItem[]
+      metadata?: {
+        todos?: TodoItem[]
+        oldTodos?: TodoItem[]
+      }
     }
   }
   chatStatus?: string
@@ -180,8 +184,8 @@ export const AgentTodoTool = memo(function AgentTodoTool({
   const creationToolCallId = todoState.creationToolCallId
 
   // Get todos from input or output.newTodos
-  const rawOldTodos = part.output?.oldTodos || []
-  const newTodos = part.input?.todos || part.output?.newTodos || []
+  const rawOldTodos = part.output?.oldTodos || part.output?.metadata?.oldTodos || []
+  const newTodos = part.input?.todos || part.output?.newTodos || part.output?.metadata?.todos || []
 
   // Determine if this is the creation tool call
   // A tool call is the "creation" if:

@@ -160,7 +160,7 @@ export const clearSubChatSelectionAtom = atom(null, (_get, set) => {
 // ============================================
 
 // Settings dialog
-export type SettingsTab = "profile" | "appearance" | "preferences" | "debug"
+export type SettingsTab = "profile" | "appearance" | "preferences" | "debug" | "skills" | "opencode"
 export const agentsSettingsDialogActiveTabAtom = atom<SettingsTab>("profile")
 export const agentsSettingsDialogOpenAtom = atom<boolean>(false)
 
@@ -363,7 +363,7 @@ export const isFullscreenAtom = atom<boolean | null>(null)
 // Reset on logout
 export const anthropicOnboardingCompletedAtom = atomWithStorage<boolean>(
   "onboarding:anthropic-completed",
-  false,
+  true, // Default to true - skip onboarding
   undefined,
   { getOnInit: true },
 )

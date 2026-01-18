@@ -1,7 +1,7 @@
 "use client"
 
 import { memo, useState, useEffect, useRef } from "react"
-import { ChevronRight } from "lucide-react"
+import { ChevronRight, Brain, Lightbulb, Sparkles } from "lucide-react"
 import { cn } from "../../../lib/utils"
 import { ChatMarkdownRenderer } from "../../../components/chat-markdown-renderer"
 import { AgentToolInterrupted } from "./agent-tool-interrupted"
@@ -67,66 +67,124 @@ export const AgentThinkingTool = memo(function AgentThinkingTool({
   }
 
   return (
-    <div>
-      {/* Header - clickable to toggle, same as Exploring */}
+    <div className="relative my-1">
+      {/* Main container with border - using theme colors */}
       <div
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="group flex items-start gap-1.5 py-0.5 px-2 cursor-pointer"
+        className={cn(
+          "relative rounded-lg border transition-all duration-300 overflow-hidden",
+          "bg-muted/40",
+          isStreaming
+            ? "border-foreground/20 shadow-sm"
+            : "border-border hover:border-border/80",
+          isExpanded && "border-foreground/15"
+        )}
       >
-        <div className="flex-1 min-w-0 flex items-center gap-1">
-          <div className="text-xs flex items-center gap-1.5 min-w-0">
-            <span className="font-medium whitespace-nowrap flex-shrink-0 text-muted-foreground">
-              {isStreaming ? "Thinking" : "Thought"}
-            </span>
-            {/* Preview text when collapsed */}
-            {!isExpanded && previewText && (
-              <span className="text-muted-foreground/60 truncate">
-                {previewText}...
-              </span>
-            )}
-            {/* Chevron - rotates when expanded, visible on hover when collapsed */}
+        {/* Header - clickable to toggle */}
+        <div
+          onClick={() => setIsExpanded(!isExpanded)}
+          className={cn(
+            "group flex items-start gap-2 py-2 px-3 cursor-pointer relative",
+            "transition-all duration-200"
+          )}
+        >
+          {/* Icon container */}
+          <div className="flex-shrink-0 mt-0.5">
+            <div
+              className={cn(
+                "flex items-center justify-center w-6 h-6 rounded-md transition-all duration-300",
+                isStreaming
+                  ? "bg-foreground/10 text-foreground/70"
+                  : isExpanded
+                    ? "bg-foreground/10 text-foreground/70"
+                    : "bg-muted text-muted-foreground group-hover:bg-muted/80"
+              )}
+            >
+              {isStreaming ? (
+                <Brain className="w-3.5 h-3.5 group-hover:rotate-12 transition-transform duration-300" />
+              ) : (
+                <Lightbulb className="w-3.5 h-3.5 group-hover:rotate-12 transition-transform duration-300" />
+              )}
+            </div>
+          </div>
+
+          {/* Header content */}
+          <div className="flex-1 min-w-0 flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              {/* Title with icon */}
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <Sparkles
+                  className="w-3 h-3 text-muted-foreground"
+                />
+                <span
+                  className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+                >
+                  {isStreaming ? "Thinking" : "Thought"}
+                </span>
+              </div>
+
+              {/* Preview text when collapsed */}
+              {!isExpanded && previewText && (
+                <span className="text-xs text-muted-foreground/70 truncate">
+                  {previewText}...
+                </span>
+              )}
+            </div>
+
+            {/* Chevron - rotates when expanded */}
             <ChevronRight
               className={cn(
-                "w-3.5 h-3.5 text-muted-foreground/60 transition-transform duration-200 ease-out flex-shrink-0",
+                "w-4 h-4 text-muted-foreground/50 transition-transform duration-300 ease-out flex-shrink-0 ml-auto",
                 isExpanded && "rotate-90",
-                !isExpanded && "opacity-0 group-hover:opacity-100",
+                !isExpanded && "group-hover:text-muted-foreground"
               )}
             />
           </div>
         </div>
-      </div>
 
-      {/* Thinking content - only show when expanded */}
-      {isExpanded && thinkingText && (
-        <div className="relative">
-          {/* Top gradient fade when streaming and has lots of content */}
-          {isStreaming && thinkingText.length > SCROLL_THRESHOLD && (
-            <div className="absolute inset-x-0 top-0 h-5 bg-gradient-to-b from-background/70 to-transparent z-10 pointer-events-none" />
-          )}
+        {/* Thinking content - only show when expanded */}
+        {isExpanded && thinkingText && (
+          <div className="relative">
+            {/* Divider */}
+            <div className="absolute top-0 left-3 right-3 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
 
-          {/* Scrollable container */}
-          <div
-            ref={scrollRef}
-            className={cn(
-              "px-2",
-              isStreaming &&
-                thinkingText.length > SCROLL_THRESHOLD &&
-                "overflow-y-auto scrollbar-none max-h-24",
-            )}
-          >
-            {/* Markdown content */}
-            <ChatMarkdownRenderer
-              content={thinkingText}
-              size="sm"
-              className="text-muted-foreground"
-            />
-            {/* Blinking cursor when streaming */}
-            {isStreaming && (
-              <span className="inline-block w-1 h-3 bg-muted-foreground/50 ml-0.5 animate-pulse" />
-            )}
+            {/* Content container */}
+            <div
+              ref={scrollRef}
+              className={cn(
+                "px-3 py-2.5 max-h-80 overflow-y-auto",
+                "scrollbar-thin scrollbar-thumb-border/30 scrollbar-track-transparent",
+                "transition-all duration-300"
+              )}
+            >
+              {/* Top gradient fade when streaming and has lots of content */}
+              {isStreaming && thinkingText.length > SCROLL_THRESHOLD && (
+                <div className="sticky top-0 left-0 right-0 h-4 bg-gradient-to-b from-background/90 to-transparent z-10 pointer-events-none" />
+              )}
+
+              {/* Markdown content */}
+              <div className="relative">
+                <ChatMarkdownRenderer
+                  content={thinkingText}
+                  size="sm"
+                  className="text-sm text-foreground/90 leading-relaxed"
+                />
+                {/* Blinking cursor when streaming - using theme color */}
+                {isStreaming && (
+                  <span
+                    className="inline-block w-0.5 h-4 ml-0.5 animate-pulse align-middle"
+                    style={{ backgroundColor: 'light-dark(hsl(var(--foreground) / 0.5), hsl(var(--foreground) / 0.3))' }}
+                  />
+                )}
+              </div>
+
+              {/* Bottom gradient fade when streaming and has lots of content */}
+              {isStreaming && thinkingText.length > SCROLL_THRESHOLD && (
+                <div className="sticky bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-background/90 to-transparent z-10 pointer-events-none mt-2" />
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 })

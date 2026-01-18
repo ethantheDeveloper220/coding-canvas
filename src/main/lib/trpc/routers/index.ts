@@ -8,14 +8,18 @@ import { externalRouter } from "./external"
 import { filesRouter } from "./files"
 import { debugRouter } from "./debug"
 import { skillsRouter } from "./skills"
+import { agentsRouter } from "./agents"
+import { opencodeRouter } from "./opencode"
 import { createGitRouter } from "../../git"
-import { BrowserWindow } from "electron"
+
+// Lazy import BrowserWindow to avoid loading Electron in web mode
+type BrowserWindowType = typeof import("electron").BrowserWindow
 
 /**
  * Create the main app router
  * Uses getter pattern to avoid stale window references
  */
-export function createAppRouter(getWindow: () => BrowserWindow | null) {
+export function createAppRouter(getWindow: () => BrowserWindowType | null) {
   return router({
     projects: projectsRouter,
     chats: chatsRouter,
@@ -26,6 +30,8 @@ export function createAppRouter(getWindow: () => BrowserWindow | null) {
     files: filesRouter,
     debug: debugRouter,
     skills: skillsRouter,
+    agents: agentsRouter,
+    opencode: opencodeRouter,
     // Git operations - named "changes" to match Superset API
     changes: createGitRouter(),
   })

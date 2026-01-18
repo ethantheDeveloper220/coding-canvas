@@ -23,6 +23,9 @@ import {
   IconSpinner,
   SkillIcon,
 } from "../../../components/ui/icons"
+import { TerminalSquare } from "lucide-react"
+import { useAtomValue } from "jotai"
+import { terminalsAtom, terminalCwdAtom } from "../../terminal/atoms"
 
 // Custom folder icon matching design
 function FolderOpenIcon({ className }: { className?: string }) {
@@ -95,6 +98,7 @@ interface AgentsFileMentionProps {
   branch?: string // For fetching files from specific branch via GitHub API
   projectPath?: string // For fetching files from local project directory (desktop)
   changedFiles?: ChangedFile[] // Files changed in current sub-chat (shown at top)
+  chatId?: string // Chat ID for terminal filtering
 }
 
 // Known file extensions with icons
@@ -290,12 +294,14 @@ export function getFileIconByExtension(
 }
 
 // Create SVG icon element in DOM based on file extension or type
-export function createFileIconElement(filename: string, type?: "file" | "folder" | "skill"): SVGSVGElement {
+export function createFileIconElement(filename: string, type?: "file" | "folder" | "skill" | "terminal"): SVGSVGElement {
   const IconComponent = type === "skill"
     ? SkillIcon
-    : type === "folder" 
-      ? FolderOpenIcon 
-      : (getFileIconByExtension(filename) ?? FilesIcon)
+    : type === "terminal"
+      ? TerminalSquare
+      : type === "folder" 
+        ? FolderOpenIcon 
+        : (getFileIconByExtension(filename) ?? FilesIcon)
 
   // Create a temporary container
   const container = document.createElement("div")
@@ -376,12 +382,20 @@ function SkillIconWrapper({ className }: { className?: string }) {
   return <SkillIcon className={className} />
 }
 
+// Terminal icon component
+function TerminalIconWrapper({ className }: { className?: string }) {
+  return <TerminalSquare className={className} />
+}
+
 /**
- * Get icon component for a file, folder, or skill option
+ * Get icon component for a file, folder, skill, or terminal option
  */
-export function getOptionIcon(option: { label: string; type?: "file" | "folder" | "skill" }) {
+export function getOptionIcon(option: { label: string; type?: "file" | "folder" | "skill" | "terminal" }) {
   if (option.type === "skill") {
     return SkillIconWrapper
+  }
+  if (option.type === "terminal") {
+    return TerminalIconWrapper
   }
   if (option.type === "folder") {
     return FolderIcon
@@ -487,6 +501,7 @@ export const AgentsFileMention = memo(function AgentsFileMention({
   branch,
   projectPath,
   changedFiles = [],
+  chatId,
 }: AgentsFileMentionProps) {
   const dropdownRef = useRef<HTMLDivElement>(null)
   const [selectedIndex, setSelectedIndex] = useState(0)
@@ -497,9 +512,17 @@ export const AgentsFileMention = memo(function AgentsFileMention({
   const [tooltipVisible, setTooltipVisible] = useState(false)
   const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 })
   const [tooltipContent, setTooltipContent] = useState("")
-  const [tooltipType, setTooltipType] = useState<"file" | "folder" | "skill">("file")
+  const [tooltipType, setTooltipType] = useState<"file" | "folder" | "skill" | "terminal">("file")
   const [tooltipPlacement, setTooltipPlacement] = useState<"left" | "right">("left")
   const [hoverIndex, setHoverIndex] = useState<number | null>(null)
+
+  // Get terminals for this chat
+  const allTerminals = useAtomValue(terminalsAtom)
+  const terminalCwds = useAtomValue(terminalCwdAtom)
+  const terminals = useMemo(
+    () => (chatId ? allTerminals[chatId] || [] : []),
+    [allTerminals, chatId],
+  )
 
   // Fetch skills from filesystem (cached for 5 minutes)
   const { data: skills = [], isFetching: isFetchingSkills } = trpc.skills.listEnabled.useQuery(undefined, {
@@ -621,19 +644,43 @@ export const AgentsFileMention = memo(function AgentsFileMention({
       }))
   }, [skills, debouncedSearchText])
 
+  // Convert terminals to mention options
+  const terminalOptions: FileMentionOption[] = useMemo(() => {
+    const searchLower = debouncedSearchText.toLowerCase()
+    
+    return terminals
+      .filter(terminal => 
+        !searchLower || 
+        terminal.name.toLowerCase().includes(searchLower)
+      )
+      .map(terminal => {
+        const cwd = terminalCwds[terminal.paneId] || ""
+        return {
+          id: `${MENTION_PREFIXES.TERMINAL}${terminal.id}`,
+          label: terminal.name,
+          path: cwd,
+          repository: "",
+          truncatedPath: cwd,
+          type: "terminal" as const,
+          terminalId: terminal.id,
+          paneId: terminal.paneId,
+        }
+      })
+  }, [terminals, terminalCwds, debouncedSearchText])
+
   // Combined options for keyboard navigation
   // When searching: merge all and sort globally (filename matches first)
-  // When not searching: keep groups separate (skills first, then changed files, then repo files)
+  // When not searching: keep groups separate (skills first, then terminals, then changed files, then repo files)
   const options: FileMentionOption[] = useMemo(() => {
     if (debouncedSearchText) {
-      // When searching: merge all files and skills, sort globally
-      const allItems = [...skillOptions, ...changedFileOptions, ...repoFileOptions]
+      // When searching: merge all files, skills, and terminals, sort globally
+      const allItems = [...skillOptions, ...terminalOptions, ...changedFileOptions, ...repoFileOptions]
       return sortFilesByRelevance(allItems, debouncedSearchText)
     }
 
-    // No search: keep groups (skills first, then changed files, then repo files)
-    return [...skillOptions, ...changedFileOptions, ...repoFileOptions]
-  }, [skillOptions, changedFileOptions, repoFileOptions, debouncedSearchText])
+    // No search: keep groups (skills first, then terminals, then changed files, then repo files)
+    return [...skillOptions, ...terminalOptions, ...changedFileOptions, ...repoFileOptions]
+  }, [skillOptions, terminalOptions, changedFileOptions, repoFileOptions, debouncedSearchText])
 
   // Flag to determine if we're in search mode (no groups)
   const isSearchMode = debouncedSearchText.length > 0

@@ -12,8 +12,11 @@ import {
   MODEL_ID_MAP,
   pendingAuthRetryMessageAtom,
   pendingUserQuestionsAtom,
-} from "../atoms"
+} from "../atoms/index"
 import { useAgentSubChatStore } from "../stores/sub-chat-store"
+
+// Track active subscriptions to prevent duplicates
+const activeSubscriptions = new Set<string>()
 
 // Error categories and their user-friendly messages
 const ERROR_TOAST_CONFIG: Record<
@@ -88,8 +91,11 @@ type IPCChatTransportConfig = {
   chatId: string
   subChatId: string
   cwd: string
-  mode: "plan" | "agent"
+  mode: "plan" | "build" | "scaling" | "designer" | "debug" | "agent" | string // string for custom modes
   model?: string
+  agentType?: string  // 'claude-code' or 'opencode'
+  projectPath?: string  // Original project path for MCP config lookup
+  customModeId?: string // Store custom mode ID separately for prompt rules
 }
 
 // Image attachment type matching the tRPC schema
@@ -100,18 +106,47 @@ type ImageAttachment = {
 }
 
 export class IPCChatTransport implements ChatTransport<UIMessage> {
-  constructor(private config: IPCChatTransportConfig) {}
+  constructor(private config: IPCChatTransportConfig) { }
 
   async sendMessages(options: {
     messages: UIMessage[]
     abortSignal?: AbortSignal
   }): Promise<ReadableStream<UIMessageChunk>> {
+    // Get sub-chat data once for all uses
+    const subChatData = useAgentSubChatStore
+      .getState()
+      .allSubChats.find((subChat) => subChat.id === this.config.subChatId)
+
+    // Get current mode
+    const currentMode = subChatData?.mode || this.config.mode
+
     // Extract prompt and images from last user message
     const lastUser = [...options.messages]
       .reverse()
       .find((m) => m.role === "user")
-    const prompt = this.extractText(lastUser)
+    let prompt = this.extractText(lastUser)
     const images = this.extractImages(lastUser)
+
+    // Apply custom mode prompt rules if a custom mode is selected
+    const customModeId = this.config.customModeId || (currentMode && typeof currentMode === "string" && currentMode.startsWith("custom-") ? currentMode : null)
+    if (customModeId) {
+      try {
+        // Dynamic import to avoid circular dependencies
+        const { getCustomModeById } = await import("../lib/custom-modes")
+        const customMode = getCustomModeById(customModeId)
+        if (customMode?.promptRules) {
+          // Prepend prompt rules to the user's prompt
+          prompt = `${customMode.promptRules}\n\n${prompt}`
+        }
+      } catch (error) {
+        console.error("Failed to load custom mode prompt rules:", error)
+      }
+    }
+
+    // Map mode for backend API (custom modes map to "build" since backend doesn't support custom modes)
+    const backendMode = currentMode && typeof currentMode === "string" && currentMode.startsWith("custom-")
+      ? "build" // Custom modes use "build" as the backend mode
+      : (currentMode === "agent" ? "build" : currentMode)
 
     // Get sessionId for resume
     const lastAssistant = [...options.messages]
@@ -123,15 +158,15 @@ export class IPCChatTransport implements ChatTransport<UIMessage> {
     const thinkingEnabled = appStore.get(extendedThinkingEnabledAtom)
     const maxThinkingTokens = thinkingEnabled ? 128_000 : undefined
 
-    // Read model selection dynamically (so model changes apply to existing chats)
-    const selectedModelId = appStore.get(lastSelectedModelIdAtom)
-    const modelString = MODEL_ID_MAP[selectedModelId]
+    // Read model selection dynamically (priority: hardcoded config > sub-chat stored model > global atom)
+    // If model is hardcoded in config (e.g. multi-agent run), use it.
+    const selectedModelId = this.config.model || subChatData?.model || appStore.get(lastSelectedModelIdAtom)
 
-    const currentMode =
-      useAgentSubChatStore
-        .getState()
-        .allSubChats.find((subChat) => subChat.id === this.config.subChatId)
-        ?.mode || this.config.mode
+    // For OpenCode, use the selectedModelId directly as it IS the actual model ID
+    // For Claude Code, map through MODEL_ID_MAP
+    const modelString = this.config.agentType === 'opencode'
+      ? selectedModelId
+      : (MODEL_ID_MAP[selectedModelId] || selectedModelId)
 
     // Stream debug logging
     const subId = this.config.subChatId.slice(-8)
@@ -141,17 +176,33 @@ export class IPCChatTransport implements ChatTransport<UIMessage> {
 
     return new ReadableStream({
       start: (controller) => {
+        // Guard against duplicate subscriptions
+        if (activeSubscriptions.has(this.config.subChatId)) {
+          console.log('[Transport] Skipping duplicate subscription for subchat:', this.config.subChatId)
+          controller.close()
+          return
+        }
+
+        // Mark this subscription as active
+        activeSubscriptions.add(this.config.subChatId)
+        console.log('[Transport] Starting subscription for subchat:', this.config.subChatId)
+
+        // Track if stream has been closed to prevent enqueue errors
+        let isStreamClosed = false
+
         const sub = trpcClient.claude.chat.subscribe(
           {
             subChatId: this.config.subChatId,
             chatId: this.config.chatId,
             prompt,
             cwd: this.config.cwd,
-            mode: currentMode,
+            ...(this.config.projectPath && { projectPath: this.config.projectPath }),
+            mode: backendMode as "plan" | "build" | "scaling" | "designer" | "debug",
             sessionId,
             ...(maxThinkingTokens && { maxThinkingTokens }),
             ...(modelString && { model: modelString }),
             ...(images.length > 0 && { images }),
+            ...(this.config.agentType && { agentType: this.config.agentType }),
           },
           {
             onData: (chunk: UIMessageChunk) => {
@@ -192,17 +243,47 @@ export class IPCChatTransport implements ChatTransport<UIMessage> {
                 }
               }
 
-              // Clear pending questions on ANY other chunk type (agent moved on)
-              // Only clear if the pending question belongs to THIS sub-chat
-              if (chunk.type !== "ask-user-question" && chunk.type !== "ask-user-question-timeout") {
+              // Clear pending questions when user starts submitting (question-submitting chunk)
+              // This clears UI immediately when user clicks Submit button
+              if (chunk.type === "question-submitting") {
                 const pending = appStore.get(pendingUserQuestionsAtom)
-                if (pending && pending.subChatId === this.config.subChatId) {
-                  console.log("[PendingQ] Transport: Clearing pending question", {
-                    chunkType: chunk.type,
-                    pendingToolUseId: pending.toolUseId,
+                if (pending && pending.toolUseId === chunk.toolUseId) {
+                  console.log("[PendingQ] Transport: Clearing pending question on submit start", {
+                    toolUseId: chunk.toolUseId,
                   })
                   appStore.set(pendingUserQuestionsAtom, null)
                 }
+              }
+
+              // Clear pending questions when user answers successfully (question-submitted chunk)
+              // Only clear if the pending question belongs to THIS sub-chat
+              // This is triggered when answer is successfully sent to backend
+              if (chunk.type === "question-submitted") {
+                const pending = appStore.get(pendingUserQuestionsAtom)
+                if (pending && pending.toolUseId === chunk.toolUseId) {
+                  console.log("[PendingQ] Transport: Clearing pending question on user answer", {
+                    toolUseId: chunk.toolUseId,
+                  })
+                  appStore.set(pendingUserQuestionsAtom, null)
+                }
+              }
+
+              // Clear pending questions when answer submission fails (question-submit-error chunk)
+              if (chunk.type === "question-submit-error") {
+                const pending = appStore.get(pendingUserQuestionsAtom)
+                if (pending && pending.toolUseId === chunk.toolUseId) {
+                  console.log("[PendingQ] Transport: Clearing pending question on submit error", {
+                    toolUseId: chunk.toolUseId,
+                  })
+                  appStore.set(pendingUserQuestionsAtom, null)
+                }
+              }
+
+              // Handle open-browser-preview chunk - dispatch window event
+              if (chunk.type === "open-browser-preview") {
+                window.dispatchEvent(new CustomEvent("open-browser-preview", {
+                  detail: { chatId: this.config.chatId, url: (chunk as any).url }
+                }))
               }
 
               // Handle authentication errors - show Claude login modal
@@ -212,7 +293,13 @@ export class IPCChatTransport implements ChatTransport<UIMessage> {
                 appStore.set(pendingAuthRetryMessageAtom, {
                   subChatId: this.config.subChatId,
                   prompt,
-                  ...(images.length > 0 && { images }),
+                  ...(images.length > 0 && {
+                    images: images.map(img => ({
+                      base64Data: img.base64Data,
+                      mediaType: img.mediaType,
+                      filename: img.filename || "",
+                    }))
+                  }),
                   readyToRetry: false,
                 })
                 // Show the Claude Code login modal
@@ -220,6 +307,7 @@ export class IPCChatTransport implements ChatTransport<UIMessage> {
                 // Use controller.error() instead of controller.close() so that
                 // the SDK Chat properly resets status from "streaming" to "ready"
                 // This allows user to retry sending messages after failed auth
+                isStreamClosed = true
                 controller.error(new Error("Authentication required"))
                 return
               }
@@ -253,9 +341,9 @@ export class IPCChatTransport implements ChatTransport<UIMessage> {
                     duration: 8000,
                     action: config.action
                       ? {
-                          label: config.action.label,
-                          onClick: config.action.onClick,
-                        }
+                        label: config.action.label,
+                        onClick: config.action.onClick,
+                      }
                       : undefined,
                   })
                 } else {
@@ -268,19 +356,24 @@ export class IPCChatTransport implements ChatTransport<UIMessage> {
               }
 
               // Try to enqueue, but don't crash if stream is already closed
-              try {
-                controller.enqueue(chunk)
-              } catch (e) {
-                // CRITICAL: Log when enqueue fails - this could explain missing chunks!
-                console.log(`[SD] R:ENQUEUE_ERR sub=${subId} type=${chunk.type} n=${chunkCount} err=${e}`)
+              if (!isStreamClosed) {
+                try {
+                  controller.enqueue(chunk)
+                } catch (e) {
+                  // CRITICAL: Log when enqueue fails - this could explain missing chunks!
+                  console.log(`[SD] R:ENQUEUE_ERR sub=${subId} type=${chunk.type} n=${chunkCount} err=${e}`)
+                  // Don't set isStreamClosed here - the stream might still be open for other chunks
+                }
               }
 
-              if (chunk.type === "finish") {
+              if (chunk.type === "finish" && !isStreamClosed) {
                 console.log(`[SD] R:FINISH sub=${subId} n=${chunkCount}`)
                 try {
                   controller.close()
+                  isStreamClosed = true
                 } catch {
                   // Already closed
+                  isStreamClosed = true
                 }
               }
             },
@@ -299,6 +392,7 @@ export class IPCChatTransport implements ChatTransport<UIMessage> {
                 },
               })
 
+              isStreamClosed = true
               controller.error(err)
             },
             onComplete: () => {
@@ -312,10 +406,39 @@ export class IPCChatTransport implements ChatTransport<UIMessage> {
                 })
                 appStore.set(pendingUserQuestionsAtom, null)
               }
-              try {
-                controller.close()
-              } catch {
-                // Already closed
+
+              // Only try to enqueue finish chunk and close if stream isn't already closed
+              if (!isStreamClosed) {
+                try {
+                  controller.enqueue({
+                    type: 'finish',
+                  } as any)
+                  // Small delay to ensure the final chunk is processed
+                  setTimeout(() => {
+                    if (!isStreamClosed) {
+                      try {
+                        controller.close()
+                        isStreamClosed = true
+                      } catch {
+                        // Already closed
+                        isStreamClosed = true
+                      }
+                    }
+                  }, 10)
+                } catch {
+                  // Enqueue failed, try to close anyway
+                  try {
+                    controller.close()
+                    isStreamClosed = true
+                  } catch {
+                    // Already closed
+                    isStreamClosed = true
+                  }
+                } finally {
+                  // Remove from active subscriptions
+                  activeSubscriptions.delete(this.config.subChatId)
+                  console.log('[Transport] Completed subscription for subchat:', this.config.subChatId)
+                }
               }
             },
           },
@@ -326,10 +449,19 @@ export class IPCChatTransport implements ChatTransport<UIMessage> {
           console.log(`[SD] R:ABORT sub=${subId} n=${chunkCount} last=${lastChunkType}`)
           sub.unsubscribe()
           trpcClient.claude.cancel.mutate({ subChatId: this.config.subChatId })
-          try {
-            controller.close()
-          } catch {
-            // Already closed
+
+          // Remove from active subscriptions
+          activeSubscriptions.delete(this.config.subChatId)
+          console.log('[Transport] Aborted subscription for subchat:', this.config.subChatId)
+
+          if (!isStreamClosed) {
+            try {
+              controller.close()
+              isStreamClosed = true
+            } catch {
+              // Already closed
+              isStreamClosed = true
+            }
           }
         })
       },

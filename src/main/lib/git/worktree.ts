@@ -148,6 +148,39 @@ export async function createWorktree(
 			}
 		}
 
+		const git = simpleGit(mainRepoPath);
+		
+		// Resolve the startPoint to a commit hash to avoid issues with remote refs
+		// This handles cases where origin/main might not exist locally or ^{commit} syntax fails
+		let commitHash: string;
+		try {
+			// First try to resolve the startPoint directly (works for local refs and remote refs if fetched)
+			commitHash = await git.revparse(`${startPoint}`);
+		} catch (error) {
+			// If that fails and it's a remote ref, try fetching first
+			if (startPoint.startsWith("origin/")) {
+				const branchName = startPoint.replace("origin/", "");
+				try {
+					// Try fetching the remote branch
+					await git.fetch("origin", branchName);
+					commitHash = await git.revparse(startPoint);
+				} catch (fetchError) {
+					// If fetch fails, try using the local branch name instead
+					try {
+						commitHash = await git.revparse(branchName);
+					} catch (localError) {
+						// If all else fails, try HEAD as fallback
+						commitHash = await git.revparse("HEAD");
+					}
+				}
+			} else {
+				// Not a remote ref, try HEAD as fallback
+				commitHash = await git.revparse("HEAD");
+			}
+		}
+
+		commitHash = commitHash.trim();
+
 		await execFileAsync(
 			"git",
 			[
@@ -158,10 +191,10 @@ export async function createWorktree(
 				worktreePath,
 				"-b",
 				branch,
-				// Append ^{commit} to force Git to treat the startPoint as a commit,
-				// not a branch ref. This prevents implicit upstream tracking when
-				// creating a new branch from a remote branch like origin/main.
-				`${startPoint}^{commit}`,
+				// Use the commit hash directly instead of the ref with ^{commit} suffix
+				// This prevents issues with remote refs that might not exist locally
+				// and avoids shell parsing issues on Windows with the ^ character
+				commitHash,
 			],
 			{ env, timeout: 120_000 },
 		);

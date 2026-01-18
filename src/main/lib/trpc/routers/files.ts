@@ -195,16 +195,20 @@ function filterEntries(
   })
 
   // Limit results
-  const limited = filtered.slice(0, Math.min(limit, 200))
+  const limited = filtered.slice(0, Math.min(limit, 10000))
 
   // Map to expected format with type
-  return limited.map((entry) => ({
-    id: `${entry.type}:local:${entry.path}`,
-    label: basename(entry.path),
-    path: entry.path,
-    repository: "local",
-    type: entry.type,
-  }))
+  // Ensure paths use forward slashes for consistency
+  return limited.map((entry) => {
+    const normalizedPath = entry.path.replace(/\\/g, "/")
+    return {
+      id: `${entry.type}:local:${normalizedPath}`,
+      label: basename(normalizedPath),
+      path: normalizedPath,
+      repository: "local",
+      type: entry.type,
+    }
+  })
 }
 
 export const filesRouter = router({
@@ -216,7 +220,7 @@ export const filesRouter = router({
       z.object({
         projectPath: z.string(),
         query: z.string().default(""),
-        limit: z.number().min(1).max(200).default(50),
+        limit: z.number().min(1).max(10000).default(50), // Allow higher limit for tree views
       })
     )
     .query(async ({ input }) => {
@@ -242,8 +246,14 @@ export const filesRouter = router({
         const fileCount = entries.filter(e => e.type === "file").length
         console.log(`[files] Scanned ${projectPath}: ${folderCount} folders, ${fileCount} files`)
 
+        // Normalize paths to use forward slashes for consistency (Windows paths use \)
+        const normalizedEntries = entries.map(entry => ({
+          ...entry,
+          path: entry.path.replace(/\\/g, "/")
+        }))
+
         // Filter and sort by query
-        const results = filterEntries(entries, query, limit)
+        const results = filterEntries(normalizedEntries, query, limit)
         console.log(`[files] Query "${query}": returning ${results.length} results, folders: ${results.filter(r => r.type === "folder").length}`)
         return results
       } catch (error) {
