@@ -14,7 +14,7 @@ import { opencodeDisabledProvidersAtom } from "../../atoms"
 import { Switch } from "../../../../components/ui/switch"
 
 export function AgentsOpenCodeTab() {
-    const [port, setPort] = useState(4096)
+    const [port, setPort] = useState(4098)
     const [isSaving, setIsSaving] = useState(false)
     const [disabledProviders, setDisabledProviders] = useAtom(opencodeDisabledProvidersAtom)
     const [newModel, setNewModel] = useState({ provider: '', name: '', id: '' })
@@ -164,7 +164,7 @@ export function AgentsOpenCodeTab() {
 
                 <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">Server URL</span>
-                    <span className="font-mono text-xs">{serverUrl || 'http://localhost:4096'}</span>
+                    <span className="font-mono text-xs">{serverUrl || 'http://localhost:4098'}</span>
                 </div>
 
                 <div className="flex items-center justify-between text-sm">
@@ -187,7 +187,7 @@ export function AgentsOpenCodeTab() {
                         max="65535"
                         value={port}
                         onChange={(e) => setPort(Number(e.target.value))}
-                        placeholder="4096"
+                        placeholder="4098"
                         className="flex-1"
                     />
                     <Button
@@ -295,7 +295,7 @@ export function AgentsOpenCodeTab() {
             </div>
 
             <p className="text-xs text-muted-foreground">
-                Default: 4096. Change this if your OpenCode server runs on a different port.
+                Default: 4098. Change this if your OpenCode server runs on a different port.
             </p>
 
 
@@ -339,7 +339,7 @@ export function AgentsOpenCodeTab() {
                     <p>bun run dev</p>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                    The server will start on port 4096 by default. Make sure it's running before using OpenCode features.
+                    The server will start on port 4098 by default. Make sure it's running before using OpenCode features.
                 </p>
             </div>
 

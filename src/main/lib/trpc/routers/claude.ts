@@ -297,9 +297,16 @@ export const claudeRouter = router({
               activeChats.add(input.subChatId)
               console.log('[Chat] Starting chat for subchat:', input.subChatId)
 
-              // Check if OpenCode agent is selected - route to OpenCode API with STREAMING
-              if (input.agentType === 'opencode') {
-                console.log('[OpenCode] Routing to OpenCode API (STREAMING)')
+              // Detect if model is a non-Claude model (should use OpenCode)
+              const isNonClaudeModel = input.model && !input.model.startsWith('claude-')
+              
+              // Check if OpenCode agent is selected OR non-Claude model is used - route to OpenCode API with STREAMING
+              if (input.agentType === 'opencode' || isNonClaudeModel) {
+                if (isNonClaudeModel) {
+                  console.log(`[OpenCode] Auto-routing to OpenCode for non-Claude model: ${input.model}`)
+                } else {
+                  console.log('[OpenCode] Routing to OpenCode API (STREAMING)')
+                }
                 const { runOpenCodeChat } = await import('../../opencode')
 
                 // Get existing messages from DB for context
@@ -905,7 +912,8 @@ Key priorities:
                     continue: true,
                   }),
                   ...(input.model && { model: input.model }),
-                  // fallbackModel: "claude-opus-4-5-20251101",
+                  // Fallback to a known working model if custom model fails
+                  fallbackModel: "claude-sonnet-4-20250514",
                   ...(input.maxThinkingTokens && {
                     maxThinkingTokens: input.maxThinkingTokens,
                   }),
@@ -952,6 +960,9 @@ Key priorities:
                     const sdkError =
                       msgAny.error || msgAny.message || "Unknown SDK error"
                     lastError = new Error(sdkError)
+                    
+                    // Log the full error message for debugging
+                    console.error(`[CLAUDE] SDK Error detected:`, JSON.stringify(msgAny, null, 2))
 
                     // Categorize SDK-level errors
                     let errorCategory = "SDK_ERROR"
@@ -1329,6 +1340,8 @@ Key priorities:
           isObservableActive = false // Prevent emit after unsubscribe
           abortController.abort()
           activeSessions.delete(input.subChatId)
+          activeChats.delete(input.subChatId) // CRITICAL: Clean up activeChats to allow new subscriptions
+          console.log('[Chat] Cleaned up chat for subchat:', input.subChatId)
           clearPendingApprovals("Session ended.", input.subChatId)
 
           // Save sessionId on abort so conversation can be resumed

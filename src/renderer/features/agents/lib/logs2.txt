@@ -1,0 +1,1051 @@
+ [HTML] Inline script running - scripts work!
+ Download the React DevTools for a better development experience: https://react.dev/link/react-devtools
+ [DEPRECATED] atomFamily is deprecated and will be removed in v3. Please use the `jotai-family` package instead: https://github.com/jotaijs/jotai-family
+atomFamily @ jotai_utils.js?v=f38241fa:36
+(anonymous) @ index.ts:22
+ Electron Security Warning (Disabled webSecurity) This renderer process has "webSecurity" disabled. This
+  exposes users of this app to severe security risks.
+
+For more information and help, consult
+https://electronjs.org/docs/tutorial/security.
+This warning will not show up
+once the app is packaged.
+(anonymous) @ node:electron/js2c/renderer_init:2
+logSecurityWarnings @ node:electron/js2c/renderer_init:2
+(anonymous) @ node:electron/js2c/renderer_init:2
+ Electron Security Warning (allowRunningInsecureContent) This renderer process has "allowRunningInsecureContent"
+  enabled. This exposes users of this app to severe security risks.
+
+  
+For more information and help, consult
+https://electronjs.org/docs/tutorial/security.
+This warning will not show up
+once the app is packaged.
+(anonymous) @ node:electron/js2c/renderer_init:2
+logSecurityWarnings @ node:electron/js2c/renderer_init:2
+(anonymous) @ node:electron/js2c/renderer_init:2
+ Electron Security Warning (Insecure Content-Security-Policy) This renderer process has either no Content Security
+  Policy set or a policy with "unsafe-eval" enabled. This exposes users of
+  this app to unnecessary security risks.
+
+For more information and help, consult
+https://electronjs.org/docs/tutorial/security.
+This warning will not show up
+once the app is packaged.
+warnAboutInsecureCSP @ node:electron/js2c/renderer_init:2
+logSecurityWarnings @ node:electron/js2c/renderer_init:2
+(anonymous) @ node:electron/js2c/renderer_init:2
+react-dom_client.js?v=f38241fa:9714 Refused to frame 'http://localhost:3000/' because it violates the following Content Security Policy directive: "default-src 'self'". Note that 'frame-src' was not explicitly set, so 'default-src' is used as a fallback.
+
+ [auto-rename] Called with: Object
+ [auto-rename] Calling generateName...
+ [SD] R:START sub=50mu0j77
+ [Transport] Starting subscription for subchat: mkjw6bt750mu0j77
+ motion() is deprecated. Use motion.create() instead.
+warnOnce @ motion_react.js?v=f38241fa:676
+deprecatedFactoryFunction @ motion_react.js?v=f38241fa:690
+TextShimmerComponent @ text-shimmer.tsx:30
+react_stack_bottom_frame @ react-dom_client.js?v=f38241fa:18509
+renderWithHooks @ react-dom_client.js?v=f38241fa:5654
+updateFunctionComponent @ react-dom_client.js?v=f38241fa:7475
+updateSimpleMemoComponent @ react-dom_client.js?v=f38241fa:7264
+updateMemoComponent @ react-dom_client.js?v=f38241fa:7218
+beginWork @ react-dom_client.js?v=f38241fa:8786
+runWithFiberInDEV @ react-dom_client.js?v=f38241fa:997
+performUnitOfWork @ react-dom_client.js?v=f38241fa:12561
+workLoopSync @ react-dom_client.js?v=f38241fa:12424
+renderRootSync @ react-dom_client.js?v=f38241fa:12408
+performWorkOnRoot @ react-dom_client.js?v=f38241fa:11766
+performSyncWorkOnRoot @ react-dom_client.js?v=f38241fa:13517
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=f38241fa:13414
+processRootScheduleInMicrotask @ react-dom_client.js?v=f38241fa:13437
+(anonymous) @ react-dom_client.js?v=f38241fa:13531
+ [SD] C:STATUS sub=50mu0j77 ready → submitted msgs=1
+ [SD] C:STREAMING_START sub=50mu0j77
+ [SD] C:STATUS sub=50mu0j77 submitted → streaming msgs=2
+ [SD] C:FINISH sub=50mu0j77
+ [SD] C:STATUS sub=50mu0j77 streaming → error msgs=2
+ [auto-rename] Generated name: Blog website
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=6 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=7 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=9 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=10 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=12 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=13 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=15 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=16 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=18 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=19 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=21 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=22 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=24 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=25 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=27 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=28 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=30 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=31 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=33 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=34 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=36 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=37 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=39 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=40 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=42 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=43 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=45 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=46 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=48 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=49 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=51 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=52 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=54 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=55 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=57 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=58 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=60 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=61 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=63 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=64 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=66 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=67 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=69 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=70 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=72 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=73 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=75 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=76 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=78 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=79 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=81 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=82 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=84 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=85 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=87 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=88 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=90 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=91 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=93 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=94 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=95 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=96 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-output-available n=97 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=98 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=100 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-delta-buffered n=100 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [auto-rename] Called with: Object
+ [auto-rename] Calling generateName...
+ [SD] R:START sub=fp67l61j
+ [Transport] Starting subscription for subchat: mkjw8slbfp67l61j
+ [SD] C:STATUS sub=fp67l61j ready → submitted msgs=1
+ [SD] C:STREAMING_START sub=fp67l61j
+ [SD] C:STATUS sub=fp67l61j submitted → streaming msgs=2
+ [SD] C:FINISH sub=fp67l61j
+ [SD] C:STATUS sub=fp67l61j streaming → error msgs=2
+ [auto-rename] Generated name: Unable to generate title
+2 [mock-api] Failed to parse messages for subChat: mkjw8slbfp67l61j
+(anonymous) @ mock-api.ts:62
+ [SD] R:ENQUEUE_ERR sub=fp67l61j type=tool-input-available n=6 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=7 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=9 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=10 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=12 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=13 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=15 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=16 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=18 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=19 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=21 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=22 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=24 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=25 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=27 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=28 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=30 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=31 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=33 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=34 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=36 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=37 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=39 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=40 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=42 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=43 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=45 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=46 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=48 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=49 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=51 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=52 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=54 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=55 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=57 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=58 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=60 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=61 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=63 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=64 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=66 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=67 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=69 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=70 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=72 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=73 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=75 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=76 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=78 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=79 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=81 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=82 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=84 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=85 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=87 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:181 [SD] R:START sub=fp67l61j
+ipc-chat-transport.ts:187 [Transport] Skipping duplicate subscription for subchat: mkjw8slbfp67l61j
+active-chat.tsx:1368 [SD] C:STATUS sub=fp67l61j error → submitted msgs=3
+active-chat.tsx:1374 [SD] C:STREAMING_START sub=fp67l61j
+active-chat.tsx:4400 [SD] C:FINISH sub=fp67l61j
+active-chat.tsx:1368 [SD] C:STATUS sub=fp67l61j submitted → ready msgs=3
+active-chat.tsx:1381 [SD] C:STREAMING_END sub=fp67l61j
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=88 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:410 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-delta-buffered n=88 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=90 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=91 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=93 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=94 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=96 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:410 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-delta-buffered n=96 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=fp67l61j type=tool-output-available n=97 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=fp67l61j type=message-metadata n=98 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=fp67l61j type=refresh-diff n=99 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=fp67l61j type=finish-step n=100 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=fp67l61j type=finish n=101 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:433 [SD] R:FINISH sub=fp67l61j n=101
+ipc-chat-transport.ts:446 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-delta-final n=101 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:492 [SD] R:COMPLETE sub=fp67l61j n=101 last=finish
+ipc-chat-transport.ts:181 [SD] R:START sub=fp67l61j
+ipc-chat-transport.ts:187 [Transport] Skipping duplicate subscription for subchat: mkjw8slbfp67l61j
+active-chat.tsx:1368 [SD] C:STATUS sub=fp67l61j ready → submitted msgs=4
+active-chat.tsx:1374 [SD] C:STREAMING_START sub=fp67l61j
+active-chat.tsx:4400 [SD] C:FINISH sub=fp67l61j
+active-chat.tsx:1368 [SD] C:STATUS sub=fp67l61j submitted → ready msgs=4
+active-chat.tsx:1381 [SD] C:STREAMING_END sub=fp67l61j
+ipc-chat-transport.ts:181 [SD] R:START sub=fp67l61j
+ipc-chat-transport.ts:187 [Transport] Skipping duplicate subscription for subchat: mkjw8slbfp67l61j
+active-chat.tsx:1368 [SD] C:STATUS sub=fp67l61j ready → submitted msgs=5
+active-chat.tsx:1374 [SD] C:STREAMING_START sub=fp67l61j
+active-chat.tsx:4400 [SD] C:FINISH sub=fp67l61j
+active-chat.tsx:1368 [SD] C:STATUS sub=fp67l61j submitted → ready msgs=5
+active-chat.tsx:1381 [SD] C:STREAMING_END sub=fp67l61j
+ipc-chat-transport.ts:181 [SD] R:START sub=fp67l61j
+ipc-chat-transport.ts:187 [Transport] Skipping duplicate subscription for subchat: mkjw8slbfp67l61j
+active-chat.tsx:1368 [SD] C:STATUS sub=fp67l61j ready → submitted msgs=6
+active-chat.tsx:1374 [SD] C:STREAMING_START sub=fp67l61j
+active-chat.tsx:4400 [SD] C:FINISH sub=fp67l61j
+active-chat.tsx:1368 [SD] C:STATUS sub=fp67l61j submitted → ready msgs=6
+active-chat.tsx:1381 [SD] C:STREAMING_END sub=fp67l61j
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=101 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=102 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=104 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=105 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=106 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=107 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=108 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-output-available n=109 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:410 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-delta-buffered n=109 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=110 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=111 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=113 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=114 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=116 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=117 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=119 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=120 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=122 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=123 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=125 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=126 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=128 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=129 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=131 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=132 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=134 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=135 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=137 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=138 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=140 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=141 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=143 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=144 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:410 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-delta-buffered n=144 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=146 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=147 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=149 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=150 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=152 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:410 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-delta-buffered n=152 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=153 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=154 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=155 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=156 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-output-available n=157 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=158 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=160 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:410 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-delta-buffered n=160 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=161 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=162 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=164 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=165 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=166 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=167 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-output-available n=168 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:410 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-delta-buffered n=168 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=169 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=170 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=172 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:410 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-delta-buffered n=172 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=173 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=174 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=175 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=176 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=177 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=179 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:410 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-delta-buffered n=179 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=180 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=181 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=182 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=183 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-output-available n=184 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=185 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=186 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=188 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:410 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-delta-buffered n=188 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=189 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=190 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=191 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=192 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-output-available n=193 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=194 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=195 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=197 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:410 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-delta-buffered n=197 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=198 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=199 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=200 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-output-available n=201 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=202 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=203 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=205 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=206 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=208 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=209 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=211 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=212 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=214 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=215 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=217 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=218 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=220 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=221 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=223 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=224 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=226 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=227 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=229 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=230 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=232 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=233 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=235 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=236 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=238 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=239 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=241 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=242 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=244 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=245 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=247 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=248 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=250 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=251 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=253 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=254 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=256 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=257 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=259 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=260 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=262 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=263 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=265 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=266 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=268 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=269 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=271 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=272 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=274 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=275 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=277 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=278 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=280 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=281 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=283 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=284 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=286 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=287 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=289 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=290 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=292 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=293 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=295 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=296 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=298 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=299 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=301 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=302 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=304 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:410 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-delta-buffered n=304 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=305 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=307 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=308 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=310 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=311 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=313 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=314 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=316 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=317 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=319 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=320 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=322 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=323 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=325 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:410 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-delta-buffered n=325 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=326 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=327 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=328 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=330 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:410 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-delta-buffered n=330 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=331 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=332 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=333 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=334 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:427 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=335 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+(index):101 [HTML] Inline script running - scripts work!
+react-dom_client.js?v=f38241fa:20103 Download the React DevTools for a better development experience: https://react.dev/link/react-devtools
+index.ts:60 [DEPRECATED] atomFamily is deprecated and will be removed in v3. Please use the `jotai-family` package instead: https://github.com/jotaijs/jotai-family
+atomFamily @ jotai_utils.js?v=f38241fa:36
+(anonymous) @ index.ts:60
+Show 1 more frame
+Show less
+VM111 renderer_init:2 Electron Security Warning (Disabled webSecurity) This renderer process has "webSecurity" disabled. This
+  exposes users of this app to severe security risks.
+
+For more information and help, consult
+https://electronjs.org/docs/tutorial/security.
+This warning will not show up
+once the app is packaged.
+(anonymous) @ VM111 renderer_init:2
+logSecurityWarnings @ VM111 renderer_init:2
+(anonymous) @ VM111 renderer_init:2
+VM111 renderer_init:2 Electron Security Warning (allowRunningInsecureContent) This renderer process has "allowRunningInsecureContent"
+  enabled. This exposes users of this app to severe security risks.
+
+  
+For more information and help, consult
+https://electronjs.org/docs/tutorial/security.
+This warning will not show up
+once the app is packaged.
+(anonymous) @ VM111 renderer_init:2
+logSecurityWarnings @ VM111 renderer_init:2
+(anonymous) @ VM111 renderer_init:2
+VM111 renderer_init:2 Electron Security Warning (Insecure Content-Security-Policy) This renderer process has either no Content Security
+  Policy set or a policy with "unsafe-eval" enabled. This exposes users of
+  this app to unnecessary security risks.
+
+For more information and help, consult
+https://electronjs.org/docs/tutorial/security.
+This warning will not show up
+once the app is packaged.
+warnAboutInsecureCSP @ VM111 renderer_init:2
+logSecurityWarnings @ VM111 renderer_init:2
+(anonymous) @ VM111 renderer_init:2
+react-dom_client.js?v=f38241fa:9714 Refused to frame 'http://localhost:3000/' because it violates the following Content Security Policy directive: "default-src 'self'". Note that 'frame-src' was not explicitly set, so 'default-src' is used as a fallback.
+
+auto-rename.ts:32 [auto-rename] Called with: Object
+auto-rename.ts:36 [auto-rename] Calling generateName...
+ipc-chat-transport.ts:106 [SD] R:START sub=50mu0j77
+ipc-chat-transport.ts:115 [Transport] Starting subscription for subchat: mkjw6bt750mu0j77
+text-shimmer.tsx:22 motion() is deprecated. Use motion.create() instead.
+warnOnce @ motion_react.js?v=f38241fa:676
+deprecatedFactoryFunction @ motion_react.js?v=f38241fa:690
+TextShimmerComponent @ text-shimmer.tsx:22
+react_stack_bottom_frame @ react-dom_client.js?v=f38241fa:18509
+renderWithHooks @ react-dom_client.js?v=f38241fa:5654
+updateFunctionComponent @ react-dom_client.js?v=f38241fa:7475
+updateSimpleMemoComponent @ react-dom_client.js?v=f38241fa:7264
+updateMemoComponent @ react-dom_client.js?v=f38241fa:7218
+beginWork @ react-dom_client.js?v=f38241fa:8786
+runWithFiberInDEV @ react-dom_client.js?v=f38241fa:997
+performUnitOfWork @ react-dom_client.js?v=f38241fa:12561
+workLoopSync @ react-dom_client.js?v=f38241fa:12424
+renderRootSync @ react-dom_client.js?v=f38241fa:12408
+performWorkOnRoot @ react-dom_client.js?v=f38241fa:11766
+performSyncWorkOnRoot @ react-dom_client.js?v=f38241fa:13517
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=f38241fa:13414
+processRootScheduleInMicrotask @ react-dom_client.js?v=f38241fa:13437
+(anonymous) @ react-dom_client.js?v=f38241fa:13531
+Show 17 more frames
+Show less
+active-chat.tsx:1368 [SD] C:STATUS sub=50mu0j77 ready → submitted msgs=1
+active-chat.tsx:1374 [SD] C:STREAMING_START sub=50mu0j77
+active-chat.tsx:1368 [SD] C:STATUS sub=50mu0j77 submitted → streaming msgs=2
+active-chat.tsx:4400 [SD] C:FINISH sub=50mu0j77
+active-chat.tsx:1368 [SD] C:STATUS sub=50mu0j77 streaming → error msgs=2
+auto-rename.ts:38 [auto-rename] Generated name: Blog website
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=6 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=7 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=9 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=10 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=12 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=13 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=15 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=16 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=18 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=19 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=21 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=22 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=24 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=25 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=27 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=28 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=30 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=31 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=33 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=34 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=36 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=37 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=39 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=40 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=42 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=43 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=45 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=46 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=48 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=49 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=51 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=52 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=54 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=55 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=57 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=58 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=60 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=61 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=63 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=64 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=66 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=67 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=69 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=70 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=72 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=73 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=75 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=76 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=78 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=79 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=81 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=82 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=84 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=85 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=87 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=88 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=90 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=91 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=93 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=94 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=95 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=96 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-output-available n=97 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=98 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=100 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:279 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-delta-buffered n=100 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+auto-rename.ts:32 [auto-rename] Called with: Object
+auto-rename.ts:36 [auto-rename] Calling generateName...
+ipc-chat-transport.ts:106 [SD] R:START sub=fp67l61j
+ipc-chat-transport.ts:115 [Transport] Starting subscription for subchat: mkjw8slbfp67l61j
+active-chat.tsx:1368 [SD] C:STATUS sub=fp67l61j ready → submitted msgs=1
+active-chat.tsx:1374 [SD] C:STREAMING_START sub=fp67l61j
+active-chat.tsx:1368 [SD] C:STATUS sub=fp67l61j submitted → streaming msgs=2
+active-chat.tsx:4400 [SD] C:FINISH sub=fp67l61j
+active-chat.tsx:1368 [SD] C:STATUS sub=fp67l61j streaming → error msgs=2
+auto-rename.ts:38 [auto-rename] Generated name: Unable to generate title
+2mock-api.ts:85 [mock-api] Failed to parse messages for subChat: mkjw8slbfp67l61j
+(anonymous) @ mock-api.ts:85
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=tool-input-available n=6 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=7 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=9 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=10 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=12 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=13 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=15 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=16 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=18 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=19 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=21 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=22 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=24 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=25 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=27 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=28 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=30 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=31 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=33 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=34 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=36 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=37 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=39 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=40 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=42 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=43 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=45 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=46 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=48 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=49 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=51 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=52 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=54 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=55 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=57 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=58 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=60 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=61 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=63 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=64 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=66 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=67 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=69 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=70 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=72 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=73 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=75 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=76 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=78 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=79 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=81 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=82 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=84 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=85 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=87 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:106 [SD] R:START sub=fp67l61j
+ipc-chat-transport.ts:110 [Transport] Skipping duplicate subscription for subchat: mkjw8slbfp67l61j
+active-chat.tsx:1368 [SD] C:STATUS sub=fp67l61j error → submitted msgs=3
+active-chat.tsx:1374 [SD] C:STREAMING_START sub=fp67l61j
+active-chat.tsx:4400 [SD] C:FINISH sub=fp67l61j
+active-chat.tsx:1368 [SD] C:STATUS sub=fp67l61j submitted → ready msgs=3
+active-chat.tsx:1381 [SD] C:STREAMING_END sub=fp67l61j
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=88 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:279 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-delta-buffered n=88 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=90 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=91 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=93 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-start n=94 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-end n=96 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:279 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-delta-buffered n=96 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=tool-output-available n=97 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=message-metadata n=98 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=refresh-diff n=99 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=finish-step n=100 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=fp67l61j type=finish n=101 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:294 [SD] R:FINISH sub=fp67l61j n=101
+ipc-chat-transport.ts:305 [SD] R:ENQUEUE_ERR sub=fp67l61j type=text-delta-final n=101 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:342 [SD] R:COMPLETE sub=fp67l61j n=101 last=finish
+ipc-chat-transport.ts:106 [SD] R:START sub=fp67l61j
+ipc-chat-transport.ts:110 [Transport] Skipping duplicate subscription for subchat: mkjw8slbfp67l61j
+active-chat.tsx:1368 [SD] C:STATUS sub=fp67l61j ready → submitted msgs=4
+active-chat.tsx:1374 [SD] C:STREAMING_START sub=fp67l61j
+active-chat.tsx:4400 [SD] C:FINISH sub=fp67l61j
+active-chat.tsx:1368 [SD] C:STATUS sub=fp67l61j submitted → ready msgs=4
+active-chat.tsx:1381 [SD] C:STREAMING_END sub=fp67l61j
+ipc-chat-transport.ts:106 [SD] R:START sub=fp67l61j
+ipc-chat-transport.ts:110 [Transport] Skipping duplicate subscription for subchat: mkjw8slbfp67l61j
+active-chat.tsx:1368 [SD] C:STATUS sub=fp67l61j ready → submitted msgs=5
+active-chat.tsx:1374 [SD] C:STREAMING_START sub=fp67l61j
+active-chat.tsx:4400 [SD] C:FINISH sub=fp67l61j
+active-chat.tsx:1368 [SD] C:STATUS sub=fp67l61j submitted → ready msgs=5
+active-chat.tsx:1381 [SD] C:STREAMING_END sub=fp67l61j
+ipc-chat-transport.ts:106 [SD] R:START sub=fp67l61j
+ipc-chat-transport.ts:110 [Transport] Skipping duplicate subscription for subchat: mkjw8slbfp67l61j
+active-chat.tsx:1368 [SD] C:STATUS sub=fp67l61j ready → submitted msgs=6
+active-chat.tsx:1374 [SD] C:STREAMING_START sub=fp67l61j
+active-chat.tsx:4400 [SD] C:FINISH sub=fp67l61j
+active-chat.tsx:1368 [SD] C:STATUS sub=fp67l61j submitted → ready msgs=6
+active-chat.tsx:1381 [SD] C:STREAMING_END sub=fp67l61j
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=101 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=102 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=104 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=105 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=106 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=107 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=108 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-output-available n=109 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:279 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-delta-buffered n=109 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=110 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=111 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=113 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=114 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=116 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=117 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=119 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=120 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=122 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=123 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=125 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=126 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=128 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=129 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=131 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=132 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=134 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=135 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=137 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=138 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=140 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=141 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=143 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=144 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:279 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-delta-buffered n=144 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=146 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=147 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=149 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=150 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=152 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:279 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-delta-buffered n=152 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=153 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=154 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=155 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=156 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-output-available n=157 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=158 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=160 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:279 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-delta-buffered n=160 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=161 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=162 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=164 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=165 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=166 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=167 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-output-available n=168 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:279 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-delta-buffered n=168 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=169 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=170 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=172 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:279 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-delta-buffered n=172 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=173 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=174 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=175 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=176 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=177 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=179 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:279 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-delta-buffered n=179 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=180 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=181 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=182 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=183 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-output-available n=184 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=185 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=186 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=188 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:279 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-delta-buffered n=188 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=189 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=190 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=191 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=192 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-output-available n=193 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=194 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=195 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=197 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:279 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-delta-buffered n=197 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=198 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=199 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=200 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-output-available n=201 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=202 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=203 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=205 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=206 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=208 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=209 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=211 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=212 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=214 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=215 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=217 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=218 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=220 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=221 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=223 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=224 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=226 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=227 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=229 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=230 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=232 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=233 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=235 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=236 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=238 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=239 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=241 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=242 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=244 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=245 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=247 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=248 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=250 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=251 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=253 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=254 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=256 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=257 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=259 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=260 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=262 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=263 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=265 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=266 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=268 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=269 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=271 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=272 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=274 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=275 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=277 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=278 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=280 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=281 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=283 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=284 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=286 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=287 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=289 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=290 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=292 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=293 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=295 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=296 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=298 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=299 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=301 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=302 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=304 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:279 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-delta-buffered n=304 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=305 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=307 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=308 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=310 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=311 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=313 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=314 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=316 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=317 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=319 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=320 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=322 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=323 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=325 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:279 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-delta-buffered n=325 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=326 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=327 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=328 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=330 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:279 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-delta-buffered n=330 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=331 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=332 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=333 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=334 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=335 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=336 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=337 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=338 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=339 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=340 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=open-browser-preview n=341 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-output-available n=342 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+react-dom_client.js?v=f38241fa:14223 Refused to frame 'http://localhost:3002/' because it violates the following Content Security Policy directive: "default-src 'self'". Note that 'frame-src' was not explicitly set, so 'default-src' is used as a fallback.
+
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-input-available n=343 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=344 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=346 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=347 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=349 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=350 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=352 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=353 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=355 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=356 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=358 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=359 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=361 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=362 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=364 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=365 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=367 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=368 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=370 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=371 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=373 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=374 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=376 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=377 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=379 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=380 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=382 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=383 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=385 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=386 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=388 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=389 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=391 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=392 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=394 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=395 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=397 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=398 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=400 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=401 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=403 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=404 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=406 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=407 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=409 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=410 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=412 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=413 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=415 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=416 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=418 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=419 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=421 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=422 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=424 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=425 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=427 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=428 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=430 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=431 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=433 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=434 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=436 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=437 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=439 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=440 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=442 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=443 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=445 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=446 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=448 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=449 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=451 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=452 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=454 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=455 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=457 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=458 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=460 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=461 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=463 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=464 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=466 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=467 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=469 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=470 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=472 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=473 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=475 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=476 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=478 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=479 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=481 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=482 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=484 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=485 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=487 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=488 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=490 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=491 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=493 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=494 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=496 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=497 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=499 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=500 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=502 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=503 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=505 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=506 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=508 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=509 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=511 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-start n=512 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-end n=514 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=tool-output-available n=515 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=message-metadata n=516 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=refresh-diff n=517 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=finish-step n=518 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:290 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=finish n=519 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:294 [SD] R:FINISH sub=50mu0j77 n=519
+ipc-chat-transport.ts:305 [SD] R:ENQUEUE_ERR sub=50mu0j77 type=text-delta-final n=519 err=TypeError: Failed to execute 'enqueue' on 'ReadableStreamDefaultController': Cannot enqueue a chunk into a closed readable stream
+ipc-chat-transport.ts:342 [SD] R:COMPLETE sub=50mu0j77 n=519 last=finish
+active-chat.tsx:148 
+        
+        
+       GET http://localhost:5173/features/agents/lib/ipc-chat-transport.ts?t=1768750345571 net::ERR_ABORTED 500 (Internal Server Error)
+client:882 [vite] Failed to reload /features/agents/main/active-chat.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above)
+error @ client:882
+warnFailedUpdate @ client:169
+fetchUpdate @ client:206
+await in fetchUpdate
+queueUpdate @ client:179
+(anonymous) @ client:930
+handleMessage @ client:928
+await in handleMessage
+(anonymous) @ client:490
+dequeue @ client:516
+(anonymous) @ client:504
+enqueue @ client:498
+(anonymous) @ client:490
+onMessage @ client:309
+(anonymous) @ client:439
+mock-api.ts:85 [mock-api] Failed to parse messages for subChat: mkjw8slbfp67l61j
+(anonymous) @ mock-api.ts:85
+(anonymous) @ mock-api.ts:43
+mountMemo @ react-dom_client.js?v=f38241fa:6527
+useMemo @ react-dom_client.js?v=f38241fa:18709
+exports.useMemo @ chunk-JX7GXWSX.js?v=f38241fa:947
+useQuery @ mock-api.ts:35
+ChatView @ active-chat.tsx:3852
+react_stack_bottom_frame @ react-dom_client.js?v=f38241fa:18509
+renderWithHooks @ react-dom_client.js?v=f38241fa:5654
+updateFunctionComponent @ react-dom_client.js?v=f38241fa:7475
+beginWork @ react-dom_client.js?v=f38241fa:8525
+runWithFiberInDEV @ react-dom_client.js?v=f38241fa:997
+performUnitOfWork @ react-dom_client.js?v=f38241fa:12561
+workLoopSync @ react-dom_client.js?v=f38241fa:12424
+renderRootSync @ react-dom_client.js?v=f38241fa:12408
+performWorkOnRoot @ react-dom_client.js?v=f38241fa:11766
+performSyncWorkOnRoot @ react-dom_client.js?v=f38241fa:13517
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=f38241fa:13414
+flushSyncWork$1 @ react-dom_client.js?v=f38241fa:12076
+scheduleRefresh @ react-dom_client.js?v=f38241fa:372
+(anonymous) @ @react-refresh:228
+performReactRefresh @ @react-refresh:217
+(anonymous) @ @react-refresh:608
+Show 16 more frames
+Show less
+react-dom_client.js?v=f38241fa:9714 Refused to frame 'http://localhost:3000/' because it violates the following Content Security Policy directive: "default-src 'self'". Note that 'frame-src' was not explicitly set, so 'default-src' is used as a fallback.
+
+react-dom_client.js?v=f38241fa:14223 Refused to frame 'http://localhost:3002/' because it violates the following Content Security Policy directive: "default-src 'self'". Note that 'frame-src' was not explicitly set, so 'default-src' is used as a fallback.
+
+ipc-chat-transport.ts:106 [SD] R:START sub=fp67l61j
+ipc-chat-transport.ts:110 [Transport] Skipping duplicate subscription for subchat: mkjw8slbfp67l61j
+active-chat.tsx:1368 [SD] C:STATUS sub=fp67l61j ready → submitted msgs=7
+active-chat.tsx:1374 [SD] C:STREAMING_START sub=fp67l61j
+active-chat.tsx:4400 [SD] C:FINISH sub=fp67l61j
+active-chat.tsx:1368 [SD] C:STATUS sub=fp67l61j submitted → ready msgs=7
+active-chat.tsx:1381 [SD] C:STREAMING_END sub=fp67l61j

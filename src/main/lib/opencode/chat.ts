@@ -1,6 +1,7 @@
 import crypto from 'crypto'
 import { getDatabase, subChats, chats } from '../db'
 import { eq } from 'drizzle-orm'
+import { sessionManager } from './session-manager'
 
 export interface OpenCodeStreamingInput {
     input: {
@@ -78,7 +79,7 @@ export async function runOpenCodeChat({
     const db = getDatabase()
 
     try {
-        const apiUrl = process.env.OPENCODE_SERVER_URL || 'http://localhost:4096'
+        const apiUrl = process.env.OPENCODE_SERVER_URL || 'http://localhost:4098'
         console.log('[OpenCode] Starting chat')
 
         const createAuthHeaders = (baseHeaders: Record<string, string> = {}) => {
@@ -120,6 +121,11 @@ export async function runOpenCodeChat({
             console.log('[OpenCode] Reusing existing session:', sessionId)
         }
 
+        // Register session with manager (will cancel any old session for this subchat)
+        if (sessionId) {
+            sessionManager.registerSession(input.subChatId, sessionId, abortController)
+        }
+
         // Save original user prompt (without system reminder) to database for display
         const messagesToSave = [
             ...existingMessages,
@@ -132,11 +138,14 @@ export async function runOpenCodeChat({
             .run()
 
         // Prepend system prompt to the prompt sent to OpenCode (agent context only, not visible to user)
-        const agentPrompt = input.systemPrompt 
-            ? `${input.systemPrompt}\n\n${input.prompt}`
-            : input.prompt
+        // Add PowerShell instruction: try PowerShell first, then bash if it doesn't work
+        const powershellInstruction = "IMPORTANT: When executing terminal commands, use PowerShell commands first. If PowerShell commands don't work or are not available, then try bash commands as a fallback."
+        const combinedSystemPrompt = input.systemPrompt
+            ? `${powershellInstruction}\n\n${input.systemPrompt}`
+            : powershellInstruction
 
-        const parts: any[] = [{ type: 'text', text: agentPrompt }]
+        // Send user message separately (not combined with system prompt)
+        const parts: any[] = [{ type: 'text', text: input.prompt }]
 
         if (input.images && input.images.length > 0) {
             for (const img of input.images) {
@@ -151,7 +160,10 @@ export async function runOpenCodeChat({
             [providerID, modelID] = modelID.split('/', 2)
         }
 
-        const requestBody: any = { parts }
+        const requestBody: any = {
+            parts,
+            systemPrompt: combinedSystemPrompt  // Send system prompt separately
+        }
         // Map each mode to OpenCode-supported modes (plan, build, or agent)
         // OpenCode API only accepts: "plan", "build", or "agent"
         let opencodeMode: 'plan' | 'build' | 'agent' = 'build'
@@ -171,7 +183,7 @@ export async function runOpenCodeChat({
             console.log(`[OpenCode] Mode mapping: ${input.mode} -> ${opencodeMode}`)
         }
         console.log(`[OpenCode] Final requestBody.mode: ${requestBody.mode}`)
-        
+
         if (input.model) requestBody.model = { providerID, modelID }
 
         const messageHeaders = createAuthHeaders({
@@ -198,7 +210,7 @@ export async function runOpenCodeChat({
         console.log('[OpenCode] Subscribing to event stream...')
         const eventResponse = await fetch(`${apiUrl}/global/event`, {
             headers: createAuthHeaders({}),
-            signal: abortController.signal,
+            signal: abortController.signal, // Cancel event stream when session is aborted
         })
 
         if (!eventResponse.ok) {
@@ -215,6 +227,31 @@ export async function runOpenCodeChat({
         // Track pending questions so we can auto-reject them if user sends new message
         let pendingQuestionId: string | null = null
 
+        // Track processed events to prevent duplicates from OpenCode server spam
+        const processedEvents = new Set<string>()
+
+        // Track cumulative text content from OpenCode (they send full text each time, not deltas)
+        const lastTextContent = new Map<string, string>()
+        
+        // Batch events to reduce emit overhead
+        let eventBatch: any[] = []
+        let lastBatchEmitTime = Date.now()
+        const BATCH_INTERVAL_MS = 50 // Emit batched events every 50ms
+        
+        const flushEventBatch = () => {
+            if (eventBatch.length > 0) {
+                // Process batch - for now just emit individually but this reduces frequency
+                for (const event of eventBatch) {
+                    emit(event)
+                }
+                eventBatch = []
+                lastBatchEmitTime = Date.now()
+            }
+        }
+        
+        // Set up periodic batch flushing
+        const batchFlushInterval = setInterval(flushEventBatch, BATCH_INTERVAL_MS)
+
         emit({ type: 'start' })
         emit({ type: 'start-step' })
 
@@ -226,10 +263,44 @@ export async function runOpenCodeChat({
             throw new Error('No response body available')
         }
 
+        // Set up a timeout to detect if OpenCode server is not responding
+        let lastEventTime = Date.now()
+        const EVENT_TIMEOUT_MS = 30000 // 30 seconds without any events
+
+        const timeoutChecker = setInterval(() => {
+            const timeSinceLastEvent = Date.now() - lastEventTime
+            if (timeSinceLastEvent > EVENT_TIMEOUT_MS && !hasReceivedData) {
+                console.error('[OpenCode] No events received from server after 30 seconds')
+                clearInterval(timeoutChecker)
+
+                // Emit error message to user but DON'T complete the stream
+                // This allows the user to cancel manually or wait longer
+                const errorId = crypto.randomUUID()
+                emit({ type: 'text-start', id: errorId })
+                emit({
+                    type: 'text-delta',
+                    id: errorId,
+                    delta: `\n\n⚠️ **OpenCode Server Slow Response**\n\n` +
+                        `The OpenCode server hasn't sent any events for 30 seconds. This could mean:\n\n` +
+                        `1. The server is processing a complex request\n2. Network connectivity issues\n3. Server overload\n\n` +
+                        `You can:\n- Wait longer for a response\n- Cancel and try again\n- Check your network connection`,
+                })
+                emit({ type: 'text-end', id: errorId })
+
+                // DON'T cancel the reader or complete - let it keep waiting
+                // User can manually stop if needed
+            }
+        }, 5000) // Check every 5 seconds
+
+
         try {
             while (true) {
                 const { done, value } = await reader.read()
-                if (done) break
+
+                if (done) {
+                    console.log('[OpenCode] Stream ended')
+                    break
+                }
 
                 buffer += decoder.decode(value, { stream: true })
                 const lines = buffer.split('\n')
@@ -239,24 +310,43 @@ export async function runOpenCodeChat({
                     if (!line.trim() || !line.startsWith('data:')) continue
 
                     try {
-                        const event = JSON.parse(line.substring(5).trim())
+                        const jsonStr = line.substring(5).trim()
+                        const event = JSON.parse(jsonStr)
 
                         // OpenCode structure: { payload: { type: "...", properties: {...} } }
                         const eventType = event.payload?.type
                         const props = event.payload?.properties || {}
                         const eventSessionID = props.sessionID || props.part?.sessionID || props.info?.sessionID || (eventType === 'question.asked' ? props.sessionID : undefined)
 
-                        // Only log important events to reduce noise
-                        const importantEvents = ['question.asked', 'session.status', 'session.idle', 'message.error', 'message.part.updated', 'message.updated']
-                        if (importantEvents.includes(eventType)) {
-                            console.log('[OpenCode] Event:', eventType, 'session:', eventSessionID, 'props:', JSON.stringify(props).substring(0, 200))
-                        }
-
                         // Filter by session - skip events from other sessions silently
                         if (eventSessionID && eventSessionID !== sessionId) {
                             continue
                         }
 
+                        // Only log events for OUR session (after filtering)
+                        const importantEvents = ['question.asked', 'session.status', 'session.idle', 'message.error', 'message.part.updated', 'message.updated']
+                        if (importantEvents.includes(eventType)) {
+                            console.log('[OpenCode] Event:', eventType, 'session:', eventSessionID, 'props:', JSON.stringify(props).substring(0, 200))
+                        }
+
+                        // CRITICAL: Deduplicate events to prevent OpenCode server spam
+                        // BUT: Don't deduplicate text parts - they contain cumulative updates
+                        // Create unique event ID based on event type and relevant properties
+                        const isTextPart = props.part?.type === 'text'
+                        const eventId = `${eventType}-${props.part?.id || props.info?.id || ''}-${props.part?.callID || ''}`
+
+                        if (!isTextPart && processedEvents.has(eventId)) {
+                            // Skip duplicate event silently (don't log to avoid spam)
+                            // But allow text parts through since they have cumulative updates
+                            continue
+                        }
+
+                        if (!isTextPart) {
+                            processedEvents.add(eventId)
+                        }
+
+                        // Update last event time to reset timeout
+                        lastEventTime = Date.now()
                         hasReceivedData = true
 
                         // Handle question.asked
@@ -515,12 +605,52 @@ export async function runOpenCodeChat({
                             }
 
                             if (part.type === 'text' && part.text) {
-                                console.log('[OpenCode] Received text:', part.text)
-                                const textId = crypto.randomUUID()
-                                emit({ type: 'text-start', id: textId })
-                                emit({ type: 'text-delta', id: textId, delta: part.text })
-                                emit({ type: 'text-end', id: textId })
-                                assistantParts.push({ type: 'text', text: part.text })
+                                // OpenCode sends CUMULATIVE text (full message so far), not delta
+                                // We need to track previous text and only emit the NEW part
+                                const previousText = lastTextContent.get(part.id) || ''
+                                const newText = part.text
+
+                                // Only log significant updates to reduce overhead
+                                if (newText.length - previousText.length > 100 || !previousText) {
+                                    console.log(`[OpenCode] Text update: prev=${previousText.length} new=${newText.length} partId=${part.id}`)
+                                }
+
+                                if (newText.length > previousText.length && newText.startsWith(previousText)) {
+                                    // Extract only the new delta
+                                    const delta = newText.substring(previousText.length)
+
+                                    if (delta) {
+                                        // Only emit if there's actually new content
+                                        const textId = part.id || crypto.randomUUID()
+
+                                        // Emit start only if this is the first chunk for this text part
+                                        if (!previousText) {
+                                            emit({ type: 'text-start', id: textId })
+                                        }
+
+                                        emit({ type: 'text-delta', id: textId, delta })
+
+                                        // Update tracking
+                                        lastTextContent.set(part.id, newText)
+
+                                        // Update assistant parts (replace existing or add new)
+                                        const existingIndex = assistantParts.findIndex(p => p.type === 'text' && p.id === part.id)
+                                        if (existingIndex >= 0) {
+                                            assistantParts[existingIndex] = { type: 'text', text: newText, id: part.id }
+                                        } else {
+                                            assistantParts.push({ type: 'text', text: newText, id: part.id })
+                                        }
+                                    }
+                                } else if (newText !== previousText) {
+                                    // Text was replaced or is completely different - emit full text
+                                    console.log('[OpenCode] Text replaced, emitting full content')
+                                    const textId = part.id || crypto.randomUUID()
+                                    emit({ type: 'text-start', id: textId })
+                                    emit({ type: 'text-delta', id: textId, delta: newText })
+                                    emit({ type: 'text-end', id: textId })
+                                    lastTextContent.set(part.id, newText)
+                                    assistantParts.push({ type: 'text', text: newText, id: part.id })
+                                }
                             } else if (part.type === 'tool') {
                                 const toolCallId = part.callID || part.id || crypto.randomUUID()
                                 const rawToolName = part.tool || 'unknown'
@@ -575,7 +705,7 @@ export async function runOpenCodeChat({
                                     'fetch_url': 'WebFetch',
                                     'task': 'Task',
                                     'browser_subagent': 'Task',
-                                    
+
                                     // Browser Preview
                                     'open_browser_preview': 'OpenBrowserPreview',
                                     'browser_preview': 'OpenBrowserPreview',
@@ -650,13 +780,13 @@ export async function runOpenCodeChat({
                                 } else {
                                     emit({ type: 'tool-input-available', toolCallId, toolName: mappedToolName, input: enhancedInput })
                                 }
-                                
+
                                 // Auto-detect port from Bash tool outputs
                                 if (mappedToolName === 'Bash' && toolOutput) {
-                                    const outputText = typeof toolOutput === 'string' 
-                                        ? toolOutput 
+                                    const outputText = typeof toolOutput === 'string'
+                                        ? toolOutput
                                         : (toolOutput.stdout || toolOutput.output || toolOutput.stderr || '')
-                                    
+
                                     // Try to extract port from output (common patterns)
                                     const portPatterns = [
                                         /listening on (?:port )?(\d+)/i,
@@ -666,7 +796,7 @@ export async function runOpenCodeChat({
                                         /http:\/\/localhost:(\d+)/i,
                                         /:(\d{4,5})/i, // Common port range
                                     ]
-                                    
+
                                     for (const pattern of portPatterns) {
                                         const match = outputText.match(pattern)
                                         if (match && match[1]) {
@@ -762,6 +892,12 @@ export async function runOpenCodeChat({
                                 // Session is idle - this means the response is complete
                                 console.log('[OpenCode] Session idle - completing')
 
+                                // Close any open text parts
+                                for (const [textId, _] of lastTextContent) {
+                                    emit({ type: 'text-end', id: textId })
+                                }
+                                lastTextContent.clear()
+
                                 // Complete thinking block if it exists
                                 if (reasoningId) {
                                     emit({ type: 'tool-output-available', toolCallId: reasoningId, output: { completed: true } })
@@ -773,20 +909,20 @@ export async function runOpenCodeChat({
                                 // Trigger diff refresh so changes show up immediately
                                 emit({ type: 'refresh-diff' })
 
-                        // Only save assistant message if we have content
-                        // (errors are already displayed above, no need to save empty message)
-                        if (assistantParts.length > 0) {
-                            const finalMessages = [...messagesToSave, { id: `msg-${Date.now()}`, role: 'assistant', parts: assistantParts }]
-                            db.update(subChats).set({ messages: JSON.stringify(finalMessages), sessionId, updatedAt: new Date() }).where(eq(subChats.id, input.subChatId)).run()
-                            
-                            // Track file changes from messages
-                            try {
-                                const { trackFileChangesFromMessages } = await import('../db/file-changes-tracker')
-                                await trackFileChangesFromMessages(input.chatId, input.subChatId, finalMessages, sessionId)
-                            } catch (error) {
-                                console.error('[OpenCode] Error tracking file changes:', error)
-                            }
-                        } else {
+                                // Only save assistant message if we have content
+                                // (errors are already displayed above, no need to save empty message)
+                                if (assistantParts.length > 0) {
+                                    const finalMessages = [...messagesToSave, { id: `msg-${Date.now()}`, role: 'assistant', parts: assistantParts }]
+                                    db.update(subChats).set({ messages: JSON.stringify(finalMessages), sessionId, updatedAt: new Date() }).where(eq(subChats.id, input.subChatId)).run()
+
+                                    // Track file changes from messages
+                                    try {
+                                        const { trackFileChangesFromMessages } = await import('../db/file-changes-tracker')
+                                        await trackFileChangesFromMessages(input.chatId, input.subChatId, finalMessages, sessionId)
+                                    } catch (error) {
+                                        console.error('[OpenCode] Error tracking file changes:', error)
+                                    }
+                                } else {
                                     // No response received from the model - show error
                                     console.warn('[OpenCode] Session completed but no assistant response received')
                                     const errorId = crypto.randomUUID()
@@ -813,6 +949,10 @@ export async function runOpenCodeChat({
                                 }
                                 db.update(chats).set({ updatedAt: new Date() }).where(eq(chats.id, input.chatId)).run()
 
+                                flushEventBatch() // Flush any remaining batched events
+                                clearInterval(timeoutChecker) // Clean up timeout checker
+                                clearInterval(batchFlushInterval) // Clean up batch flush interval
+                                sessionManager.unregisterSession(input.subChatId) // Clean up session
                                 emit({ type: 'finish-step' })
                                 emit({ type: 'finish' })
                                 reader.cancel()
@@ -835,11 +975,19 @@ export async function runOpenCodeChat({
             if (!hasReceivedData) {
                 emit({ type: 'text-delta', id: crypto.randomUUID(), delta: '❌ No response from OpenCode' })
             }
+            flushEventBatch() // Flush any remaining batched events
+            clearInterval(timeoutChecker) // Clean up timeout checker
+            clearInterval(batchFlushInterval) // Clean up batch flush interval
+            sessionManager.unregisterSession(input.subChatId) // Clean up session
             emit({ type: 'finish' })
             safeComplete()
 
         } catch (streamError) {
             console.error('[OpenCode] Stream error:', streamError)
+
+            // Check if this is an intentional abort (user cancelled or cleanup)
+            const isAbortError = streamError instanceof Error &&
+                (streamError.name === 'AbortError' || streamError.message?.includes('aborted'))
 
             // Cancel any pending questions when stream is aborted
             if (pendingQuestionId) {
@@ -859,9 +1007,15 @@ export async function runOpenCodeChat({
                 pendingQuestionId = null
             }
 
-            if (!hasReceivedData) {
+            // Only show error message if this is NOT an intentional abort
+            if (!isAbortError && !hasReceivedData) {
                 emit({ type: 'text-delta', id: crypto.randomUUID(), delta: '❌ OpenCode streaming failed' })
             }
+
+            flushEventBatch() // Flush any remaining batched events
+            clearInterval(timeoutChecker) // Clean up timeout checker
+            clearInterval(batchFlushInterval) // Clean up batch flush interval
+            sessionManager.unregisterSession(input.subChatId) // Clean up session
             emit({ type: 'finish' })
             safeComplete()
         }

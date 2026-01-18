@@ -56,7 +56,7 @@ export const SubChatStatusCard = memo(function SubChatStatusCard({
   const setFocusedDiffFile = useSetAtom(agentsFocusedDiffFileAtom)
 
   // Listen for file changes from Claude Write/Edit tools
-  useFileChangeListener(worktreePath)
+  useFileChangeListener(worktreePath || undefined)
 
   // Fetch git status to filter out committed files
   const { data: gitStatus } = trpc.changes.getStatus.useQuery(

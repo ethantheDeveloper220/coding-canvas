@@ -5,6 +5,16 @@ import simpleGit from 'simple-git'
 import * as fs from 'fs'
 import * as path from 'path'
 
+/**
+ * Helper function to get the full resolved path
+ */
+function getFullPath(filePath: string): string {
+    if (path.isAbsolute(filePath)) {
+        return filePath
+    }
+    return path.resolve(filePath)
+}
+
 // Supported text file extensions that should be included in diffs
 const SUPPORTED_TEXT_EXTENSIONS = [
   // Programming languages
@@ -38,46 +48,6 @@ const BINARY_EXTENSIONS = [
   '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
   '.psd', '.ai', '.sketch', '.fig',
 ]
-
-// Get file icon based on extension
-function getFileIcon(filePath: string): string {
-  const ext = path.extname(filePath).toLowerCase()
-  
-  // Programming languages
-  if (['.js', '.jsx', '.mjs', '.cjs'].includes(ext)) return '🟨'
-  if (['.ts', '.tsx', '.d.ts'].includes(ext)) return '🔷'
-  if (ext === '.vue') return '💚'
-  if (ext === '.svelte') return '🔴'
-  if (ext === '.py') return '🐍'
-  if (ext === '.java') return '☕'
-  if (['.c', '.cpp', '.h', '.hpp'].includes(ext)) return '⚙️'
-  if (ext === '.cs') return '🔷'
-  if (ext === '.php') return '🐘'
-  if (ext === '.rb') return '💎'
-  if (ext === '.go') return '🐹'
-  if (ext === '.rs') return '🦀'
-  if (ext === '.swift') return '🦉'
-  if (['.scala', '.kt', '.dart'].includes(ext)) return '🎯'
-  
-  // Web technologies
-  if (['.html', '.htm'].includes(ext)) return '🌐'
-  if (['.css', '.scss', '.sass', '.less'].includes(ext)) return '🎨'
-  if (['.json', '.xml'].includes(ext)) return '📄'
-  
-  // Data/config
-  if (['.yaml', '.yml', '.toml', '.ini', '.env'].includes(ext)) return '⚙️'
-  if (['.md', '.markdown', '.rst'].includes(ext)) return '📝'
-  if (['.sql', '.graphql', '.gql'].includes(ext)) return '🗃️'
-  
-  // Special files
-  if (filePath.endsWith('package.json')) return '📦'
-  if (filePath.endsWith('Dockerfile')) return '🐳'
-  if (filePath.endsWith('Makefile')) return '🔨'
-  if (['.gitignore', '.gitattributes', '.editorconfig'].includes(path.basename(filePath))) return '🔧'
-  
-  // Default
-  return '📄'
-}
 
 /**
  * Get diff for OpenCode chats
@@ -179,6 +149,10 @@ export async function getOpenCodeDiff(chatId: string): Promise<{ diff: string | 
 /**
  * Check if a file is binary by analyzing its content
  * This is more reliable than just checking the extension
+ */
+/**
+ * Helper function to check if a file is binary by analyzing its content
+ * This is more reliable than just checking extension
  */
 function isFileBinaryByContent(filePath: string): boolean {
     try {
@@ -377,19 +351,12 @@ function filterUnsupportedFilesFromDiff(diffText: string): string {
 
             // Only include this block if it's not binary and is a supported text file
             if (!isBinary && isSupported) {
-                // Add file icon as a comment for better visualization
-                const icon = getFileIcon(filePath)
-                const iconComment = `// ${icon} ${filePath}`
-                
                 // Log the file being included for debugging
                 console.log(`[OpenCodeDiff] Including file in diff: ${filePath}`)
                 
-                // Insert the icon comment after the diff line
+                // Include all lines from this diff block (no icon comment needed - using SVG icons in UI)
                 for (let j = 0; j < blockLines.length; j++) {
                     filteredLines.push(blockLines[j])
-                    if (j === 0) { // After the diff --git line
-                        filteredLines.push(iconComment)
-                    }
                 }
             } else {
                 // Log why we're skipping this file
@@ -415,8 +382,17 @@ function getAllFilesSync(dirPath: string, arrayOfFiles: string[] = []): string[]
     files.forEach((file) => {
         const filePath = path.join(dirPath, file)
 
-        // Skip .git directory and node_modules
-        if (file === '.git' || file === 'node_modules' || file === '.git') return
+        // Skip common directories that should be ignored
+        const ignoredDirs = ['.git', 'node_modules', 'dist', 'build', 'out', '.next', '.cache', 'coverage', '.vscode', '.idea']
+        if (ignoredDirs.includes(file)) {
+            console.log(`[OpenCodeDiff] Skipping ignored directory: ${file}`)
+            return
+        }
+
+        // Skip hidden files and directories (except .gitignore, .env, etc that we explicitly support)
+        if (file.startsWith('.') && !SUPPORTED_TEXT_EXTENSIONS.some(ext => file.endsWith(ext))) {
+            return
+        }
 
         if (fs.statSync(filePath).isDirectory()) {
             arrayOfFiles = getAllFilesSync(filePath, arrayOfFiles)
@@ -481,8 +457,7 @@ export async function getFileDiff(
                 // Create a diff showing the entire file as new
                 try {
                     const content = fs.readFileSync(fullPath, 'utf-8')
-                    const icon = getFileIcon(filePath)
-                    diff = `diff --git a/${filePath} b/${filePath}\n// ${icon} ${filePath}\nnew file mode 100644\nindex 0000000..${Buffer.from(content).toString('hex').substring(0, 7)}\n--- /dev/null\n+++ b/${filePath}\n${content.split('\n').map(line => `+${line}`).join('\n')}`
+                    diff = `diff --git a/${filePath} b/${filePath}\nnew file mode 100644\nindex 0000000..${Buffer.from(content).toString('hex').substring(0, 7)}\n--- /dev/null\n+++ b/${filePath}\n${content.split('\n').map(line => `+${line}`).join('\n')}`
                 } catch (readError) {
                     // If we can't read as UTF-8, it's likely binary
                     console.log(`[OpenCodeDiff] File appears to be binary: ${filePath}`)
@@ -491,8 +466,7 @@ export async function getFileDiff(
             } else {
                 console.log(`[OpenCodeDiff] File does not exist: ${filePath}`)
                 // Create a diff showing a deleted file
-                const icon = getFileIcon(filePath)
-                diff = `diff --git a/${filePath} b/${filePath}\n// ${icon} ${filePath}\n--- a/${filePath}\n+++ /dev/null\n@@ -1,1 +0,0 @@\n-File was deleted\n`
+                diff = `diff --git a/${filePath} b/${filePath}\n--- a/${filePath}\n+++ /dev/null\n@@ -1,1 +0,0 @@\n-File was deleted\n`
             }
         }
 

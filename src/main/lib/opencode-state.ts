@@ -4,7 +4,7 @@ import { isDev } from './config'
  * Shared state for OpenCode API URL
  * Used to coordinate between opencode router (settings) and claude router (execution)
  */
-let openCodeUrl = "http://localhost:4096"
+let openCodeUrl = "http://localhost:4098"
 
 export const getOpenCodeUrl = () => openCodeUrl
 export const setOpenCodeUrl = (url: string) => {

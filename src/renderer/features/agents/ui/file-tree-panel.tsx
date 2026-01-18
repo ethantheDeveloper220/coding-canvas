@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { MonacoEditor } from "@/components/ui/monaco-editor"
-import { FileCode, FileJson, FileText, Folder, FolderOpen, Save, X, FileQuestion, FolderOpen as FolderIcon } from "lucide-react"
+import { FileCode, FileJson, FileText, Folder, FolderOpen, Save, X, FileQuestion, FolderOpen as FolderIcon, Download } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { EmptyState } from "@/components/ui/empty-state"
@@ -149,6 +149,7 @@ function renderTreeNode(
   onCopyPath?: (path: string) => void,
   onRevealInFinder?: (path: string) => void,
   onOpenInExternalEditor?: (path: string) => void,
+  onDownloadZip?: (path: string) => void,
 ): React.ReactNode {
   const hasChildren = node.children && node.children.length > 0
   const nodeId = node.path
@@ -168,9 +169,11 @@ function renderTreeNode(
                 }
               }}
               onContextMenu={(e) => {
-                if (isFile && onFileRightClick) {
+                if (onFileRightClick || onDownloadZip) {
                   e.preventDefault()
-                  onFileRightClick(node.path, e)
+                  if (isFile && onFileRightClick) {
+                    onFileRightClick(node.path, e)
+                  }
                 }
               }}
             >
@@ -207,6 +210,21 @@ function renderTreeNode(
             </ContextMenuItem>
           </ContextMenuContent>
         )}
+        {!isFile && (
+          <ContextMenuContent>
+            <ContextMenuItem onClick={() => onCopyPath?.(node.path)}>
+              Copy Path
+            </ContextMenuItem>
+            <ContextMenuItem onClick={() => onRevealInFinder?.(node.path)}>
+              Reveal in File Explorer
+            </ContextMenuItem>
+            <ContextMenuSeparator />
+            <ContextMenuItem onClick={() => onDownloadZip?.(node.path)}>
+              <Download className="mr-2 h-4 w-4" />
+              Download as ZIP
+            </ContextMenuItem>
+          </ContextMenuContent>
+        )}
       </ContextMenu>
       {hasChildren && (
         <TreeNodeContent hasChildren>
@@ -220,6 +238,7 @@ function renderTreeNode(
               onCopyPath,
               onRevealInFinder,
               onOpenInExternalEditor,
+              onDownloadZip,
             )
           )}
         </TreeNodeContent>
@@ -236,12 +255,13 @@ export function FileTreePanel({ projectPath }: FileTreePanelProps) {
 
   const openInFinderMutation = trpc.external.openInFinder.useMutation()
   const openInEditorMutation = trpc.external.openFileInEditor.useMutation()
+  const createZipMutation = trpc.files.createZip.useMutation()
 
   const { data: fileList = [], isLoading } = trpc.files.search.useQuery(
     {
       projectPath: projectPath || "",
       query: "",
-      limit: 500, // Get more files for tree view
+      limit: 1000, // Get more files for tree view
     },
     {
       enabled: !!projectPath,
@@ -361,6 +381,42 @@ export function FileTreePanel({ projectPath }: FileTreePanelProps) {
     if (!projectPath) return
     const absolutePath = `${projectPath}/${filePath}`
     openInEditorMutation.mutate({ path: absolutePath, cwd: projectPath })
+  }
+
+  const handleDownloadZip = async (folderPath: string) => {
+    if (!projectPath) return
+
+    const toastId = toast.loading("Creating zip archive...")
+
+    try {
+      const result = await createZipMutation.mutateAsync({
+        projectPath,
+        folderPath,
+      })
+
+      // Convert base64 to blob and download
+      const byteCharacters = atob(result.zipContent)
+      const byteNumbers = new Array(byteCharacters.length)
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i)
+      }
+      const byteArray = new Uint8Array(byteNumbers)
+      const blob = new Blob([byteArray], { type: "application/zip" })
+
+      // Create download link
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = result.zipName
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+
+      toast.success(`Zip file downloaded: ${result.zipName}`, { id: toastId })
+    } catch (error) {
+      toast.error(`Failed to create zip: ${error instanceof Error ? error.message : "Unknown error"}`, { id: toastId })
+    }
   }
 
   const handleSave = async () => {
@@ -492,31 +548,60 @@ export function FileTreePanel({ projectPath }: FileTreePanelProps) {
 
   const activeFileData = activeFile ? openFiles.get(activeFile) : null
 
+  const handleDownloadProjectZip = () => {
+    // Download the entire project root (empty string means project root)
+    handleDownloadZip("")
+  }
+
   return (
     <>
-      <div className="h-full overflow-auto">
-        <TreeProvider
-          defaultExpandedIds={treeData.slice(0, 3).map((n) => n.path)} // Expand first 3 folders
-          showLines={true}
-          showIcons={true}
-          selectable={true}
-          multiSelect={false}
-        >
-          <TreeView>
-            {treeData.map((node, idx) =>
-              renderTreeNode(
-                node,
-                0,
-                idx === treeData.length - 1,
-                handleFileClick,
-                handleFileRightClick,
-                handleCopyPath,
-                handleRevealInFinder,
-                handleOpenInExternalEditor,
-              )
-            )}
-          </TreeView>
-        </TreeProvider>
+      <div className="h-full flex flex-col">
+        {/* Header with Download as ZIP button */}
+        <div className="flex items-center justify-between px-3 py-2 border-b flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <FolderIcon className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium text-foreground">File Tree</span>
+          </div>
+          {projectPath && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownloadProjectZip}
+              disabled={createZipMutation.isPending}
+              className="gap-2 h-7"
+            >
+              <Download className="h-3.5 w-3.5" />
+              <span className="text-xs">Download as ZIP</span>
+            </Button>
+          )}
+        </div>
+
+        {/* Tree View */}
+        <div className="flex-1 overflow-auto">
+          <TreeProvider
+            defaultExpandedIds={treeData.slice(0, 5).map((n) => n.path)} // Expand first 5 folders
+            showLines={true}
+            showIcons={true}
+            selectable={true}
+            multiSelect={false}
+          >
+            <TreeView>
+              {treeData.map((node, idx) =>
+                renderTreeNode(
+                  node,
+                  0,
+                  idx === treeData.length - 1,
+                  handleFileClick,
+                  handleFileRightClick,
+                  handleCopyPath,
+                  handleRevealInFinder,
+                  handleOpenInExternalEditor,
+                  handleDownloadZip,
+                )
+              )}
+            </TreeView>
+          </TreeProvider>
+        </div>
       </div>
 
       {/* Monaco Editor Dialog */}

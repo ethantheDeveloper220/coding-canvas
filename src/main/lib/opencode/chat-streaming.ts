@@ -40,7 +40,7 @@ export async function runOpenCodeChatStreaming({
 
     try {
         // Get OpenCode server URL from environment
-        const apiUrl = process.env.OPENCODE_SERVER_URL || 'http://localhost:4096'
+        const apiUrl = process.env.OPENCODE_SERVER_URL || 'http://localhost:4098'
         console.log('[OpenCode] Starting chat with OpenCode API (STREAMING)')
         console.log('[OpenCode] Model:', input.model || 'opencode/glm-4.7-free')
         console.log('[OpenCode] API URL:', apiUrl)
@@ -109,9 +109,13 @@ export async function runOpenCodeChatStreaming({
             .run()
 
         // Prepend system prompt to the prompt sent to OpenCode (agent context only, not visible to user)
-        const agentPrompt = input.systemPrompt
-            ? `${input.systemPrompt}\n\n${input.prompt}`
-            : input.prompt
+        // Add PowerShell instruction: try PowerShell first, then bash if it doesn't work
+        const powershellInstruction = "IMPORTANT: When executing terminal commands, use PowerShell commands first. If PowerShell commands don't work or are not available, then try bash commands as a fallback."
+        const combinedSystemPrompt = input.systemPrompt 
+            ? `${powershellInstruction}\n\n${input.systemPrompt}`
+            : powershellInstruction
+        
+        const agentPrompt = `${combinedSystemPrompt}\n\n${input.prompt}`
 
         // Build message parts for the prompt
         const parts: any[] = []
@@ -207,57 +211,55 @@ export async function runOpenCodeChatStreaming({
 
         console.log('[OpenCode] Prompt sent, subscribing to event stream...')
 
-        // Get or create the singleton global EventSource
-        // const eventSource = getGlobalEventSource(apiUrl)
-        // console.log('[OpenCode] Using global EventSource, will filter by session:', sessionId)
+        // Step 2: Subscribe to global event stream for real-time updates
+        const eventUrl = `${apiUrl}/global/event`
+        const eventSource = new EventSource(eventUrl)
 
         let hasReceivedData = false
         const assistantParts: any[] = []
         const startTime = Date.now()
-
-        // Track processed message IDs to prevent duplicates
-        const processedMessageIds = new Set<string>()
-        const processedPartIds = new Set<string>()
+        
+        // Track text parts to avoid creating new IDs for each chunk
+        const textPartIds = new Map<string, string>()
+        let currentTextId: string | null = null
+        let lastEmitTime = 0
+        const EMIT_THROTTLE_MS = 16 // ~60fps, smooth updates without overwhelming the UI
 
         // Emit initial events
         emit({ type: 'start' })
         emit({ type: 'start-step' })
 
-        // Create session-specific handler
-        const sessionHandler = (event: MessageEvent) => {
+        eventSource.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data)
-                console.log('[OpenCode] SSE event:', data.type, data.sessionID)
-
-                // Filter events for this session only
+                
+                // Filter events for this session only (do this first, before logging)
                 if (data.sessionID !== sessionId) {
                     return
                 }
-
-                // Deduplicate messages - skip if we've already processed this message
-                if (data.info?.id && processedMessageIds.has(data.info.id)) {
-                    console.log('[OpenCode] Skipping duplicate message:', data.info.id)
-                    return
+                
+                // Only log important events to reduce overhead
+                if (data.type !== 'text') {
+                    console.log('[OpenCode] SSE event:', data.type, data.sessionID)
                 }
-
-                // Deduplicate parts - skip if we've already processed this part
-                if (data.part?.id && processedPartIds.has(data.part.id)) {
-                    console.log('[OpenCode] Skipping duplicate part:', data.part.id)
-                    return
-                }
-
-                // Mark message/part as processed
-                if (data.info?.id) processedMessageIds.add(data.info.id)
-                if (data.part?.id) processedPartIds.add(data.part.id)
 
                 hasReceivedData = true
 
-                // Handle text chunks
+                // Handle text chunks with throttling
                 if (data.type === 'text' && data.text) {
-                    const textId = crypto.randomUUID()
-                    emit({ type: 'text-start', id: textId })
-                    emit({ type: 'text-delta', id: textId, delta: data.text })
-                    emit({ type: 'text-end', id: textId })
+                    // Reuse the same text ID for continuous text streaming
+                    if (!currentTextId) {
+                        currentTextId = crypto.randomUUID()
+                        emit({ type: 'text-start', id: currentTextId })
+                    }
+                    
+                    // Throttle emit to avoid overwhelming the UI
+                    const now = Date.now()
+                    if (now - lastEmitTime >= EMIT_THROTTLE_MS) {
+                        emit({ type: 'text-delta', id: currentTextId, delta: data.text })
+                        lastEmitTime = now
+                    }
+                    
                     assistantParts.push({ type: 'text', text: data.text })
                 }
 
@@ -335,6 +337,12 @@ export async function runOpenCodeChatStreaming({
                 else if (data.type === 'finish' || data.type === 'complete' || data.type === 'step-finish') {
                     const endTime = Date.now()
                     const duration = endTime - startTime
+                    
+                    // End current text part if exists
+                    if (currentTextId) {
+                        emit({ type: 'text-end', id: currentTextId })
+                        currentTextId = null
+                    }
 
                     // Emit metadata
                     emit({
@@ -376,7 +384,7 @@ export async function runOpenCodeChatStreaming({
                     emit({ type: 'finish-step' })
                     emit({ type: 'finish' })
 
-                    cleanup()
+                    eventSource.close()
                     safeComplete()
                 }
             } catch (error) {
@@ -384,18 +392,48 @@ export async function runOpenCodeChatStreaming({
             }
         }
 
-        // Cleanup function
-        const cleanup = () => {
-            console.log('[OpenCode] Cleaning up session handler')
+        eventSource.onerror = (error) => {
+            console.error('[OpenCode] SSE error:', error)
+            eventSource.close()
+
+            if (!hasReceivedData) {
+                emit({
+                    type: 'text-delta',
+                    id: crypto.randomUUID(),
+                    delta: '❌ OpenCode streaming connection failed. Check if the server is running.',
+                })
+            }
+
+            emit({ type: 'finish' })
+            safeComplete()
         }
 
         // Handle abort
         abortController.signal.addEventListener('abort', () => {
             console.log('[OpenCode] Aborting stream')
-            cleanup()
+            eventSource.close()
         })
+
+        // Fallback timeout: close after 5 minutes
+        setTimeout(() => {
+            if (eventSource.readyState !== EventSource.CLOSED) {
+                console.warn('[OpenCode] Stream timeout after 5 minutes')
+                eventSource.close()
+                emit({ type: 'finish' })
+                safeComplete()
+            }
+        }, 300000)
+
     } catch (error) {
-        console.error('[OpenCode] Error:', error)
-        emitError('OpenCode streaming error', error)
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        console.error('[OpenCode] Chat error:', error)
+
+        emit({
+            type: 'text-delta',
+            id: crypto.randomUUID(),
+            delta: `❌ OpenCode Error: ${errorMessage}`,
+        })
+        emit({ type: 'finish' })
+        safeComplete()
     }
 }

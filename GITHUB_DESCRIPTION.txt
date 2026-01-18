@@ -1,0 +1,1 @@
+🎨 Code Canvas - AI-powered desktop app for intelligent code assistance. Real-time agent execution with Claude Code & OpenCode (75+ models). Git worktree isolation, visual diffs, integrated terminal, multi-agent workflows. Built with Electron + React 19 + TypeScript.

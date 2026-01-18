@@ -245,6 +245,14 @@ export function createMainWindow(): BrowserWindow {
   // Register IPC handlers before creating window
   registerIpcHandlers(getWindow)
 
+  // Configure session to suppress security warnings in development
+  const ses = session.fromPartition("persist:main")
+  
+  // Only in development: suppress Electron security warnings
+  if (process.env.ELECTRON_RENDERER_URL) {
+    process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = "true"
+  }
+
   const window = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -264,21 +272,9 @@ export function createMainWindow(): BrowserWindow {
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: false, // Required for electron-trpc
-      webSecurity: process.env.NODE_ENV === "development" ? false : true,
+      webSecurity: true, // Always enable webSecurity for better security
       partition: "persist:main", // Use persistent session for cookies
-      // Additional CSP settings for development
-      ...(process.env.NODE_ENV === "development" ? {
-        additionalArguments: [
-          "--disable-features=VizDisplayCompositor",
-          "--disable-features=UseSkiaRenderer",
-          "--disable-features=IsolateOrigins",
-          "--disable-features=OutOfBlinkCors",
-          "--disable-web-security",
-          "--allow-running-insecure-content",
-          "--disable-backgrounding-occluded-windows",
-          "--disable-features=TranslateUIInto"
-        ]
-      } : {})
+      allowRunningInsecureContent: false, // Disable insecure content
     },
   })
 

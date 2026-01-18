@@ -4,8 +4,18 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Performance: DNS Prefetch & Preconnect for external resources -->
+  <link rel="dns-prefetch" href="https://unpkg.com" />
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
+  <link rel="preconnect" href="http://localhost:4098" crossorigin />
+
+  <!-- Performance: Preload critical fonts to prevent FOUT (Flash of Unstyled Text) -->
+  <link rel="preload" href="/fonts/inter-var.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="/fonts/geist-mono-var.woff2" as="font" type="font/woff2" crossorigin />
+
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self' 'unsafe-inline' 'unsafe-eval'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://unpkg.com https://cdn.jsdelivr.net https://*.posthog.com https://*.i.posthog.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; worker-src 'self' blob:; connect-src 'self' ws://localhost:* http://localhost:* https://unpkg.com https://cdn.jsdelivr.net https://21st.dev https://*.21st.dev https://*.posthog.com https://*.i.posthog.com http://localhost:4096; img-src 'self' data: blob: https:; media-src 'self' blob:;" />
+    content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob: https://unpkg.com https://cdn.jsdelivr.net https://*.posthog.com https://*.i.posthog.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; worker-src 'self' blob:; connect-src 'self' ws://localhost:* http://localhost:* https://unpkg.com https://cdn.jsdelivr.net https://21st.dev https://*.21st.dev https://*.posthog.com https://*.i.posthog.com http://localhost:4098; img-src 'self' data: blob: https:; media-src 'self' blob:; font-src 'self' data:;" />
   <title>Seamless AI</title>
   <!-- Prevent theme flash: detect system/stored theme before render -->
   <script>

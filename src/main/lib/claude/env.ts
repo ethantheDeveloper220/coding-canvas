@@ -36,8 +36,10 @@ export function getBundledClaudeBinaryPath(): string {
 
   // In dev: apps/desktop/resources/bin/{platform}-{arch}/claude
   // In production: {resourcesPath}/bin/claude
+  // Normalize the app path to handle any duplicate directory names
+  const appPath = path.normalize(app.getAppPath())
   const resourcesPath = isDev
-    ? path.join(app.getAppPath(), "resources/bin", `${platform}-${arch}`)
+    ? path.join(appPath, "resources/bin", `${platform}-${arch}`)
     : path.join(process.resourcesPath, "bin")
 
   console.log("[claude-binary] resourcesPath:", resourcesPath)

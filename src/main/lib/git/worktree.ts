@@ -150,6 +150,20 @@ export async function createWorktree(
 
 		const git = simpleGit(mainRepoPath);
 		
+		// Check if the repository has any commits
+		// If it's an empty repository, we can't create a worktree
+		let hasCommits = false;
+		try {
+			await git.revparse("HEAD");
+			hasCommits = true;
+		} catch (error) {
+			// Repository has no commits yet
+			throw new Error(
+				"Cannot create worktree: The repository has no commits yet. " +
+				"Please make an initial commit before creating a worktree."
+			);
+		}
+		
 		// Resolve the startPoint to a commit hash to avoid issues with remote refs
 		// This handles cases where origin/main might not exist locally or ^{commit} syntax fails
 		let commitHash: string;
@@ -169,12 +183,12 @@ export async function createWorktree(
 					try {
 						commitHash = await git.revparse(branchName);
 					} catch (localError) {
-						// If all else fails, try HEAD as fallback
+						// If all else fails, use HEAD (we already verified it exists above)
 						commitHash = await git.revparse("HEAD");
 					}
 				}
 			} else {
-				// Not a remote ref, try HEAD as fallback
+				// Not a remote ref, use HEAD (we already verified it exists above)
 				commitHash = await git.revparse("HEAD");
 			}
 		}
@@ -934,6 +948,15 @@ export async function createWorktreeForChat(
 			return { success: true, worktreePath: projectPath };
 		}
 
+		// Check if the repository has any commits
+		// If it's empty, we can't create a worktree, so just use the project path
+		try {
+			await git.revparse("HEAD");
+		} catch (error) {
+			console.log("[Worktree] Repository has no commits yet, using project path directly");
+			return { success: true, worktreePath: projectPath };
+		}
+
 		// Use provided base branch or auto-detect
 		const baseBranch = selectedBaseBranch || await getDefaultBranch(projectPath);
 
@@ -945,9 +968,15 @@ export async function createWorktreeForChat(
 
 		return { success: true, worktreePath, branch, baseBranch };
 	} catch (error) {
+		const errorMsg = error instanceof Error ? error.message : "Unknown error";
+		// If the error is about no commits, fall back to using project path
+		if (errorMsg.includes("no commits")) {
+			console.log("[Worktree] Cannot create worktree (no commits), using project path directly");
+			return { success: true, worktreePath: projectPath };
+		}
 		return {
 			success: false,
-			error: error instanceof Error ? error.message : "Unknown error",
+			error: errorMsg,
 		};
 	}
 }

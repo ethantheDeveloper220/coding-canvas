@@ -55,6 +55,30 @@ async function readStream() {
 
     const decoder = new TextDecoder()
     let buffer = ''
+    
+    // Batch events to reduce overhead
+    let eventBatch: any[] = []
+    const BATCH_SIZE = 10 // Process up to 10 events at once
+    const BATCH_TIMEOUT_MS = 16 // Or process after 16ms (~60fps)
+    let lastBatchTime = Date.now()
+    
+    const processBatch = () => {
+        if (eventBatch.length === 0) return
+        
+        // Process all events in batch
+        for (const eventData of eventBatch) {
+            // Broadcast to all session handlers
+            for (const handler of sessionHandlers.values()) {
+                // Call handler without awaiting to avoid blocking
+                handler(eventData).catch(err =>
+                    console.error('[OpenCode] Handler error:', err)
+                )
+            }
+        }
+        
+        eventBatch = []
+        lastBatchTime = Date.now()
+    }
 
     try {
         while (isReading) {
@@ -70,22 +94,36 @@ async function readStream() {
 
                 try {
                     const eventData = JSON.parse(line.substring(5).trim())
-
-                    // Broadcast to all session handlers
-                    for (const handler of sessionHandlers.values()) {
-                        // Call handler without awaiting to avoid blocking
-                        handler(eventData).catch(err =>
-                            console.error('[OpenCode] Handler error:', err)
-                        )
+                    eventBatch.push(eventData)
+                    
+                    // Process batch if it's full or timeout reached
+                    const now = Date.now()
+                    if (eventBatch.length >= BATCH_SIZE || (now - lastBatchTime) >= BATCH_TIMEOUT_MS) {
+                        processBatch()
                     }
                 } catch (error) {
-                    console.error('[OpenCode] Parse error:', error)
+                    // Only log parse errors occasionally to avoid spam
+                    if (Math.random() < 0.1) {
+                        console.error('[OpenCode] Parse error:', error)
+                    }
+                }
+            }
+            
+            // Process any remaining events after reading chunk
+            if (eventBatch.length > 0) {
+                const now = Date.now()
+                if ((now - lastBatchTime) >= BATCH_TIMEOUT_MS) {
+                    processBatch()
                 }
             }
         }
+        
+        // Process any remaining events when stream ends
+        processBatch()
     } catch (error) {
         console.error('[OpenCode] Stream error:', error)
         isReading = false
+        processBatch() // Process remaining events before stopping
     }
 }
 

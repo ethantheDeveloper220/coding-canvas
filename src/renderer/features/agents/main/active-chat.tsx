@@ -955,13 +955,13 @@ function ChatViewInner({
 
   // Plan mode state (read from global atom)
   const [isPlanMode, setIsPlanMode] = useAtom(isPlanModeAtom)
-  
+
   // Chat mode state - supports all 5 modes: build, plan, scaling, designer, debug
   // Map "plan" mode to isPlanMode=true, all others (build, scaling, designer, debug) to isPlanMode=false
   const [chatMode, setChatMode] = useState<ChatMode>(() => {
     return isPlanMode ? "plan" : "build"
   })
-  
+
   // Mutation for updating sub-chat mode in database
   const updateSubChatModeMutation = api.agents.updateSubChatMode.useMutation({
     onSuccess: () => {
@@ -1002,7 +1002,7 @@ function ChatViewInner({
       setChatMode("build")
     }
   }, [isPlanMode, chatMode])
-  
+
   // Handle chat mode changes - update isPlanMode accordingly
   const handleChatModeChange = useCallback((mode: ChatMode) => {
     setChatMode(mode)
@@ -1013,11 +1013,11 @@ function ChatViewInner({
       setIsPlanMode(false)
     }
     // For custom modes (string IDs starting with "custom-"), don't change isPlanMode
-    
+
     // Store mode in sub-chat store
     const newMode = mode === "plan" ? "plan" : mode === "build" || mode === "scaling" || mode === "designer" || mode === "debug" ? "agent" : mode
     useAgentSubChatStore.getState().updateSubChatMode(subChatId, newMode)
-    
+
     // Update in database only for "plan" and "agent" modes (not custom modes - they're localStorage only)
     if (subChatId && parentChatId && (newMode === "plan" || newMode === "agent")) {
       updateSubChatModeMutation.mutate({ subChatId, mode: newMode as "plan" | "agent" })
@@ -1108,44 +1108,44 @@ function ChatViewInner({
     }
     return agents[0] // Default to claude-code
   })
-  
+
   // Determine available models based on selected agent (same as new-chat-form)
   const availableModels = selectedAgent.id === 'opencode' ? opencodeModels : claudeModels
-  
+
   const [selectedModel, setSelectedModel] = useState(() => {
     const models = selectedAgent.id === 'opencode' ? opencodeModels : claudeModels
     if (models.length === 0) return null
     return models.find((m) => m.id === lastSelectedModelId) || models[0]
   })
-  
+
   // Update selected model when OpenCode models load
   useEffect(() => {
     if (selectedAgent.id === 'opencode' && opencodeModels.length > 0 && !selectedModel) {
       setSelectedModel(opencodeModels[0])
     }
   }, [opencodeModels, selectedAgent.id, selectedModel])
-  
+
   // Get OpenCode server URL for context checking
   const { data: opencodeServerUrl } = trpc.opencode.getServerUrl.useQuery()
-  const apiUrl = opencodeServerUrl || 'http://localhost:4096'
-  
+  const apiUrl = opencodeServerUrl || 'http://localhost:4098'
+
   // Query subChat to get sessionId from database
   const { data: subChatData } = trpc.chats.getSubChat.useQuery(
     { id: subChatId },
     { enabled: selectedAgent.id === 'opencode' && !!subChatId }
   )
   const sessionId = subChatData?.sessionId
-  
+
   // Poll OpenCode session context every 3 seconds when OpenCode is selected
   useEffect(() => {
     if (selectedAgent.id !== 'opencode') return
     if (!sessionId) return
-    
+
     let isActive = true
-    
+
     const checkContext = async () => {
       if (!isActive) return
-      
+
       try {
         // Check session status/context from OpenCode API
         // First try to get the specific session
@@ -1155,7 +1155,7 @@ function ChatViewInner({
             'Content-Type': 'application/json',
           },
         })
-        
+
         if (sessionResponse.ok && isActive) {
           const sessionData = await sessionResponse.json()
           // Log context for debugging
@@ -1164,14 +1164,14 @@ function ChatViewInner({
             status: sessionData.status,
             messageCount: sessionData.messages?.length || 0,
           })
-          
+
           // You can use sessionData here to:
           // - Update UI state
           // - Trigger file change detection
           // - Update diff viewer
           // - Sync with local state
         }
-        
+
         // Also check session status endpoint for overall status
         const statusResponse = await fetch(`${apiUrl}/session/status?directory=${encodeURIComponent(projectPath || '')}`, {
           method: 'GET',
@@ -1179,7 +1179,7 @@ function ChatViewInner({
             'Content-Type': 'application/json',
           },
         })
-        
+
         if (statusResponse.ok && isActive) {
           const statusData = await statusResponse.json()
           const currentSessionStatus = statusData[sessionId]
@@ -1194,17 +1194,17 @@ function ChatViewInner({
         }
       }
     }
-    
+
     // Check immediately, then every 3 seconds
     checkContext()
     const interval = setInterval(checkContext, 3000)
-    
+
     return () => {
       isActive = false
       clearInterval(interval)
     }
   }, [selectedAgent.id, subChatId, apiUrl, projectPath])
-  
+
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false)
   const [modelSearch, setModelSearch] = useState("")
   const [shouldOpenClaudeSubmenu, setShouldOpenClaudeSubmenu] = useState(false)
@@ -1354,27 +1354,9 @@ function ChatViewInner({
     // experimental_throttle: 200,
   })
 
-  // Add event listener to handle custom status reset events
-  useEffect(() => {
-    const handleResetStatus = (event: CustomEvent) => {
-      if (event.detail?.subChatId === subChatId) {
-        console.log(`[SD] C:RESET_EVENT sub=${subChatId.slice(-8)} - resetting chat status`)
+  // REMOVED: Event listener for reset-chat-status that was causing infinite loops
+  // by calling regenerate() which would start a new stream subscription
 
-        // Force a regeneration to reset the internal state
-        try {
-          regenerate()
-        } catch (error) {
-          console.error("[SD] C:RESET_EVENT - Failed to regenerate:", error)
-        }
-      }
-    }
-
-    window.addEventListener('reset-chat-status', handleResetStatus as EventListener)
-
-    return () => {
-      window.removeEventListener('reset-chat-status', handleResetStatus as EventListener)
-    }
-  }, [subChatId, regenerate])
 
   // Stream debug: log status changes
   const prevStatusRef = useRef(status)
@@ -1403,103 +1385,22 @@ function ChatViewInner({
     }
   }, [status, subChatId, messages.length])
 
-  // Safety check: if streaming for too long without completion, try to reset
-  useEffect(() => {
-    const checkStreamingStuck = () => {
-      if ((status === "streaming" || status === "submitted") &&
-        streamingStartRef.current &&
-        Date.now() - streamingStartRef.current > 30000) { // 30 seconds
-        console.log(`[SD] C:STREAMING_STUCK sub=${subChatId.slice(-8)} - attempting to reset`)
+  // REMOVED: 30-second streaming stuck check that was calling stop()
+  // This was aborting streams that were working but just taking longer
+  // Users can manually click the stop button if needed
 
-        // Try to force a status reset by calling stop()
-        try {
-          stop()
-          // Reset the streaming start time to avoid repeated checks
-          streamingStartRef.current = null
-        } catch (error) {
-          console.error("[SD] C:STREAMING_STUCK - Failed to reset:", error)
-        }
-      }
-    }
 
-    // Check every 5 seconds
-    const interval = setInterval(checkStreamingStuck, 5000)
-
-    return () => clearInterval(interval)
-  }, [status, stop, subChatId])
-
-  // Additional safety check: ensure status eventually returns to ready after system messages
-  useEffect(() => {
-    // Check if we have any messages and the status is still in loading state
-    if ((status === "streaming" || status === "submitted") &&
-      messages.length > 0 &&
-      streamingStartRef.current) {
-
-      // Check if the last assistant message is complete
-      const lastMessage = messages[messages.length - 1]
-      const hasAssistantMessage = messages.some(m => m.role === 'assistant')
-
-      if (hasAssistantMessage && streamingStartRef.current) {
-        const streamingDuration = Date.now() - streamingStartRef.current
-
-        // If streaming for more than 5 seconds after we have an assistant message,
-        // the stream might be stuck
-        if (streamingDuration > 5000) {
-          console.log(`[SD] C:STATUS_RESET sub=${subChatId.slice(-8)} - forcing ready state`)
-
-          // Force a regeneration to reset the state
-          try {
-            // This will trigger the useChat hook to reset its internal state
-            window.dispatchEvent(new CustomEvent('reset-chat-status', {
-              detail: { subChatId }
-            }))
-          } catch (error) {
-            console.error("[SD] C:STATUS_RESET - Failed to dispatch event:", error)
-          }
-        }
-      }
-    }
-  }, [status, messages, subChatId])
+  // REMOVED: Additional safety check that was causing infinite loops
+  // The 30-second timeout check above is sufficient for handling stuck streams
 
   const isStreaming = status === "streaming" || status === "submitted"
 
+
   // Ensure status resets to ready after streaming completes
   // This prevents the send button from staying disabled after streaming finishes
-  useEffect(() => {
-    // If status is stuck in streaming/submitted after messages have been added
-    // and there's no active stream, force reset to ready
-    if ((status === "streaming" || status === "submitted") && messages.length > 0) {
-      const lastMessage = messages[messages.length - 1]
-      // If last message is assistant and has been completed for more than 2 seconds
-      // but status hasn't reset, force a reset
-      const hasCompleteAssistantMessage = lastMessage?.role === "assistant" && 
-        lastMessage?.parts && 
-        lastMessage.parts.length > 0 &&
-        !lastMessage.parts.some((p: any) => p.state === "input-available" || p.state === "input-streaming")
-      
-      if (hasCompleteAssistantMessage && streamingStartRef.current) {
-        const streamingDuration = Date.now() - streamingStartRef.current
-        // If streaming started more than 3 seconds ago and message appears complete
-        // but status hasn't reset, try to reset it
-        if (streamingDuration > 3000) {
-          // Check if stream is actually still active
-          const streamId = agentChatStore.getStreamId(subChatId)
-          if (!streamId || streamingDuration > 5000) {
-            console.log(`[SD] C:AUTO_RESET sub=${subChatId.slice(-8)} - forcing ready after completion`)
-            // Use a timeout to allow natural status transition first
-            const timeoutId = setTimeout(() => {
-              if (status === "streaming" || status === "submitted") {
-                window.dispatchEvent(new CustomEvent('reset-chat-status', {
-                  detail: { subChatId }
-                }))
-              }
-            }, 1000)
-            return () => clearTimeout(timeoutId)
-          }
-        }
-      }
-    }
-  }, [status, messages, subChatId])
+  // REMOVED: Auto-reset logic that was causing infinite loops
+  // The AI SDK should handle status transitions automatically
+  // If status gets stuck, the 30-second timeout check above will handle it
 
   // Get browser preview atoms and state for this chat
   const currentChatId = parentChatId || subChatId
@@ -1728,7 +1629,7 @@ function ChatViewInner({
           const answer = answers[q.question]
           return Array.isArray(answer) ? answer : [answer || ""]
         })
-        
+
         await window.desktopApi.answerOpenCodeQuestion({
           subChatId,
           requestId: pendingQuestions.toolUseId,
@@ -1755,7 +1656,7 @@ function ChatViewInner({
     answeredQuestionsRef.current.add(pendingQuestions.toolUseId)
     // Clear questions UI immediately BEFORE sending to prevent it from showing again
     setPendingQuestions(null)
-    
+
     try {
       await window.desktopApi.answerOpenCodeQuestion({
         subChatId,
@@ -2508,7 +2409,7 @@ function ChatViewInner({
             onExecuteInTerminal={onExecuteInTerminal}
             onViewFullOutput={onViewFullOutput}
           />
-          
+
           <div>
             {/* Render message groups - each group has user message sticky within it */}
             {messageGroups.map((group, groupIndex) => {
@@ -3392,7 +3293,7 @@ function ChatViewInner({
                     </DropdownMenu>
 
                     {/* Model selector */}
-                    <DropdownMenu 
+                    <DropdownMenu
                       open={isModelDropdownOpen}
                       onOpenChange={(open) => {
                         setIsModelDropdownOpen(open)
@@ -3593,11 +3494,7 @@ function ChatViewInner({
                             // Mark as manually aborted to prevent completion sound
                             agentChatStore.setManuallyAborted(subChatId, true)
                             await stop()
-                            // Call DELETE endpoint to cancel server-side stream
-                            await fetch(
-                              `/api/agents/chat?id=${encodeURIComponent(subChatId)}`,
-                              { method: "DELETE", credentials: "include" },
-                            )
+                            // Note: stop() already aborts the tRPC subscription, no need for separate DELETE call
                           }}
                           isPlanMode={isPlanMode}
                         />
@@ -3766,7 +3663,7 @@ export function ChatView({
     [chatId],
   )
   const [isDiffSidebarOpen, setIsDiffSidebarOpen] = useAtom(diffSidebarAtom)
-  
+
   // Per-chat tree sidebar state
   const treeSidebarAtom = useMemo(
     () => treeSidebarOpenAtomFamily(chatId),
@@ -3780,14 +3677,14 @@ export function ChatView({
     [chatId],
   )
   const [isKanbanSidebarOpen, setIsKanbanSidebarOpen] = useAtom(kanbanSidebarAtom)
-  
+
   const [isTerminalSidebarOpen, setIsTerminalSidebarOpen] = useAtom(
     terminalSidebarOpenAtom,
   )
-  
+
   // Terminal command execution state
   const [terminalInitialCommands, setTerminalInitialCommands] = useState<string[] | undefined>(undefined)
-  
+
   // Command output dialog state
   const [outputDialog, setOutputDialog] = useState<{
     open: boolean
@@ -3801,7 +3698,7 @@ export function ChatView({
     stdout: "",
     stderr: "",
   })
-  
+
   // Handler for executing command in terminal
   const handleExecuteInTerminal = useCallback((command: string) => {
     setTerminalInitialCommands([command])
@@ -3812,7 +3709,7 @@ export function ChatView({
       setTerminalInitialCommands(undefined)
     }, 1000)
   }, [setIsTerminalSidebarOpen])
-  
+
   // Handler for viewing full output
   const handleViewFullOutput = useCallback((command: string, stdout: string, stderr: string, exitCode?: number) => {
     setOutputDialog({
@@ -3823,7 +3720,7 @@ export function ChatView({
       exitCode,
     })
   }, [])
-  
+
   const [diffStats, setDiffStats] = useState({
     fileCount: 0,
     additions: 0,
@@ -5799,19 +5696,21 @@ export function ChatView({
                 )}
                 {/* Diff View */}
                 <div className="flex-1 min-h-0 overflow-hidden">
-                  <AgentDiffView
-                    ref={diffViewRef}
-                    chatId={chatId}
-                    sandboxId={sandboxId || ''}
-                    worktreePath={worktreePath || undefined}
-                    repository={repository}
-                    onStatsChange={setDiffStats}
-                    initialDiff={diffContent}
-                    initialParsedFiles={parsedFileDiffs}
-                    prefetchedFileContents={prefetchedFileContents}
-                    showFooter={true}
-                    onCollapsedStateChange={setDiffCollapseState}
-                  />
+                  {isDiffSidebarOpen && (
+                    <AgentDiffView
+                      ref={diffViewRef}
+                      chatId={chatId}
+                      sandboxId={sandboxId || ''}
+                      worktreePath={worktreePath || undefined}
+                      repository={repository}
+                      onStatsChange={setDiffStats}
+                      initialDiff={diffContent}
+                      initialParsedFiles={parsedFileDiffs}
+                      prefetchedFileContents={prefetchedFileContents}
+                      showFooter={true}
+                      onCollapsedStateChange={setDiffCollapseState}
+                    />
+                  )}
                 </div>
               </div>
             </div>
@@ -5915,7 +5814,7 @@ export function ChatView({
             initialCommands={terminalInitialCommands}
           />
         )}
-        
+
         {/* Command Output Dialog */}
         <CommandOutputDialog
           open={outputDialog.open}

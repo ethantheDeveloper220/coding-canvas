@@ -1,7 +1,11 @@
 import { z } from "zod"
 import { router, publicProcedure } from "../index"
-import { readdir, stat } from "node:fs/promises"
-import { join, relative, basename } from "node:path"
+import { readdir, stat, readFile } from "node:fs/promises"
+import { join, relative, basename, dirname } from "node:path"
+import archiver from "archiver"
+import { createWriteStream, unlink } from "node:fs"
+import { tmpdir } from "node:os"
+import { promisify } from "node:util"
 
 // Directories to ignore when scanning
 const IGNORED_DIRS = new Set([
@@ -270,5 +274,114 @@ export const filesRouter = router({
     .mutation(({ input }) => {
       fileListCache.delete(input.projectPath)
       return { success: true }
+    }),
+
+  /**
+   * Create a zip file from a folder
+   */
+  createZip: publicProcedure
+    .input(
+      z.object({
+        projectPath: z.string(),
+        folderPath: z.string(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const { projectPath, folderPath } = input
+
+      try {
+        // Construct absolute paths
+        const absoluteProjectPath = projectPath
+        // If folderPath is empty, use project root; otherwise join the paths
+        const absoluteFolderPath = folderPath 
+          ? join(absoluteProjectPath, folderPath)
+          : absoluteProjectPath
+
+        // Verify the folder exists
+        const folderStat = await stat(absoluteFolderPath)
+        if (!folderStat.isDirectory()) {
+          throw new Error(`Path is not a directory: ${folderPath || projectPath}`)
+        }
+
+        // Create a temporary zip file
+        // If folderPath is empty, use project folder name; otherwise use folder name
+        const folderName = folderPath 
+          ? (basename(folderPath) || basename(absoluteFolderPath))
+          : basename(absoluteFolderPath)
+        const zipFileName = `${folderName}-${Date.now()}.zip`
+        const zipFilePath = join(tmpdir(), zipFileName)
+
+        // Create zip archive and return as base64
+        return new Promise<{ zipName: string; zipContent: string }>((resolve, reject) => {
+          const output = createWriteStream(zipFilePath)
+          const archive = archiver("zip", {
+            zlib: { level: 9 }, // Maximum compression
+          })
+
+          output.on("close", async () => {
+            try {
+              // Read the zip file as base64
+              const zipBuffer = await readFile(zipFilePath)
+              const zipContent = zipBuffer.toString("base64")
+
+              // Clean up temp file
+              await promisify(unlink)(zipFilePath).catch(() => {
+                // Ignore cleanup errors
+              })
+
+              resolve({
+                zipName: zipFileName,
+                zipContent,
+              })
+            } catch (err) {
+              reject(err)
+            }
+          })
+
+          archive.on("error", (err) => {
+            reject(err)
+          })
+
+          archive.pipe(output)
+
+          // Recursively add files to the archive
+          async function addDirectory(dirPath: string, archivePath: string) {
+            const entries = await readdir(dirPath, { withFileTypes: true })
+
+            for (const entry of entries) {
+              const fullPath = join(dirPath, entry.name)
+              const relativePath = join(archivePath, entry.name)
+
+              // Skip ignored directories and files (same logic as scanDirectory)
+              if (entry.isDirectory()) {
+                if (IGNORED_DIRS.has(entry.name)) continue
+                if (entry.name.startsWith(".") && !entry.name.startsWith(".github") && !entry.name.startsWith(".vscode")) continue
+                await addDirectory(fullPath, relativePath)
+              } else if (entry.isFile()) {
+                if (IGNORED_FILES.has(entry.name)) continue
+                const ext = entry.name.includes(".") ? "." + entry.name.split(".").pop()?.toLowerCase() : ""
+                if (IGNORED_EXTENSIONS.has(ext)) {
+                  if (!ALLOWED_LOCK_FILES.has(entry.name)) continue
+                }
+                archive.file(fullPath, { name: relativePath })
+              }
+            }
+          }
+
+          // Start adding files
+          addDirectory(absoluteFolderPath, folderName)
+            .then(() => {
+              archive.finalize()
+            })
+            .catch((err) => {
+              reject(err)
+            })
+        })
+      } catch (error) {
+        console.error(`[files] Error creating zip:`, error)
+        throw new Error(
+          `Failed to create zip: ${error instanceof Error ? error.message : "Unknown error"}`
+        )
+      }
     }),
 })

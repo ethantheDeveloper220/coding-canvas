@@ -54,6 +54,7 @@ import { ProjectSelector } from "../components/project-selector"
 import { WorkModeSelector } from "../components/work-mode-selector"
 import { ChatModeSelector, type ChatMode } from "../components/chat-mode-selector"
 import { SmartSuggestions } from "../ui/smart-suggestions"
+import { EnhancedNewChatBanner } from "./enhanced-new-chat-banner"
 // import { selectedTeamIdAtom } from "@/lib/atoms/team"
 import { atom } from "jotai"
 const selectedTeamIdAtom = atom<string | null>(null)
@@ -613,18 +614,45 @@ export function NewChatForm({
   const utils = trpc.useUtils()
   const createChatMutation = trpc.chats.create.useMutation({
     onSuccess: (data) => {
+      console.log('[DEBUG] onSuccess called with data:', data)
+      console.log('[DEBUG] setSelectedChatId type:', typeof setSelectedChatId)
+      console.log('[DEBUG] data.id:', data?.id)
+      
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/8462065b-3059-44ce-882e-f2b5fea21cc1',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'new-chat-form.tsx:616',message:'onSuccess called',data:{chatId:data?.id,hasSubChats:!!data?.subChats,setSelectedChatIdExists:typeof setSelectedChatId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
+      
       // Clear editor and images only on success
       editorRef.current?.clear()
       clearImages()
       clearCurrentDraft()
       utils.chats.list.invalidate()
+      
+      console.log('[DEBUG] Before setSelectedChatId, chatId:', data.id)
+      
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/8462065b-3059-44ce-882e-f2b5fea21cc1',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'new-chat-form.tsx:622',message:'Before setSelectedChatId',data:{chatId:data.id,setSelectedChatIdType:typeof setSelectedChatId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
+      
+      // Auto-redirect to the newly created chat using atom (proper navigation)
       setSelectedChatId(data.id)
+      
+      console.log('[DEBUG] After setSelectedChatId, URL:', window.location.href)
+      
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/8462065b-3059-44ce-882e-f2b5fea21cc1',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'new-chat-form.tsx:623',message:'After setSelectedChatId',data:{chatId:data.id,currentUrl:window.location.href},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
+      
       // Track this chat and its first subchat as just created for typewriter effect
       const ids = [data.id]
       if (data.subChats?.[0]?.id) {
         ids.push(data.subChats[0].id)
       }
       setJustCreatedIds((prev) => new Set([...prev, ...ids]))
+      
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/8462065b-3059-44ce-882e-f2b5fea21cc1',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'new-chat-form.tsx:629',message:'onSuccess completed',data:{chatId:data.id,finalUrl:window.location.href},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
     },
     onError: (error) => {
       toast.error(error.message)
@@ -1016,6 +1044,9 @@ export function NewChatForm({
           }}
         >
           <div className="w-full max-w-2xl space-y-4 md:space-y-6 relative z-10 px-4">
+            {/* Enhanced Banner with Roadmap and File Tree */}
+            <EnhancedNewChatBanner />
+            
             {/* Title - only show when project is selected */}
             {validatedProject && (
               <div className="text-center space-y-3">

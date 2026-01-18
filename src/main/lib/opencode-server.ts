@@ -2,7 +2,7 @@ import { spawn } from "child_process"
 import http from "http"
 import { getOpenCodeUrl, setOpenCodeUrl } from "./opencode-state"
 
-const SERVER_PORT = 4096
+const SERVER_PORT = 4098
 const SERVER_HOST = "localhost"
 const SERVER_URL = `http://${SERVER_HOST}:${SERVER_PORT}`
 const HEALTH_ENDPOINT = `${SERVER_URL}/health`

@@ -1,45 +1,5 @@
 import type { ParsedDiffFile } from "../ui/agent-diff-view"
 
-// Helper function to get file icon based on file extension
-function getFileIcon(filePath: string): string {
-  const ext = filePath.split('.').pop()?.toLowerCase() || ''
-  
-  // Programming languages
-  if (['.js', '.jsx', '.mjs', '.cjs'].includes(ext)) return '🟨'
-  if (['.ts', '.tsx', '.d.ts'].includes(ext)) return '🔷'
-  if (ext === '.vue') return '💚'
-  if (ext === '.svelte') return '🔴'
-  if (ext === '.py') return '🐍'
-  if (ext === '.java') return '☕'
-  if (['.c', '.cpp', '.h', '.hpp'].includes(ext)) return '⚙️'
-  if (ext === '.cs') return '🔷'
-  if (ext === '.php') return '🐘'
-  if (ext === '.rb') return '💎'
-  if (ext === '.go') return '🐹'
-  if (ext === '.rs') return '🦀'
-  if (ext === '.swift') return '🦉'
-  if (['.scala', '.kt', '.dart'].includes(ext)) return '🎯'
-  
-  // Web technologies
-  if (['.html', '.htm'].includes(ext)) return '🌐'
-  if (['.css', '.scss', '.sass', '.less'].includes(ext)) return '🎨'
-  if (['.json', '.xml'].includes(ext)) return '📄'
-  
-  // Data/config
-  if (['.yaml', '.yml', '.toml', '.ini', '.env'].includes(ext)) return '⚙️'
-  if (['.md', '.markdown', '.rst'].includes(ext)) return '📝'
-  if (['.sql', '.graphql', '.gql'].includes(ext)) return '🗃️'
-  
-  // Special files
-  if (filePath.endsWith('package.json')) return '📦'
-  if (filePath.endsWith('Dockerfile')) return '🐳'
-  if (filePath.endsWith('Makefile')) return '🔨'
-  if (['.gitignore', '.gitattributes', '.editorconfig'].includes(filePath.split('/').pop() || '')) return '🔧'
-  
-  // Default
-  return '📄'
-}
-
 /**
  * Convert database FileChange records to unified diff format
  * This generates diff text from oldContent and newContent stored in the database
@@ -171,11 +131,6 @@ export function fileChangesToParsedDiff(
       change.operationType,
     )
 
-    // Get the appropriate file path for icon determination
-    const iconFilePath = change.operationType === "delete" 
-      ? change.filePath 
-      : change.filePath
-      
     result.push({
       key: `tracked-${change.id}`,
       oldPath: change.operationType === "delete" ? change.filePath : (change.oldFilePath || change.filePath),
@@ -185,7 +140,6 @@ export function fileChangesToParsedDiff(
       additions,
       deletions,
       isValid: true,
-      fileIcon: getFileIcon(iconFilePath),
     })
   }
 

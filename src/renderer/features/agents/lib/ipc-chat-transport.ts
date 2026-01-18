@@ -18,6 +18,7 @@ import { useAgentSubChatStore } from "../stores/sub-chat-store"
 // Track active subscriptions to prevent duplicates
 const activeSubscriptions = new Set<string>()
 
+
 // Error categories and their user-friendly messages
 const ERROR_TOAST_CONFIG: Record<
   string,
@@ -174,21 +175,27 @@ export class IPCChatTransport implements ChatTransport<UIMessage> {
     let lastChunkType = ""
     console.log(`[SD] R:START sub=${subId}`)
 
+    // Guard against duplicate subscriptions BEFORE creating the stream
+    if (activeSubscriptions.has(this.config.subChatId)) {
+      console.log('[Transport] Skipping duplicate subscription for subchat:', this.config.subChatId)
+      // Return an empty stream that immediately closes
+      // This prevents the AI SDK from going to error state
+      return new ReadableStream({
+        start(controller) {
+          controller.close()
+        }
+      })
+    }
+
+    // Mark this subscription as active
+    activeSubscriptions.add(this.config.subChatId)
+    console.log('[Transport] Starting subscription for subchat:', this.config.subChatId)
+
     return new ReadableStream({
       start: (controller) => {
-        // Guard against duplicate subscriptions
-        if (activeSubscriptions.has(this.config.subChatId)) {
-          console.log('[Transport] Skipping duplicate subscription for subchat:', this.config.subChatId)
-          controller.close()
-          return
-        }
-
-        // Mark this subscription as active
-        activeSubscriptions.add(this.config.subChatId)
-        console.log('[Transport] Starting subscription for subchat:', this.config.subChatId)
-
         // Track if stream has been closed to prevent enqueue errors
         let isStreamClosed = false
+
 
         const sub = trpcClient.claude.chat.subscribe(
           {
@@ -288,6 +295,7 @@ export class IPCChatTransport implements ChatTransport<UIMessage> {
 
               // Handle authentication errors - show Claude login modal
               if (chunk.type === "auth-error") {
+                console.log(`[SD] R:AUTH_ERROR sub=${subId} errorText="${chunk.errorText}"`)
                 // Store the failed message for retry after successful auth
                 // readyToRetry=false prevents immediate retry - modal sets it to true on OAuth success
                 appStore.set(pendingAuthRetryMessageAtom, {
@@ -304,6 +312,11 @@ export class IPCChatTransport implements ChatTransport<UIMessage> {
                 })
                 // Show the Claude Code login modal
                 appStore.set(agentsLoginModalOpenAtom, true)
+                
+                // Remove from active subscriptions to allow retry after auth
+                activeSubscriptions.delete(this.config.subChatId)
+                console.log('[Transport] Auth error - removed subscription for subchat:', this.config.subChatId)
+                
                 // Use controller.error() instead of controller.close() so that
                 // the SDK Chat properly resets status from "streaming" to "ready"
                 // This allows user to retry sending messages after failed auth
@@ -314,6 +327,9 @@ export class IPCChatTransport implements ChatTransport<UIMessage> {
 
               // Handle errors - show toast to user FIRST before anything else
               if (chunk.type === "error") {
+                // Log the error for debugging
+                console.log(`[SD] R:ERROR_CHUNK sub=${subId} errorText="${chunk.errorText}" category=${chunk.debugInfo?.category}`)
+
                 // Track error in Sentry
                 const category = chunk.debugInfo?.category || "UNKNOWN"
                 Sentry.captureException(
@@ -353,32 +369,80 @@ export class IPCChatTransport implements ChatTransport<UIMessage> {
                     duration: 8000,
                   })
                 }
+
+                // No buffer cleanup needed since we emit immediately
+
+                // Remove from active subscriptions to allow retry
+                activeSubscriptions.delete(this.config.subChatId)
+                console.log('[Transport] Error chunk - removed subscription for subchat:', this.config.subChatId)
+
+                // Close the stream to prevent further enqueue errors
+                isStreamClosed = true
+                try {
+                  controller.error(new Error(chunk.errorText || "Stream error"))
+                } catch {
+                  // Stream already closed
+                }
+                return
               }
 
+
+              // Handle text-delta - emit immediately without batching
+              // OpenCode already sends deltas slowly, no need to batch
+              if (chunk.type === 'text-delta') {
+                if (!isStreamClosed) {
+                  try {
+                    controller.enqueue({
+                      type: 'text-delta',
+                      id: chunk.id,
+                      delta: chunk.delta
+                    })
+                    // Don't log every text delta - too much spam
+                  } catch (e) {
+                    console.log(`[SD] R:ENQUEUE_ERR sub=${subId} type=${chunk.type} n=${chunkCount} err=${e}`)
+                  }
+                }
+                return // Return early as this chunk has been handled
+              }
+
+              // text-end - just pass through, no cleanup needed
+              if (chunk.type === "text-end") {
+                // No batching, so nothing to flush
+              }
+
+              // Enqueue all other chunks normally
               // Try to enqueue, but don't crash if stream is already closed
               if (!isStreamClosed) {
                 try {
                   controller.enqueue(chunk)
+                  // Log first 10 successful enqueues to see what's working
+                  if (chunkCount <= 10) {
+                    console.log(`[SD] R:ENQUEUE_OK sub=${subId} type=${chunk.type} n=${chunkCount}`)
+                  }
                 } catch (e) {
                   // CRITICAL: Log when enqueue fails - this could explain missing chunks!
                   console.log(`[SD] R:ENQUEUE_ERR sub=${subId} type=${chunk.type} n=${chunkCount} err=${e}`)
                   // Don't set isStreamClosed here - the stream might still be open for other chunks
                 }
+
               }
 
               if (chunk.type === "finish" && !isStreamClosed) {
                 console.log(`[SD] R:FINISH sub=${subId} n=${chunkCount}`)
-                try {
-                  controller.close()
-                  isStreamClosed = true
-                } catch {
-                  // Already closed
-                  isStreamClosed = true
-                }
+
+                // No buffer cleanup needed since we emit immediately
+
+                // Mark stream as closed but DON'T call controller.close()
+                // Let the AI SDK close the stream when it's ready
+                // This prevents race conditions where chunks arrive after we close
+                isStreamClosed = true
               }
             },
             onError: (err: Error) => {
               console.log(`[SD] R:ERROR sub=${subId} n=${chunkCount} last=${lastChunkType} err=${err.message}`)
+
+              // No buffer cleanup needed since we emit immediately
+
               // Track transport errors in Sentry
               Sentry.captureException(err, {
                 tags: {
@@ -392,11 +456,18 @@ export class IPCChatTransport implements ChatTransport<UIMessage> {
                 },
               })
 
+              // Remove from active subscriptions to allow retry
+              activeSubscriptions.delete(this.config.subChatId)
+              console.log('[Transport] Error - removed subscription for subchat:', this.config.subChatId)
+
               isStreamClosed = true
               controller.error(err)
             },
             onComplete: () => {
               console.log(`[SD] R:COMPLETE sub=${subId} n=${chunkCount} last=${lastChunkType}`)
+
+              // No buffer cleanup needed since we emit immediately
+
               // Fallback: clear any pending questions when stream completes
               // This handles edge cases where timeout chunk wasn't received
               const pending = appStore.get(pendingUserQuestionsAtom)
@@ -407,37 +478,27 @@ export class IPCChatTransport implements ChatTransport<UIMessage> {
                 appStore.set(pendingUserQuestionsAtom, null)
               }
 
-              // Only try to enqueue finish chunk and close if stream isn't already closed
+              // ALWAYS remove from active subscriptions first to prevent duplicate subscriptions
+              activeSubscriptions.delete(this.config.subChatId)
+              console.log('[Transport] Completed subscription for subchat:', this.config.subChatId)
+
+              // Only try to enqueue finish chunk if stream isn't already closed
               if (!isStreamClosed) {
                 try {
                   controller.enqueue({
                     type: 'finish',
                   } as any)
-                  // Small delay to ensure the final chunk is processed
-                  setTimeout(() => {
-                    if (!isStreamClosed) {
-                      try {
-                        controller.close()
-                        isStreamClosed = true
-                      } catch {
-                        // Already closed
-                        isStreamClosed = true
-                      }
-                    }
-                  }, 10)
-                } catch {
-                  // Enqueue failed, try to close anyway
-                  try {
-                    controller.close()
-                    isStreamClosed = true
-                  } catch {
-                    // Already closed
-                    isStreamClosed = true
-                  }
-                } finally {
-                  // Remove from active subscriptions
-                  activeSubscriptions.delete(this.config.subChatId)
-                  console.log('[Transport] Completed subscription for subchat:', this.config.subChatId)
+                  // Mark as closed to prevent further enqueues
+                  isStreamClosed = true
+                  
+                  // Close the controller to signal completion to the AI SDK
+                  // This ensures the status properly transitions from "streaming" to "ready"
+                  controller.close()
+                  console.log(`[SD] R:CLOSED sub=${subId}`)
+                } catch (err) {
+                  // Enqueue failed, stream is already closed
+                  console.log(`[SD] R:FINISH_ENQUEUE_FAILED sub=${subId}`, err)
+                  isStreamClosed = true
                 }
               }
             },
@@ -449,6 +510,8 @@ export class IPCChatTransport implements ChatTransport<UIMessage> {
           console.log(`[SD] R:ABORT sub=${subId} n=${chunkCount} last=${lastChunkType}`)
           sub.unsubscribe()
           trpcClient.claude.cancel.mutate({ subChatId: this.config.subChatId })
+
+          // No buffer cleanup needed since we emit immediately
 
           // Remove from active subscriptions
           activeSubscriptions.delete(this.config.subChatId)

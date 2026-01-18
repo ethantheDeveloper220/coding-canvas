@@ -1,0 +1,103 @@
+/* Add this to your global CSS or agent message styles */
+
+/* Smooth text streaming animation with fade in */
+.streaming-text,
+.message-part,
+.text-chunk {
+    animation: smoothFadeIn 0.3s ease-out;
+}
+
+@keyframes smoothFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Fade out when removing */
+.message-part.removing,
+.text-chunk.removing {
+    animation: smoothFadeOut 0.2s ease-in forwards;
+}
+
+@keyframes smoothFadeOut {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    to {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+}
+
+/* Reduce layout shift during streaming */
+.message-content {
+    will-change: contents;
+    contain: layout;
+}
+
+/* Smooth transitions for all message updates */
+.agent-message {
+    transition: all 0.15s ease-out;
+}
+
+/* Tool calls slide in smoothly */
+.tool-call {
+    animation: slideIn 0.2s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Thinking block pulse animation */
+.thinking-block {
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 0.6;
+    }
+
+    50% {
+        opacity: 1;
+    }
+}
+
+/* Prevent flicker and reload appearance */
+* {
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+}
+
+/* Force GPU acceleration for smooth updates */
+.agent-message,
+.tool-call,
+.message-content {
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+}
+
+/* Prevent layout shift */
+.tool-call,
+.agent-message {
+    contain: layout style paint;
+}

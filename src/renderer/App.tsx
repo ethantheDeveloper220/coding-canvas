@@ -15,6 +15,7 @@ import { VSCodeThemeProvider } from "./lib/themes/theme-provider"
 import { anthropicOnboardingCompletedAtom } from "./lib/atoms"
 import { selectedProjectAtom } from "./features/agents/atoms"
 import { trpc } from "./lib/trpc"
+import "./styles/streaming-animations.css"
 
 /**
  * Main content router - decides which page to show based on onboarding state
@@ -167,7 +168,7 @@ function ServerLoadingState({
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <div className="w-2 h-2 bg-green-500 rounded-full animate-ping" />
-          <span>localhost:4096</span>
+          <span>localhost:4098</span>
         </div>
       </div>
     </div>
@@ -208,7 +209,7 @@ function ServerConnected({ onContinue, autoContinue, onToggleAutoContinue }: {
             OpenCode Server Connected
           </div>
           <div className="text-sm text-muted-foreground animate-in fade-in duration-300 delay-200">
-            Ready at localhost:4096
+            Ready at localhost:4098
           </div>
           <button
             onClick={onContinue}
@@ -262,7 +263,7 @@ function ServerCheckFailed({ onRetry }: { onRetry: () => void }) {
             Server Failed to Start
           </div>
           <div className="text-muted-foreground">
-            The OpenCode server on localhost:4096 could not be started. Please ensure
+            The OpenCode server on localhost:4098 could not be started. Please ensure
             that the <code className="bg-muted px-2 py-1 rounded">opencode</code> CLI
             is installed and available in your PATH.
           </div>
@@ -336,7 +337,7 @@ export function App() {
         setServerStatus((prev) => ({
           ...prev,
           loading: true,
-          status: "Checking if server is running on localhost:4096...",
+          status: "Checking if server is running on localhost:4098...",
           stage: "checking",
           connected: false,
           failed: false,
@@ -366,7 +367,7 @@ export function App() {
         setServerStatus((prev) => ({
           ...prev,
           loading: true,
-          status: "Starting OpenCode server on localhost:4096...",
+          status: "Starting OpenCode server on localhost:4098...",
           stage: "starting",
           connected: false,
           failed: false,

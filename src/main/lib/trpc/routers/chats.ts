@@ -125,154 +125,179 @@ export const chatsRouter = router({
       }),
     )
     .mutation(async ({ input }) => {
-      console.log("[chats.create] called with:", input)
-      const db = getDatabase()
+      try {
+        console.log("[chats.create] called with:", input)
+        const db = getDatabase()
 
-      // Get project path
-      const project = db
-        .select()
-        .from(projects)
-        .where(eq(projects.id, input.projectId))
-        .get()
-      console.log("[chats.create] found project:", project)
-      if (!project) throw new Error("Project not found")
+        // Get project path
+        const project = db
+          .select()
+          .from(projects)
+          .where(eq(projects.id, input.projectId))
+          .get()
+        console.log("[chats.create] found project:", project)
+        if (!project) throw new Error("Project not found")
 
-      // Create chat (fast path)
-      const chat = db
-        .insert(chats)
-        .values({ name: input.name, projectId: input.projectId })
-        .returning()
-        .get()
-      console.log("[chats.create] created chat:", chat)
+        // Create chat (fast path)
+        const chat = db
+          .insert(chats)
+          .values({ name: input.name, projectId: input.projectId })
+          .returning()
+          .get()
+        console.log("[chats.create] created chat:", chat)
 
-      // Create initial sub-chat with user message (AI SDK format)
-      // If initialMessageParts is provided, use it; otherwise fallback to text-only message
-      let initialMessages = "[]"
+        // Create initial sub-chat with user message (AI SDK format)
+        // If initialMessageParts is provided, use it; otherwise fallback to text-only message
+        let initialMessages = "[]"
 
-      if (input.initialMessageParts && input.initialMessageParts.length > 0) {
-        initialMessages = JSON.stringify([
-          {
-            id: `msg-${Date.now()}`,
-            role: "user",
-            parts: input.initialMessageParts,
-          },
-        ])
-      } else if (input.initialMessage) {
-        initialMessages = JSON.stringify([
-          {
-            id: `msg-${Date.now()}`,
-            role: "user",
-            parts: [{ type: "text", text: input.initialMessage }],
-          },
-        ])
-      }
+        if (input.initialMessageParts && input.initialMessageParts.length > 0) {
+          initialMessages = JSON.stringify([
+            {
+              id: `msg-${Date.now()}`,
+              role: "user",
+              parts: input.initialMessageParts,
+            },
+          ])
+        } else if (input.initialMessage) {
+          initialMessages = JSON.stringify([
+            {
+              id: `msg-${Date.now()}`,
+              role: "user",
+              parts: [{ type: "text", text: input.initialMessage }],
+            },
+          ])
+        }
 
-      const subChat = db
-        .insert(subChats)
-        .values({
-          chatId: chat.id,
-          mode: input.mode,
-          messages: initialMessages,
-          model: input.model,
-        })
-        .returning()
-        .get()
-      console.log("[chats.create] created subChat:", subChat)
+        const subChat = db
+          .insert(subChats)
+          .values({
+            chatId: chat.id,
+            mode: input.mode,
+            messages: initialMessages,
+            model: input.model,
+          })
+          .returning()
+          .get()
+        console.log("[chats.create] created subChat:", subChat)
 
-      // Worktree creation result (will be set if useWorktree is true)
-      let worktreeResult: {
-        worktreePath?: string
-        branch?: string
-        baseBranch?: string
-      } = {}
+        // Worktree creation result (will be set if useWorktree is true)
+        let worktreeResult: {
+          worktreePath?: string
+          branch?: string
+          baseBranch?: string
+        } = {}
 
-      // Only create worktree if useWorktree is true
-      if (input.useWorktree) {
-        console.log(
-          "[chats.create] creating worktree with baseBranch:",
-          input.baseBranch,
-        )
-        const result = await createWorktreeForChat(
-          project.path,
-          project.id,
-          chat.id,
-          input.baseBranch,
-        )
-        console.log("[chats.create] worktree result:", result)
+        // Only create worktree if useWorktree is true
+        if (input.useWorktree) {
+          console.log(
+            "[chats.create] creating worktree with baseBranch:",
+            input.baseBranch,
+          )
+          const result = await createWorktreeForChat(
+            project.path,
+            project.id,
+            chat.id,
+            input.baseBranch,
+          )
+          console.log("[chats.create] worktree result:", result)
 
-        if (result.success && result.worktreePath) {
-          db.update(chats)
-            .set({
+          if (result.success && result.worktreePath) {
+            console.log("[chats.create] updating chat with worktree path")
+            db.update(chats)
+              .set({
+                worktreePath: result.worktreePath,
+                branch: result.branch,
+                baseBranch: result.baseBranch,
+              })
+              .where(eq(chats.id, chat.id))
+              .run()
+            console.log("[chats.create] chat updated with worktree path")
+            worktreeResult = {
               worktreePath: result.worktreePath,
               branch: result.branch,
               baseBranch: result.baseBranch,
-            })
-            .where(eq(chats.id, chat.id))
-            .run()
-          worktreeResult = {
-            worktreePath: result.worktreePath,
-            branch: result.branch,
-            baseBranch: result.baseBranch,
+            }
+          } else {
+            console.warn(`[Worktree] Failed: ${result.error}`)
+            // Fallback to project path
+            console.log("[chats.create] updating chat with project path fallback")
+            db.update(chats)
+              .set({ worktreePath: project.path })
+              .where(eq(chats.id, chat.id))
+              .run()
+            console.log("[chats.create] chat updated with project path")
+            worktreeResult = { worktreePath: project.path }
           }
         } else {
-          console.warn(`[Worktree] Failed: ${result.error}`)
-          // Fallback to project path
+          // Local mode: use project path directly, no branch info
+          console.log("[chats.create] local mode - using project path directly")
           db.update(chats)
             .set({ worktreePath: project.path })
             .where(eq(chats.id, chat.id))
             .run()
           worktreeResult = { worktreePath: project.path }
         }
-      } else {
-        // Local mode: use project path directly, no branch info
-        console.log("[chats.create] local mode - using project path directly")
-        db.update(chats)
-          .set({ worktreePath: project.path })
-          .where(eq(chats.id, chat.id))
-          .run()
-        worktreeResult = { worktreePath: project.path }
-      }
 
-      // Auto-create default roadmap tasks for new chat
-      const defaultTasks = [
-        { id: `task-${Date.now()}-1`, title: "Plan project structure", column: "backlog" as const },
-        { id: `task-${Date.now()}-2`, title: "Set up development environment", column: "backlog" as const },
-        { id: `task-${Date.now()}-3`, title: "Implement core features", column: "todo" as const },
-      ]
-      
-      const now = new Date()
-      for (let i = 0; i < defaultTasks.length; i++) {
-        const task = defaultTasks[i]
-        db.insert(roadmapTasks)
-          .values({
-            id: task.id,
-            chatId: chat.id,
-            title: task.title,
-            column: task.column,
-            position: i,
-            createdAt: now,
-            updatedAt: now,
+        // Auto-create default roadmap tasks for new chat
+        console.log("[chats.create] creating roadmap tasks")
+        const defaultTasks = [
+          { id: `task-${Date.now()}-1`, title: "Plan project structure", column: "backlog" as const },
+          { id: `task-${Date.now()}-2`, title: "Set up development environment", column: "backlog" as const },
+          { id: `task-${Date.now()}-3`, title: "Implement core features", column: "todo" as const },
+        ]
+        
+        const now = new Date()
+        try {
+          for (let i = 0; i < defaultTasks.length; i++) {
+            const task = defaultTasks[i]
+            db.insert(roadmapTasks)
+              .values({
+                id: task.id,
+                chatId: chat.id,
+                title: task.title,
+                column: task.column,
+                position: i,
+                createdAt: now,
+                updatedAt: now,
+              })
+              .run()
+          }
+          console.log("[chats.create] roadmap tasks created successfully")
+        } catch (error) {
+          console.error("[chats.create] Failed to create roadmap tasks:", error)
+          // Continue anyway - roadmap tasks are not critical
+        }
+
+        console.log("[chats.create] preparing response")
+        const response = {
+          ...chat,
+          worktreePath: worktreeResult.worktreePath || project.path,
+          branch: worktreeResult.branch,
+          baseBranch: worktreeResult.baseBranch,
+          subChats: [subChat],
+        }
+
+        console.log("[chats.create] response prepared, tracking workspace")
+        // Track workspace created
+        try {
+          trackWorkspaceCreated({
+            id: chat.id,
+            projectId: input.projectId,
+            useWorktree: input.useWorktree,
           })
-          .run()
+          console.log("[chats.create] workspace tracked successfully")
+        } catch (error) {
+          console.error("[chats.create] Failed to track workspace created:", error)
+          // Continue anyway - analytics are not critical
+        }
+
+        console.log("[chats.create] returning response with id:", response.id)
+        return response
+      } catch (error) {
+        console.error("[chats.create] FATAL ERROR:", error)
+        console.error("[chats.create] Error stack:", error instanceof Error ? error.stack : "No stack trace")
+        throw error
       }
-
-      const response = {
-        ...chat,
-        worktreePath: worktreeResult.worktreePath || project.path,
-        branch: worktreeResult.branch,
-        baseBranch: worktreeResult.baseBranch,
-        subChats: [subChat],
-      }
-
-      // Track workspace created
-      trackWorkspaceCreated({
-        id: chat.id,
-        projectId: input.projectId,
-        useWorktree: input.useWorktree,
-      })
-
-      console.log("[chats.create] returning:", response)
-      return response
     }),
 
   /**
@@ -605,11 +630,13 @@ export const chatsRouter = router({
     .input(z.object({ chatId: z.string() }))
     .query(async ({ input }) => {
       const db = getDatabase()
+      // Get all file changes without limit to show more changes
       const changes = db
         .select()
         .from(fileChanges)
         .where(eq(fileChanges.chatId, input.chatId))
         .orderBy(desc(fileChanges.timestamp))
+        .limit(500) // Increased limit to show more changes
         .all()
 
       return { changes }
@@ -639,6 +666,7 @@ export const chatsRouter = router({
         .from(fileChanges)
         .where(eq(fileChanges.projectId, chat.projectId))
         .orderBy(desc(fileChanges.timestamp))
+        .limit(500) // Increased limit to show more changes
         .all()
 
       return { changes }
@@ -656,6 +684,7 @@ export const chatsRouter = router({
         .from(fileChanges)
         .where(eq(fileChanges.projectId, input.projectId))
         .orderBy(desc(fileChanges.timestamp))
+        .limit(500) // Increased limit to show more changes
         .all()
 
       return { changes }

@@ -207,20 +207,20 @@ export const webApi = {
   ensureOpenCodeServerReady: async () => {
     // In web mode, OpenCode server would need to be running separately
     // or accessed via API
-    return { url: "http://localhost:4096", healthy: false }
+    return { url: "http://localhost:4098", healthy: false }
   },
   getOpenCodeServerStatus: async () => {
     try {
-      const response = await fetch("http://localhost:4096/health")
+      const response = await fetch("http://localhost:4098/health")
       return {
         running: response.ok,
-        url: "http://localhost:4096",
+        url: "http://localhost:4098",
         healthy: response.ok,
       }
     } catch {
       return {
         running: false,
-        url: "http://localhost:4096",
+        url: "http://localhost:4098",
         healthy: false,
       }
     }

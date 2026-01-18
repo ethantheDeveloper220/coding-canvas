@@ -44,7 +44,7 @@ export const agentsDiffSidebarOpenAtom = atom(false)
 export const agentsFocusedDiffFileAtom = atom<string | null>(null)
 
 /** Filter state for diff files */
-export const filteredDiffFilesAtom = atom<string | null>(null)
+export const filteredDiffFilesAtom = atom<string[] | null>(null)
 
 // ============================================================
 // Preview Sidebar State

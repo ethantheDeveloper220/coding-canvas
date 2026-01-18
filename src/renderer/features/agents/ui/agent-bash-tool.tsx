@@ -105,10 +105,10 @@ export const AgentBashTool = memo(function AgentBashTool({
     <div className="rounded-lg border border-border bg-muted/30 overflow-hidden mx-2">
       {/* Header - clickable to expand, fixed height to prevent layout shift */}
       <div
-        onClick={() => hasMoreOutput && !isPending && setIsOutputExpanded(!isOutputExpanded)}
+        onClick={() => hasOutput && !isPending && setIsOutputExpanded(!isOutputExpanded)}
         className={cn(
           "flex items-center justify-between pl-2.5 pr-2 h-7",
-          hasMoreOutput && !isPending && "cursor-pointer hover:bg-muted/50 transition-colors duration-150",
+          hasOutput && !isPending && "cursor-pointer hover:bg-muted/50 transition-colors duration-150",
         )}
       >
         <span className="text-xs text-muted-foreground truncate flex-1 min-w-0">
@@ -135,8 +135,8 @@ export const AgentBashTool = memo(function AgentBashTool({
             ) : null}
           </div>
 
-          {/* Expand/Collapse button - only show when not pending and has output that can be expanded */}
-          {!isPending && hasOutput && hasMoreOutput && (
+          {/* Expand/Collapse button - show when not pending and has output */}
+          {!isPending && hasOutput && (
             <button
               onClick={(e) => {
                 e.stopPropagation()
@@ -167,14 +167,15 @@ export const AgentBashTool = memo(function AgentBashTool({
         </div>
       </div>
 
-      {/* Content - always visible, clickable to expand (only when collapsed and has more output) */}
+      {/* Content - always visible, clickable to expand (when collapsed) */}
       <div
         onClick={() =>
-          hasMoreOutput && !isOutputExpanded && setIsOutputExpanded(true)
+          hasOutput && !isOutputExpanded && setIsOutputExpanded(true)
         }
         className={cn(
           "border-t border-border px-2.5 py-1.5 transition-colors duration-150",
-          hasMoreOutput && !isOutputExpanded && "cursor-pointer hover:bg-muted/50",
+          hasOutput && !isOutputExpanded && "cursor-pointer hover:bg-muted/50",
+          isOutputExpanded && "max-h-[300px] overflow-y-auto",
         )}
       >
         {/* Command - always show full command */}
@@ -189,6 +190,11 @@ export const AgentBashTool = memo(function AgentBashTool({
         {stdout && (
           <div className="mt-1.5 font-mono text-xs text-muted-foreground whitespace-pre-wrap break-all">
             {isOutputExpanded ? stdout : stdoutLimited.text}
+            {!isOutputExpanded && stdoutLimited.truncated && (
+              <span className="text-xs text-muted-foreground/70 italic ml-2">
+                ... (click to expand)
+              </span>
+            )}
           </div>
         )}
 
@@ -205,6 +211,11 @@ export const AgentBashTool = memo(function AgentBashTool({
             )}
           >
             {isOutputExpanded ? stderr : stderrLimited.text}
+            {!isOutputExpanded && stderrLimited.truncated && (
+              <span className="text-xs opacity-70 italic ml-2">
+                ... (click to expand)
+              </span>
+            )}
           </div>
         )}
 

@@ -120,7 +120,6 @@ export type ParsedDiffFile = {
   additions: number
   deletions: number
   isValid?: boolean // Whether the diff format is valid/complete
-  fileIcon?: string // Icon for the file (e.g., emoji from backend)
 }
 
 type DiffViewData = {
@@ -237,19 +236,13 @@ export const splitUnifiedDiffByFile = (diffText: string): ParsedDiffFile[] => {
       let isBinary = false
       let additions = 0
       let deletions = 0
-      let fileIcon = ""
 
       // Process each line to extract information
       for (let i = 0; i < blockLines.length; i++) {
         const line = blockLines[i]
-        
-        // Extract icon from comment line (format: // 🎨 src/styles.css)
+
+        // Skip icon comment lines (no longer used - we use SVG icons instead)
         if (line.startsWith("// ")) {
-          const match = line.match(/^\/\/\s*([^\s]+)\s+(.+)$/)
-          if (match) {
-            fileIcon = match[1] // Extract the icon emoji
-            // We don't need to use the path here as it's already in oldPath/newPath
-          }
           continue
         }
 
@@ -291,7 +284,6 @@ export const splitUnifiedDiffByFile = (diffText: string): ParsedDiffFile[] => {
         additions,
         deletions,
         isValid,
-        fileIcon, // Add the icon information
       }
     })
     .filter((file) => !file.isBinary) // Exclude binary files from diff
@@ -395,24 +387,23 @@ const FileDiffCard = memo(function FileDiffCard({
 
   const isNewFile = file.oldPath === "/dev/null" && file.newPath
   const isDeletedFile = file.newPath === "/dev/null" && file.oldPath
-  
-  // Use fileIcon from backend if available, otherwise use the icon function
-  const FileIconComponent = file.fileIcon ? null : getFileIconByExtension(fileName)
-  const fileIcon = file.fileIcon || ""
+
+  // Always use SVG icon component instead of emoji
+  const FileIconComponent = getFileIconByExtension(fileName)
 
   return (
     <div
       ref={diffCardRef}
       className={cn(
         "bg-background rounded-lg border border-border overflow-clip",
-        // Add a subtle left border with color based on file type
-        file.fileIcon === "🐍" && "border-l-4 border-l-lime-500",
-        file.fileIcon === "🎨" && "border-l-4 border-l-purple-500",
-        file.fileIcon === "🌐" && "border-l-4 border-l-orange-500",
-        file.fileIcon === "🟨" && "border-l-4 border-l-yellow-500",
-        file.fileIcon === "🔷" && "border-l-4 border-l-blue-500",
-        file.fileIcon === "📝" && "border-l-4 border-l-slate-500",
-        !file.fileIcon && "border-l-4 border-l-gray-300"
+        // Add a subtle left border with color based on file extension
+        (fileName.endsWith('.ts') || fileName.endsWith('.tsx')) && "border-l-4 border-l-blue-500",
+        (fileName.endsWith('.js') || fileName.endsWith('.jsx')) && "border-l-4 border-l-yellow-500",
+        fileName.endsWith('.py') && "border-l-4 border-l-lime-500",
+        (fileName.endsWith('.css') || fileName.endsWith('.scss')) && "border-l-4 border-l-purple-500",
+        fileName.endsWith('.html') && "border-l-4 border-l-orange-500",
+        (fileName.endsWith('.md') || fileName.endsWith('.txt')) && "border-l-4 border-l-slate-500",
+        !fileName.match(/\.(ts|tsx|js|jsx|py|css|scss|html|md|txt)$/i) && "border-l-4 border-l-gray-300"
       )}
       data-diff-file-path={file.newPath || file.oldPath}
     >
@@ -439,27 +430,15 @@ const FileDiffCard = memo(function FileDiffCard({
         <div className="flex items-center gap-3">
           {/* Collapse toggle + file info */}
           <div className="flex-1 flex items-center gap-2 text-left min-w-0 min-h-[22px]">
-            {/* Icon container with hover swap */}
+            {/* Icon container with hover swap - always use SVG icon */}
             <div className="relative w-3.5 h-3.5 shrink-0">
-              {/* Show emoji icon from backend or component icon */}
-              {fileIcon ? (
-                <span
+              {FileIconComponent && (
+                <FileIconComponent
                   className={cn(
-                    "absolute inset-0 flex items-center justify-center text-base",
-                    "group-hover:opacity-0 group-hover:scale-75 transition-all duration-200",
+                    "absolute inset-0 w-3.5 h-3.5 text-muted-foreground transition-all duration-200",
+                    "group-hover:opacity-0 group-hover:scale-75",
                   )}
-                >
-                  {fileIcon}
-                </span>
-              ) : (
-                FileIconComponent && (
-                  <FileIconComponent
-                    className={cn(
-                      "absolute inset-0 w-3.5 h-3.5 text-muted-foreground transition-all duration-200",
-                      "group-hover:opacity-0 group-hover:scale-75",
-                    )}
-                  />
-                )
+                />
               )}
               <ChevronDown
                 className={cn(
@@ -740,7 +719,7 @@ export const AgentDiffView = forwardRef<AgentDiffViewRef, AgentDiffViewProps>(
     // No loading state - show immediately
     const [isLoadingDiff, setIsLoadingDiff] = useState(false)
     const [diffError, setDiffError] = useState<string | null>(null)
-    
+
     // Tracked file changes state
     const [activeView, setActiveView] = useState<"git-diff" | "current-chat" | "workspace">("git-diff")
     const [isLoadingTrackedChanges, setIsLoadingTrackedChanges] = useState(false)
@@ -964,7 +943,7 @@ export const AgentDiffView = forwardRef<AgentDiffViewRef, AgentDiffViewProps>(
       if (activeView === "workspace") {
         return workspaceFileDiffs
       }
-      
+
       // Default view: Merge git diff with database-tracked changes
       // Git diff takes precedence for files that exist in both
       const gitDiffsMap = new Map<string, ParsedDiffFile>()
@@ -994,7 +973,7 @@ export const AgentDiffView = forwardRef<AgentDiffViewRef, AgentDiffViewProps>(
         // Combine all tracked changes but deduplicate by file path
         const allTracked = [...currentChatFileDiffs, ...workspaceFileDiffs]
         const trackedMap = new Map<string, ParsedDiffFile>()
-        
+
         // Build map of tracked files (workspace changes take precedence for conflicts)
         for (const trackedFile of allTracked) {
           const filePath = trackedFile.newPath || trackedFile.oldPath
@@ -1009,7 +988,7 @@ export const AgentDiffView = forwardRef<AgentDiffViewRef, AgentDiffViewProps>(
             }
           }
         }
-        
+
         // Add tracked files that aren't in git diff
         merged.push(...trackedMap.values())
       }
@@ -1256,7 +1235,7 @@ export const AgentDiffView = forwardRef<AgentDiffViewRef, AgentDiffViewProps>(
     // Pre-fetch file contents when diff is loaded (for expand functionality)
     // Delayed to allow UI to render first, then fetch in background
     // Limited to prevent overwhelming the system with too many parallel requests
-    const MAX_PREFETCH_FILES = 20
+    const MAX_PREFETCH_FILES = 50
 
     useEffect(() => {
       // Desktop: use worktreePath, Web: use sandboxId
@@ -1358,12 +1337,15 @@ export const AgentDiffView = forwardRef<AgentDiffViewRef, AgentDiffViewProps>(
       }))
     }, [])
 
-    // Virtualizer for efficient rendering of many files
+    // Limit to only 7 changes at a time for optimal performance
+    const limitedFileDiffs = useMemo(() => fileDiffs.slice(0, 7), [fileDiffs])
+
+    // Virtualizer for efficient rendering of limited files
     const virtualizer = useVirtualizer({
-      count: fileDiffs.length,
+      count: limitedFileDiffs.length,
       getScrollElement: () => scrollContainerRef.current,
       estimateSize: (index) => {
-        const file = fileDiffs[index]
+        const file = limitedFileDiffs[index]
         if (!file) return COLLAPSED_HEIGHT
         const isCollapsed = !!collapsedByFileKey[file.key]
         if (isCollapsed) {
@@ -1373,7 +1355,7 @@ export const AgentDiffView = forwardRef<AgentDiffViewRef, AgentDiffViewProps>(
         const lineCount = file.additions + file.deletions
         return Math.min(Math.max(lineCount * 22 + COLLAPSED_HEIGHT, 150), 800)
       },
-      overscan: 5,
+      overscan: 0, // No overscan needed since we're limiting to 7 items
     })
 
     const totalAdditions = fileDiffs.reduce((sum, f) => sum + f.additions, 0)
@@ -1706,7 +1688,7 @@ export const AgentDiffView = forwardRef<AgentDiffViewRef, AgentDiffViewProps>(
             categoryFilter={categoryFilter}
             onCategoryFilterChange={setCategoryFilter}
             commitScope="workspace"
-            onCommitScopeChange={() => {}}
+            onCommitScopeChange={() => { }}
             hasActiveFilters={!!searchQuery || categoryFilter !== "all" || sortOption !== "name"}
             onClearFilters={() => {
               setSearchQuery("")
@@ -1776,7 +1758,7 @@ export const AgentDiffView = forwardRef<AgentDiffViewRef, AgentDiffViewProps>(
               }}
             >
               {virtualizer.getVirtualItems().map((virtualRow) => {
-                const file = fileDiffs[virtualRow.index]!
+                const file = limitedFileDiffs[virtualRow.index]!
                 return (
                   <div
                     key={file.key}
@@ -1810,6 +1792,18 @@ export const AgentDiffView = forwardRef<AgentDiffViewRef, AgentDiffViewProps>(
                   </div>
                 )
               })}
+
+              {/* Show notice when there are more than 7 changes */}
+              {fileDiffs.length > 7 && (
+                <div className="mt-4 p-4 rounded-md bg-muted/50 border border-border text-center">
+                  <p className="text-sm text-muted-foreground">
+                    Showing 7 of {fileDiffs.length} changes for optimal performance.
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Use search and filters above to find specific changes.
+                  </p>
+                </div>
+              )}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-center px-4">

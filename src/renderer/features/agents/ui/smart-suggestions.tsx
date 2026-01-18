@@ -1,8 +1,22 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { Sparkles } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { toast } from 'sonner'
 import { CustomScrollbar } from '../../../components/ui/custom-scrollbar'
+import { trpc } from '../../../lib/trpc'
+
+type RoadmapTask = {
+    id: string
+    title: string
+    column: 'backlog' | 'todo' | 'doing' | 'done'
+    category?: string | null
+    description?: string | null
+    priority?: string | null
+    position: number
+    createdAt: Date | null
+    updatedAt: Date | null
+    completedAt: Date | null
+}
 
 interface Suggestion {
     id: string
@@ -19,6 +33,15 @@ interface SmartSuggestionsProps {
         hasErrors?: boolean
         lastMessage?: string
         recentChanges?: string[]
+        taskStats?: {
+            total: number
+            backlog: number
+            todo: number
+            doing: number
+            done: number
+            completed: number
+            percentage: number
+        }
     }
 }
 
@@ -38,27 +61,62 @@ export function SmartSuggestions({
     const [isRefreshing, setIsRefreshing] = useState(false)
     const [refreshCount, setRefreshCount] = useState(0)
 
-    // Generate suggestions based on context
-    useEffect(() => {
-        const newSuggestions = generateSuggestions(context, refreshCount)
-        setSuggestions(newSuggestions)
-    }, [context, refreshCount])
+    // Fetch roadmap tasks to calculate stats
+    const { data: roadmapTasks } = trpc.chats.getRoadmapTasks.useQuery(
+        { chatId: chatId || '' },
+        { enabled: !!chatId }
+    )
 
-    // Listen for database updates
+    // Calculate task stats from roadmap tasks
+    const taskStats = useMemo(() => {
+        if (!roadmapTasks || roadmapTasks.length === 0) return undefined
+
+        const total = roadmapTasks.length
+        const backlog = roadmapTasks.filter(t => t.column === 'backlog').length
+        const todo = roadmapTasks.filter(t => t.column === 'todo').length
+        const doing = roadmapTasks.filter(t => t.column === 'doing').length
+        const done = roadmapTasks.filter(t => t.column === 'done').length
+        const completed = done
+        const percentage = total > 0 ? Math.round((completed / total) * 100) : 0
+
+        return {
+            total,
+            backlog,
+            todo,
+            doing,
+            done,
+            completed,
+            percentage,
+        }
+    }, [roadmapTasks])
+
+    // Merge task stats into context
+    const contextWithTasks = useMemo(() => ({
+        ...context,
+        taskStats,
+    }), [context, taskStats])
+
+    // Generate suggestions based on context and task stats
+    useEffect(() => {
+        const newSuggestions = generateSuggestions(contextWithTasks, refreshCount)
+        setSuggestions(newSuggestions)
+    }, [contextWithTasks, refreshCount])
+
+    // Listen for database updates (including task updates)
     useEffect(() => {
         if (!chatId) return
 
         const handleDbUpdate = (event: CustomEvent) => {
             if (event.detail.chatId === chatId) {
-                // Refresh suggestions when DB updates
-                const newSuggestions = generateSuggestions(context, refreshCount)
+                // Refresh suggestions when DB updates (includes task status changes)
+                const newSuggestions = generateSuggestions(contextWithTasks, refreshCount)
                 setSuggestions(newSuggestions)
             }
         }
 
         window.addEventListener('db-update' as any, handleDbUpdate)
         return () => window.removeEventListener('db-update' as any, handleDbUpdate)
-    }, [chatId, context, refreshCount])
+    }, [chatId, contextWithTasks, refreshCount])
 
     const handleRefresh = () => {
         setIsRefreshing(true)
@@ -158,26 +216,72 @@ export function SmartSuggestions({
 }
 
 /**
- * Generate suggestions based on context
- * Uses AI to create contextual suggestions
+ * Generate suggestions based on context and task status
+ * Uses AI to create contextual suggestions that update based on roadmap tasks
  */
 function generateSuggestions(context: SmartSuggestionsProps['context'], refreshCount: number = 0): Suggestion[] {
     const suggestions: Suggestion[] = []
+    const taskStats = context?.taskStats
 
-    // Active chat with context - suggest improvements
-    if (context?.hasFiles || context?.lastMessage) {
-        // File-related improvements
-        if (context.hasFiles) {
+    // Task-based suggestions (priority)
+    if (taskStats && taskStats.total > 0) {
+        // If there are tasks in "todo" column, suggest starting work
+        if (taskStats.todo > 0) {
             suggestions.push({
-                id: 'improve-code',
-                text: 'Improve this code',
+                id: 'start-todo-task',
+                text: `Start task from TODO (${taskStats.todo} available)`,
                 category: 'code',
             })
+        }
+
+        // If there are tasks in "doing" column, suggest continuing work
+        if (taskStats.doing > 0) {
+            suggestions.push({
+                id: 'continue-doing-task',
+                text: `Continue in-progress task (${taskStats.doing} active)`,
+                category: 'code',
+            })
+        }
+
+        // If there are tasks in "backlog", suggest prioritizing
+        if (taskStats.backlog > 0 && taskStats.todo === 0) {
+            suggestions.push({
+                id: 'prioritize-backlog',
+                text: `Prioritize backlog (${taskStats.backlog} tasks)`,
+                category: 'general',
+            })
+        }
+
+        // If many tasks are done, suggest new features
+        if (taskStats.percentage >= 75 && taskStats.done > 0) {
             suggestions.push({
                 id: 'add-features',
                 text: 'Add more features',
                 category: 'code',
             })
+        }
+
+        // If tasks are almost done, suggest optimization
+        if (taskStats.percentage >= 50 && taskStats.doing === 0 && taskStats.todo > 0) {
+            suggestions.push({
+                id: 'optimize',
+                text: 'Optimize performance',
+                category: 'code',
+            })
+        }
+    }
+
+    // Active chat with context - suggest improvements
+    if (context?.hasFiles || context?.lastMessage) {
+        // File-related improvements (only if not already covered by task suggestions)
+        if (context.hasFiles && !suggestions.some(s => s.id === 'add-features')) {
+            if (suggestions.length < 4) {
+                suggestions.push({
+                    id: 'improve-code',
+                    text: 'Improve this code',
+                    category: 'code',
+                })
+            }
         }
 
         // Error-related suggestions
@@ -191,15 +295,17 @@ function generateSuggestions(context: SmartSuggestionsProps['context'], refreshC
 
         // Recent changes - suggest next steps
         if (context.recentChanges && context.recentChanges.length > 0) {
-            suggestions.push({
-                id: 'continue-work',
-                text: 'Continue development',
-                category: 'code',
-            })
+            if (suggestions.length < 4) {
+                suggestions.push({
+                    id: 'continue-work',
+                    text: 'Continue development',
+                    category: 'code',
+                })
+            }
         }
 
         // General improvements
-        if (suggestions.length < 4) {
+        if (suggestions.length < 4 && !suggestions.some(s => s.id === 'optimize')) {
             suggestions.push({
                 id: 'optimize',
                 text: 'Optimize performance',

@@ -220,9 +220,36 @@ export const AgentEditTool = memo(function AgentEditTool({
   // Extract filename from path
   const filename = filePath ? filePath.split("/").pop() || "file" : ""
 
-  // Get clean display path (remove sandbox prefix to show project-relative path)
+  // Get clean display path (remove sandbox prefix and user ID paths to show project-relative path)
   const displayPath = useMemo(() => {
     if (!filePath) return ""
+    
+    // Handle Windows absolute paths (C:\Users\... or \\...)
+    // Remove user profile paths like C:\Users\EthFR\...
+    if (/^[A-Z]:\\/.test(filePath) || filePath.startsWith("\\\\")) {
+      // Convert to forward slashes for easier processing
+      const normalizedPath = filePath.replace(/\\/g, "/")
+      
+      // Remove common Windows user profile patterns
+      // Match: C:/Users/Username/... or C:/Users/EthFR/...
+      const windowsUserPathMatch = normalizedPath.match(/^[A-Z]:\/Users\/[^\/]+\/(.+)$/i)
+      if (windowsUserPathMatch) {
+        // Try to extract a meaningful project-relative path
+        // Look for common project roots
+        const remainingPath = windowsUserPathMatch[1]
+        const parts = remainingPath.split("/")
+        const rootIndicators = ["apps", "packages", "src", "lib", "components", "friend-share-app"]
+        const rootIndex = parts.findIndex((p: string) =>
+          rootIndicators.includes(p),
+        )
+        if (rootIndex >= 0) {
+          return parts.slice(rootIndex).join("/")
+        }
+        // If no root indicator found, return the last few parts
+        return parts.length > 3 ? parts.slice(-3).join("/") : remainingPath
+      }
+    }
+    
     // Remove common sandbox prefixes
     const prefixes = [
       "/project/sandbox/repo/",
@@ -234,6 +261,7 @@ export const AgentEditTool = memo(function AgentEditTool({
         return filePath.slice(prefix.length)
       }
     }
+    
     // If path starts with /, try to find a reasonable root
     if (filePath.startsWith("/")) {
       // Look for common project roots
@@ -246,6 +274,7 @@ export const AgentEditTool = memo(function AgentEditTool({
         return parts.slice(rootIndex).join("/")
       }
     }
+    
     return filePath
   }, [filePath])
 
@@ -471,7 +500,7 @@ export const AgentEditTool = memo(function AgentEditTool({
           {FileIcon && (
             <FileIcon className="w-2.5 h-2.5 flex-shrink-0 text-muted-foreground" />
           )}
-          {/* Filename with shimmer during progress */}
+          {/* Full path with shimmer during progress - show workspace-relative path */}
           <Tooltip>
             <TooltipTrigger asChild>
               {isPending || isInputStreaming ? (
@@ -480,10 +509,10 @@ export const AgentEditTool = memo(function AgentEditTool({
                   duration={1.2}
                   className="truncate"
                 >
-                  {filename}
+                  {displayPath || filename}
                 </TextShimmer>
               ) : (
-                <span className="truncate text-foreground">{filename}</span>
+                <span className="truncate text-foreground">{displayPath || filename}</span>
               )}
             </TooltipTrigger>
             <TooltipContent
@@ -491,7 +520,7 @@ export const AgentEditTool = memo(function AgentEditTool({
               className="px-2 py-1.5 max-w-none flex items-center justify-center"
             >
               <span className="font-mono text-[10px] text-muted-foreground whitespace-nowrap leading-none">
-                {displayPath}
+                {filePath}
               </span>
             </TooltipContent>
           </Tooltip>

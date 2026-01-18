@@ -174,7 +174,9 @@ async function downloadPlatform(version, platformKey, manifest) {
   }
 
   const expectedHash = platformManifest.checksum
-  const downloadUrl = `${DIST_BASE}/${version}/${platform.dir}/claude`
+  // Use the binary name from platform mapping (claude.exe for Windows, claude for others)
+  // Note: The server stores binaries with their platform-specific names
+  const downloadUrl = `${DIST_BASE}/${version}/${platform.dir}/${platform.binary}`
 
   console.log(`\nDownloading Claude Code for ${platformKey}...`)
   console.log(`  URL: ${downloadUrl}`)
