@@ -1,3 +1,1 @@
-[!WARNING]
-
-**Warning** opencode super experimental⚠️
+> **WARNING:** This is a warning alert for the coding canvas project!
