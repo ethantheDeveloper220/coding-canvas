@@ -1,3 +1,6 @@
+ #warning opencode super experimental# ⚠️
+
+
 # Code Canvas 🎨
 
 > **AI-powered desktop application for intelligent code assistance**  
